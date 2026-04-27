@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/app/api/suggestions/route.ts": {
+      "memory": 512,
+      "maxDuration": 10
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/ingest-mark6",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/ingest-racing",
+      "schedule": "0 7 * * 3,6"
+    }
+  ]
+}
