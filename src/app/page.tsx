@@ -65,6 +65,7 @@ type SuggestionPayload = {
       selections: number[];
     };
   };
+  mark6BatchSets?: number[][];
   horseSuggestions?: {
     horseNumber: number;
     horseName: string;
@@ -206,6 +207,10 @@ export default function Home() {
   const [mark6PredictionType, setMark6PredictionType] = useState<
     "single" | "multiple" | "banker"
   >("single");
+  const [mark6BatchCount, setMark6BatchCount] = useState<number>(3);
+  const [mark6NumberMix, setMark6NumberMix] = useState<"mixed" | "smallOnly" | "bigOnly">(
+    "mixed",
+  );
   const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split("T")[0] ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [progressText, setProgressText] = useState<string>("");
@@ -535,6 +540,8 @@ export default function Home() {
           targetDate,
           locale,
           mark6PredictionType,
+          mark6BatchCount,
+          mark6NumberMix,
         }),
       });
       if (!response.ok) {
@@ -668,6 +675,43 @@ export default function Home() {
                   <ToggleButton value="multiple">{t.mark6PredictionMultiple}</ToggleButton>
                   <ToggleButton value="banker">{t.mark6PredictionBanker}</ToggleButton>
                 </ToggleButtonGroup>
+                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                  <TextField
+                    select
+                    size="small"
+                    label={t.mark6GenerateCountLabel}
+                    value={mark6BatchCount}
+                    onChange={(event) => {
+                      const nextCount = Number.parseInt(event.target.value, 10);
+                      if (Number.isFinite(nextCount)) {
+                        setMark6BatchCount(nextCount);
+                      }
+                    }}
+                    fullWidth
+                  >
+                    {[1, 2, 3, 4, 5, 6, 8, 10].map((count) => (
+                      <MenuItem key={`mark6-count-${count}`} value={count}>
+                        {count} {t.mark6GenerateCountOptionSets}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    select
+                    size="small"
+                    label={t.mark6NumberMixLabel}
+                    value={mark6NumberMix}
+                    onChange={(event) =>
+                      setMark6NumberMix(
+                        event.target.value as "mixed" | "smallOnly" | "bigOnly",
+                      )
+                    }
+                    fullWidth
+                  >
+                    <MenuItem value="mixed">{t.mark6NumberMixMixed}</MenuItem>
+                    <MenuItem value="smallOnly">{t.mark6NumberMixSmallOnly}</MenuItem>
+                    <MenuItem value="bigOnly">{t.mark6NumberMixBigOnly}</MenuItem>
+                  </TextField>
+                </Stack>
               </Box>
             ) : null}
             {mode !== "horse" || !isHorsePastDate ? (
@@ -880,17 +924,43 @@ export default function Home() {
                     {(result.mode !== "mark6" ||
                       result.mark6Prediction?.type === "single" ||
                       !result.mark6Prediction) ? (
-                      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-                        {result.suggestions.map((item) => (
-                          <Chip
-                            key={item}
-                            label={item}
-                            color="primary"
-                            icon={<TrophyFilled />}
-                            sx={{ fontWeight: 600 }}
-                          />
-                        ))}
-                      </Stack>
+                      result.mode === "mark6" && (result.mark6BatchSets?.length ?? 0) > 0 ? (
+                        <Stack spacing={1}>
+                          <Typography variant="caption" color="text.secondary">
+                            {t.mark6GeneratedSetsLabel}
+                          </Typography>
+                          {result.mark6BatchSets?.map((set, index) => (
+                            <Box key={`mark6-batch-${index}`}>
+                              <Typography variant="caption" sx={{ display: "block", mb: 0.4 }}>
+                                {t.mark6SetLabel} {index + 1}
+                              </Typography>
+                              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                                {set.map((item) => (
+                                  <Chip
+                                    key={`mark6-batch-${index}-${item}`}
+                                    label={item}
+                                    color="primary"
+                                    icon={<TrophyFilled />}
+                                    sx={{ fontWeight: 600 }}
+                                  />
+                                ))}
+                              </Stack>
+                            </Box>
+                          ))}
+                        </Stack>
+                      ) : (
+                        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                          {result.suggestions.map((item) => (
+                            <Chip
+                              key={item}
+                              label={item}
+                              color="primary"
+                              icon={<TrophyFilled />}
+                              sx={{ fontWeight: 600 }}
+                            />
+                          ))}
+                        </Stack>
+                      )
                     ) : null}
                   </Box>
                 )}

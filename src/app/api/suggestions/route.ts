@@ -10,6 +10,8 @@ const bodySchema = z.object({
   targetDate: z.string().min(10),
   locale: z.enum(locales),
   mark6PredictionType: z.enum(["single", "multiple", "banker"]).optional(),
+  mark6BatchCount: z.number().int().min(1).max(12).optional(),
+  mark6NumberMix: z.enum(["mixed", "smallOnly", "bigOnly"]).optional(),
   horseAnalystStrategy: z.enum(["consensus", "single"]).optional(),
   horseAnalystProfile: z
     .enum(["paulJones", "andyGibson", "topHandicapper"])

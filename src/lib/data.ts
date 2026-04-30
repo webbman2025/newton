@@ -2,6 +2,7 @@ import type { ConfidenceBand, Locale, Mode } from "@/lib/translations";
 import { dbQuery, ensureSchema, withTransaction } from "@/lib/db";
 
 type Mark6PredictionType = "single" | "multiple" | "banker";
+type Mark6NumberMix = "mixed" | "smallOnly" | "bigOnly";
 
 export type SuggestionResponse = {
   status: "ok" | "stale";
@@ -19,6 +20,7 @@ export type SuggestionResponse = {
       selections: number[];
     };
   };
+  mark6BatchSets?: number[][];
   horseSuggestions?: {
     horseNumber: number;
     horseName: string;
@@ -70,6 +72,7 @@ type SuggestionBase = {
   suggestions: string[];
   mark6PredictionType?: Mark6PredictionType;
   mark6Prediction?: SuggestionResponse["mark6Prediction"];
+  mark6BatchSets?: number[][];
   horseSuggestions?: HorseSuggestionItem[];
   confidenceBand: ConfidenceBand;
   explanation: string;
@@ -621,6 +624,143 @@ function pickWeightedNumbers(
   return picked.sort((a, b) => a - b);
 }
 
+function getNumberMixFilteredEntries(
+  entries: Array<{ number: number; score: number }>,
+  numberMix: Mark6NumberMix,
+) {
+  if (numberMix === "smallOnly") {
+    return entries.filter((item) => item.number <= 24);
+  }
+  if (numberMix === "bigOnly") {
+    return entries.filter((item) => item.number >= 25);
+  }
+  return entries;
+}
+
+function pickMark6SetWithMix(
+  entries: Array<{ number: number; score: number }>,
+  numberMix: Mark6NumberMix,
+): number[] {
+  if (numberMix === "mixed") {
+    const smallPool = entries.filter((item) => item.number <= 24);
+    const bigPool = entries.filter((item) => item.number >= 25);
+    if (smallPool.length >= 3 && bigPool.length >= 3) {
+      const smallPicks = pickWeightedNumbers(smallPool, 3);
+      const bigPicks = pickWeightedNumbers(bigPool, 3);
+      return [...smallPicks, ...bigPicks].sort((a, b) => a - b);
+    }
+  }
+
+  const filtered = getNumberMixFilteredEntries(entries, numberMix);
+  if (filtered.length >= 6) {
+    return pickWeightedNumbers(filtered, 6);
+  }
+  return pickWeightedNumbers(entries, 6);
+}
+
+function buildMark6BatchSets(
+  entries: Array<{ number: number; score: number }>,
+  batchCount: number,
+  numberMix: Mark6NumberMix,
+): number[][] {
+  const normalizedCount = Math.max(1, Math.min(batchCount, 12));
+  const sets: number[][] = [];
+  const seen = new Set<string>();
+  let attempts = 0;
+  while (sets.length < normalizedCount && attempts < normalizedCount * 8) {
+    attempts += 1;
+    const set = pickMark6SetWithMix(entries, numberMix);
+    const key = set.join("-");
+    if (!seen.has(key)) {
+      seen.add(key);
+      sets.push(set);
+    }
+  }
+  if (sets.length === 0) {
+    sets.push(pickMark6SetWithMix(entries, numberMix));
+  }
+  return sets;
+}
+
+type Mark6HolidayKey =
+  | "newYear"
+  | "valentines"
+  | "labourDay"
+  | "hksarDay"
+  | "nationalDay"
+  | "christmas"
+  | "newYearsEve";
+
+const MARK6_HOLIDAY_ANCHORS: Array<{ key: Mark6HolidayKey; month: number; day: number }> = [
+  { key: "newYear", month: 1, day: 1 },
+  { key: "valentines", month: 2, day: 14 },
+  { key: "labourDay", month: 5, day: 1 },
+  { key: "hksarDay", month: 7, day: 1 },
+  { key: "nationalDay", month: 10, day: 1 },
+  { key: "christmas", month: 12, day: 25 },
+  { key: "newYearsEve", month: 12, day: 31 },
+];
+
+function getHolidaySeasonKey(date: Date): Mark6HolidayKey | null {
+  const month = date.getMonth() + 1;
+  for (const anchor of MARK6_HOLIDAY_ANCHORS) {
+    const anchorDate = new Date(date.getFullYear(), anchor.month - 1, anchor.day);
+    const diffDays = Math.abs(Math.round((date.getTime() - anchorDate.getTime()) / MS_PER_DAY));
+    if (diffDays <= 3 && month === anchor.month) {
+      return anchor.key;
+    }
+  }
+  return null;
+}
+
+function getDayMonthDistance(source: Date, target: Date): number {
+  const sourceMonth = source.getMonth() + 1;
+  const sourceDay = source.getDate();
+  const targetMonth = target.getMonth() + 1;
+  const targetDay = target.getDate();
+  if (sourceMonth !== targetMonth) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return Math.abs(sourceDay - targetDay);
+}
+
+function getMark6TemporalWeight(drawDate: Date, targetDate: Date): number {
+  const ageDays = Math.max(0, Math.round((targetDate.getTime() - drawDate.getTime()) / MS_PER_DAY));
+  const recencyRatio = Math.max(0, 1 - ageDays / HISTORY_WINDOW_DAYS);
+  const recencyWeight = 1 + recencyRatio * 0.6;
+
+  const sameDayMonth = drawDate.getMonth() === targetDate.getMonth() && drawDate.getDate() === targetDate.getDate();
+  const sameMonth = drawDate.getMonth() === targetDate.getMonth();
+  const sameWeekday = drawDate.getDay() === targetDate.getDay();
+  const dayMonthDistance = getDayMonthDistance(drawDate, targetDate);
+  const nearDayMonth = dayMonthDistance <= 7;
+
+  const targetHoliday = getHolidaySeasonKey(targetDate);
+  const drawHoliday = getHolidaySeasonKey(drawDate);
+  const sameHolidaySeason = targetHoliday && drawHoliday && targetHoliday === drawHoliday;
+  const bothHolidaySeason = targetHoliday && drawHoliday;
+
+  let seasonalBoost = 1;
+  if (sameDayMonth) {
+    seasonalBoost += 1.0;
+  } else if (nearDayMonth) {
+    seasonalBoost += 0.45;
+  }
+  if (sameMonth) {
+    seasonalBoost += 0.25;
+  }
+  if (sameWeekday) {
+    seasonalBoost += 0.18;
+  }
+  if (sameHolidaySeason) {
+    seasonalBoost += 0.8;
+  } else if (bothHolidaySeason) {
+    seasonalBoost += 0.35;
+  }
+
+  return recencyWeight * seasonalBoost;
+}
+
 function getMark6Confidence({
   drawCount,
   rankedScores,
@@ -656,9 +796,11 @@ async function getMark6Suggestion(
   locale: Locale,
   targetDate: string,
   predictionType: Mark6PredictionType,
+  batchCount: number,
+  numberMix: Mark6NumberMix,
 ): Promise<SuggestionBase> {
   if (!canUseDatabase()) {
-    return getMark6SuggestionFallback(locale, predictionType);
+    return getMark6SuggestionFallback(locale, predictionType, batchCount, numberMix);
   }
 
   try {
@@ -674,7 +816,7 @@ async function getMark6Suggestion(
     );
 
     if (draws.rows.length === 0) {
-      return getMark6SuggestionFallback(locale, predictionType);
+      return getMark6SuggestionFallback(locale, predictionType, batchCount, numberMix);
     }
 
     const scoreByNumber = new Map<number, number>();
@@ -684,15 +826,10 @@ async function getMark6Suggestion(
 
     for (const draw of draws.rows) {
       const drawDate = toDate(draw.draw_date);
-      const ageDays = Math.max(
-        0,
-        Math.round((endDateObject.getTime() - drawDate.getTime()) / MS_PER_DAY),
-      );
-      const recencyRatio = Math.max(0, 1 - ageDays / HISTORY_WINDOW_DAYS);
-      const recencyWeight = 1 + recencyRatio * 0.6;
+      const temporalWeight = getMark6TemporalWeight(drawDate, endDateObject);
 
       for (const number of draw.numbers) {
-        scoreByNumber.set(number, (scoreByNumber.get(number) ?? 0) + recencyWeight);
+        scoreByNumber.set(number, (scoreByNumber.get(number) ?? 0) + temporalWeight);
       }
     }
 
@@ -704,8 +841,9 @@ async function getMark6Suggestion(
       drawCount: draws.rows.length,
       rankedScores: ranked.map((item) => item.score),
     });
-    const topSix = pickWeightedNumbers(ranked, 6);
-    const mark6Prediction = buildMark6Prediction(predictionType, ranked);
+    const batchSets = buildMark6BatchSets(ranked, batchCount, numberMix);
+    const topSix = batchSets[0] ?? pickMark6SetWithMix(ranked, numberMix);
+    const mark6Prediction = buildMark6Prediction(predictionType, ranked, numberMix, batchCount);
 
     return {
       suggestions:
@@ -714,14 +852,15 @@ async function getMark6Suggestion(
           : mark6PredictionToSuggestionStrings(mark6Prediction),
       mark6PredictionType: predictionType,
       mark6Prediction,
+      mark6BatchSets: batchSets,
       confidenceBand,
       explanation:
         locale === "zh-HK"
-          ? `已學習近${HISTORY_YEARS}年（${draws.rows.length}期）歷史結果，按頻率與時間加權生成本次組合（每次生成會有變化），信心會在低至中等間動態調整。`
-          : `Learned from the last ${HISTORY_YEARS} years of draws (${draws.rows.length} records), then generated this run with weighted sampling. Confidence is dynamically adjusted between Low and Medium.`,
+          ? `已學習近${HISTORY_YEARS}年（${draws.rows.length}期）歷史結果，並加入同月同日、相鄰週期與節日檔期權重，按你選擇的號碼分佈模式生成${Math.max(1, Math.min(batchCount, 12))}組建議。`
+          : `Learned from the last ${HISTORY_YEARS} years of draws (${draws.rows.length} records), then weighted same day-month patterns, nearby weekly/monthly windows, and holiday seasons to generate ${Math.max(1, Math.min(batchCount, 12))} set(s) with your selected number-mix style.`,
     };
   } catch {
-    return getMark6SuggestionFallback(locale, predictionType);
+    return getMark6SuggestionFallback(locale, predictionType, batchCount, numberMix);
   }
 }
 
@@ -1080,6 +1219,8 @@ async function getHorseSuggestion(
 function getMark6SuggestionFallback(
   locale: Locale,
   predictionType: Mark6PredictionType,
+  batchCount: number,
+  numberMix: Mark6NumberMix,
 ): SuggestionBase {
   const frequencies = new Map<number, number>();
   for (const draw of mark6FallbackRows) {
@@ -1096,8 +1237,9 @@ function getMark6SuggestionFallback(
     drawCount: mark6FallbackRows.length,
     rankedScores: ranked.map((item) => item.score),
   });
-  const topSix = pickWeightedNumbers(ranked, 6);
-  const mark6Prediction = buildMark6Prediction(predictionType, ranked);
+  const batchSets = buildMark6BatchSets(ranked, batchCount, numberMix);
+  const topSix = batchSets[0] ?? pickMark6SetWithMix(ranked, numberMix);
+  const mark6Prediction = buildMark6Prediction(predictionType, ranked, numberMix, batchCount);
 
   return {
     suggestions:
@@ -1106,11 +1248,12 @@ function getMark6SuggestionFallback(
         : mark6PredictionToSuggestionStrings(mark6Prediction),
     mark6PredictionType: predictionType,
     mark6Prediction,
+    mark6BatchSets: batchSets,
     confidenceBand,
     explanation:
       locale === "zh-HK"
-        ? "此組合基於最近資料樣本的號碼頻率與分佈，並加入加權抽樣；信心會在低至中等之間動態評估。"
-        : "This set uses frequency/distribution signals plus weighted sampling, with confidence dynamically evaluated between Low and Medium.",
+        ? "此組合基於最近樣本的頻率、週期與節日檔期信號，並按所選號碼分佈模式加權抽樣生成。"
+        : "This set is generated from sample frequency, cyclical, and holiday-season signals, then weighted by your selected number-mix style.",
   };
 }
 
@@ -1236,6 +1379,8 @@ export async function getSuggestion({
   targetDate,
   locale,
   mark6PredictionType = "single",
+  mark6BatchCount = 1,
+  mark6NumberMix = "mixed",
   selectedRace,
   horseAnalystStrategy,
   horseAnalystProfile,
@@ -1244,6 +1389,8 @@ export async function getSuggestion({
   targetDate: string;
   locale: Locale;
   mark6PredictionType?: Mark6PredictionType;
+  mark6BatchCount?: number;
+  mark6NumberMix?: Mark6NumberMix;
   selectedRace?: SelectedRaceInput;
   horseAnalystStrategy?: HorseAnalystStrategy;
   horseAnalystProfile?: HorseAnalystProfile;
@@ -1258,7 +1405,13 @@ export async function getSuggestion({
 
   const base =
     mode === "mark6"
-      ? await getMark6Suggestion(locale, targetDate, mark6PredictionType)
+      ? await getMark6Suggestion(
+          locale,
+          targetDate,
+          mark6PredictionType,
+          Math.max(1, Math.min(mark6BatchCount, 12)),
+          mark6NumberMix,
+        )
       : await getHorseSuggestion(locale, targetDate, selectedRace, {
           strategy: horseAnalystStrategy,
           primaryProfile: horseAnalystProfile,
@@ -1280,6 +1433,8 @@ export async function getSuggestion({
               mode,
               targetDate,
               locale,
+              mark6BatchCount,
+              mark6NumberMix,
               selectedRace,
               horseAnalystStrategy,
               horseAnalystProfile,
@@ -1304,6 +1459,7 @@ export async function getSuggestion({
     progress: ["fetching", "analyzing", "generating", "done"],
     suggestions: base.suggestions,
     mark6Prediction: base.mark6Prediction,
+    mark6BatchSets: base.mark6BatchSets,
     horseSuggestions: base.horseSuggestions,
     confidenceBand: base.confidenceBand,
     explanation: base.explanation,
@@ -1590,18 +1746,21 @@ function getAnalyticsFallback() {
 function buildMark6Prediction(
   predictionType: Mark6PredictionType,
   ranked: Array<{ number: number; score: number }>,
+  numberMix: Mark6NumberMix,
+  batchCount: number,
 ) {
   if (predictionType === "multiple") {
     const sets: number[][] = [];
     const seen = new Set<string>();
-    while (sets.length < 3) {
-      const set = pickWeightedNumbers(ranked, 6);
+    const targetSetCount = Math.max(2, Math.min(batchCount, 8));
+    while (sets.length < targetSetCount) {
+      const set = pickMark6SetWithMix(ranked, numberMix);
       const key = set.join("-");
       if (!seen.has(key)) {
         seen.add(key);
         sets.push(set);
       }
-      if (seen.size > 10) {
+      if (seen.size > 20) {
         break;
       }
     }
@@ -1609,9 +1768,13 @@ function buildMark6Prediction(
   }
 
   if (predictionType === "banker") {
-    const banker = pickWeightedNumbers(ranked.slice(0, 8), 1)[0] ?? ranked[0]?.number ?? 1;
+    const filteredForMix = getNumberMixFilteredEntries(ranked, numberMix);
+    const bankerPool = (filteredForMix.length >= 8 ? filteredForMix : ranked).slice(0, 8);
+    const banker = pickWeightedNumbers(bankerPool, 1)[0] ?? ranked[0]?.number ?? 1;
     const selections = pickWeightedNumbers(
-      ranked.filter((item) => item.number !== banker).slice(0, 18),
+      (filteredForMix.length >= 10 ? filteredForMix : ranked)
+        .filter((item) => item.number !== banker)
+        .slice(0, 18),
       8,
     );
     return {
@@ -1623,7 +1786,7 @@ function buildMark6Prediction(
     };
   }
 
-  const single = pickWeightedNumbers(ranked, 6);
+  const single = pickMark6SetWithMix(ranked, numberMix);
   return { type: "single" as const, single };
 }
 

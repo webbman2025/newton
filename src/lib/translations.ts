@@ -51,6 +51,13 @@ type CopyShape = {
   mark6PredictionSingle: string;
   mark6PredictionMultiple: string;
   mark6PredictionBanker: string;
+  mark6GenerateCountLabel: string;
+  mark6GenerateCountOptionSets: string;
+  mark6NumberMixLabel: string;
+  mark6NumberMixMixed: string;
+  mark6NumberMixSmallOnly: string;
+  mark6NumberMixBigOnly: string;
+  mark6GeneratedSetsLabel: string;
   mark6SetLabel: string;
   mark6BankerLabel: string;
   mark6SelectionsLabel: string;
@@ -160,6 +167,13 @@ export const copy: Record<Locale, CopyShape> = {
     mark6PredictionSingle: "Single",
     mark6PredictionMultiple: "Multiple",
     mark6PredictionBanker: "Banker",
+    mark6GenerateCountLabel: "Generate How Many Sets",
+    mark6GenerateCountOptionSets: "sets",
+    mark6NumberMixLabel: "Number Mix Style",
+    mark6NumberMixMixed: "Mixed small + big",
+    mark6NumberMixSmallOnly: "Small numbers only",
+    mark6NumberMixBigOnly: "Big numbers only",
+    mark6GeneratedSetsLabel: "Generated sets",
     mark6SetLabel: "Set",
     mark6BankerLabel: "Banker",
     mark6SelectionsLabel: "Selections",
@@ -264,6 +278,13 @@ export const copy: Record<Locale, CopyShape> = {
     mark6PredictionSingle: "單式",
     mark6PredictionMultiple: "複式",
     mark6PredictionBanker: "膽拖",
+    mark6GenerateCountLabel: "一次生成組數",
+    mark6GenerateCountOptionSets: "組",
+    mark6NumberMixLabel: "號碼分佈",
+    mark6NumberMixMixed: "大小混合",
+    mark6NumberMixSmallOnly: "只要細號",
+    mark6NumberMixBigOnly: "只要大號",
+    mark6GeneratedSetsLabel: "已生成組合",
     mark6SetLabel: "組合",
     mark6BankerLabel: "膽",
     mark6SelectionsLabel: "拖碼",
