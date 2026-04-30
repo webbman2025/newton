@@ -845,21 +845,11 @@ export default function Home() {
                         );
                       })}
                     </Stack>
-                    <Stack direction="row" spacing={1} sx={{ mt: 0.8, alignItems: "center" }}>
-                      <Button
-                        variant="text"
-                        size="small"
-                        onClick={() => setMark6ManualNumbers([])}
-                        disabled={mark6ManualNumbers.length === 0}
-                      >
-                        {t.mark6ManualClearAction}
-                      </Button>
-                      {!canGenerateMark6Manual ? (
-                        <Typography variant="caption" color="warning.main">
-                          {t.mark6ManualNeedExactlyLabel}
-                        </Typography>
-                      ) : null}
-                    </Stack>
+                    {!canGenerateMark6Manual ? (
+                      <Typography variant="caption" color="warning.main" sx={{ mt: 0.8, display: "block" }}>
+                        {t.mark6ManualNeedExactlyLabel}
+                      </Typography>
+                    ) : null}
                     {isManualMark6Complete ? (
                       <Button
                         variant="outlined"
@@ -916,19 +906,35 @@ export default function Home() {
               </Box>
             ) : null}
             {mode !== "horse" || !isHorsePastDate ? (
-              <Button
-                onClick={isManualMark6 ? handleAddManualMark6Set : generateSuggestions}
-                variant="contained"
-                disabled={
-                  isLoading ||
-                  (isManualMark6
-                    ? !canAddManualMark6Set
-                    : mode === "mark6" && !canGenerateMark6Manual)
-                }
-              >
-                <SparkleRegular fontSize={18} style={{ marginRight: 6 }} />
-                {isLoading ? t.generating : isManualMark6 ? t.mark6AddAction : t.generate}
-              </Button>
+              isManualMark6 ? (
+                <Stack spacing={0.8}>
+                  <Button
+                    onClick={handleAddManualMark6Set}
+                    variant="contained"
+                    disabled={isLoading || !canAddManualMark6Set}
+                  >
+                    <SparkleRegular fontSize={18} style={{ marginRight: 6 }} />
+                    {isLoading ? t.generating : t.mark6AddAction}
+                  </Button>
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => setMark6ManualNumbers([])}
+                    disabled={mark6ManualNumbers.length === 0}
+                  >
+                    {t.mark6ManualClearAction}
+                  </Button>
+                </Stack>
+              ) : (
+                <Button
+                  onClick={generateSuggestions}
+                  variant="contained"
+                  disabled={isLoading || (mode === "mark6" && !canGenerateMark6Manual)}
+                >
+                  <SparkleRegular fontSize={18} style={{ marginRight: 6 }} />
+                  {isLoading ? t.generating : t.generate}
+                </Button>
+              )
             ) : (
               <Alert severity="info" sx={{ py: 0.2 }}>
                 {t.horsePastDateResultsMode}
