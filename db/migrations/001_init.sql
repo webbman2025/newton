@@ -14,7 +14,11 @@ CREATE TABLE IF NOT EXISTS race_results (
   id BIGSERIAL PRIMARY KEY,
   race_date DATE NOT NULL,
   race_id TEXT NOT NULL,
+  race_course TEXT NOT NULL DEFAULT '',
+  race_distance INTEGER,
+  horse_number INTEGER NOT NULL DEFAULT 0,
   horse_name TEXT NOT NULL,
+  horse_profile TEXT NOT NULL DEFAULT '',
   position INTEGER NOT NULL,
   jockey TEXT NOT NULL,
   trainer TEXT NOT NULL,
@@ -23,7 +27,7 @@ CREATE TABLE IF NOT EXISTS race_results (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS race_results_unique_entry_idx
-ON race_results (race_date, race_id, horse_name, position);
+ON race_results (race_date, race_id, horse_number, horse_name, position);
 
 CREATE TABLE IF NOT EXISTS suggestion_logs (
   id BIGSERIAL PRIMARY KEY,

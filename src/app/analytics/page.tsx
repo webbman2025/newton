@@ -8,6 +8,7 @@ import {
   axisClasses,
   legendClasses,
 } from "@mui/x-charts";
+import { CalendarLtrRegular, DataTrendingRegular } from "@fluentui/react-icons";
 import { useCopy } from "@/components/locale-provider";
 
 type AnalyticsPayload = {
@@ -36,7 +37,8 @@ export default function AnalyticsPage() {
     <Stack spacing={2}>
       <Card>
         <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2, display: "flex", alignItems: "center", gap: 0.8 }}>
+            <DataTrendingRegular fontSize={20} />
             {t.analyticsTitle}
           </Typography>
           {error ? <Alert severity="warning">{error}</Alert> : null}
@@ -54,7 +56,7 @@ export default function AnalyticsPage() {
               series={[
                 {
                   data: data.confidenceDistribution.map((item) => item.value),
-                  color: "#1f4fd6",
+                  color: "#0f6cbd",
                 },
               ]}
               sx={{
@@ -72,14 +74,15 @@ export default function AnalyticsPage() {
 
       <Card>
         <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2, display: "flex", alignItems: "center", gap: 0.8 }}>
+            <CalendarLtrRegular fontSize={20} />
             {t.analyticsTrend}
           </Typography>
           {data ? (
             <LineChart
               height={240}
               xAxis={[{ data: data.trend.map((item) => item.label), scaleType: "point" }]}
-              series={[{ data: data.trend.map((item) => item.value), color: "#137f3b" }]}
+              series={[{ data: data.trend.map((item) => item.value), color: "#107c10" }]}
             />
           ) : null}
         </CardContent>

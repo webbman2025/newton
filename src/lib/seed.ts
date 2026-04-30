@@ -12,7 +12,9 @@ const raceSeedRows = [
   {
     raceDate: "2026-04-20",
     raceId: "ST-R3",
+    horseNumber: 1,
     horseName: "Golden Harbor",
+    horseProfile: "Front-runner with strong gate speed over sprint distances.",
     position: 1,
     jockey: "K. Teetan",
     trainer: "A. Cruz",
@@ -20,7 +22,9 @@ const raceSeedRows = [
   {
     raceDate: "2026-04-20",
     raceId: "ST-R3",
+    horseNumber: 4,
     horseName: "Sky Rocket",
+    horseProfile: "Late-closing runner that performs well in fast pace races.",
     position: 2,
     jockey: "H. Bowman",
     trainer: "F. Lor",
@@ -28,7 +32,9 @@ const raceSeedRows = [
   {
     raceDate: "2026-04-20",
     raceId: "ST-R3",
+    horseNumber: 7,
     horseName: "Night Storm",
+    horseProfile: "Consistent top-3 finisher with balanced pace profile.",
     position: 3,
     jockey: "Z. Purton",
     trainer: "D. Hayes",
@@ -36,7 +42,9 @@ const raceSeedRows = [
   {
     raceDate: "2026-04-24",
     raceId: "HV-R5",
+    horseNumber: 2,
     horseName: "Silver Arrow",
+    horseProfile: "Sharp recent form and positive jockey synergy.",
     position: 1,
     jockey: "B. Avdulla",
     trainer: "J. Size",
@@ -44,7 +52,9 @@ const raceSeedRows = [
   {
     raceDate: "2026-04-24",
     raceId: "HV-R5",
+    horseNumber: 5,
     horseName: "Rapid Crest",
+    horseProfile: "Reliable mid-pack mover with strong final sectionals.",
     position: 2,
     jockey: "L. Ferraris",
     trainer: "C. Fownes",
@@ -52,7 +62,9 @@ const raceSeedRows = [
   {
     raceDate: "2026-04-24",
     raceId: "HV-R5",
+    horseNumber: 9,
     horseName: "Ocean Gift",
+    horseProfile: "Stamina-oriented horse with stable improvement trend.",
     position: 3,
     jockey: "M. Chadwick",
     trainer: "P. O'Sullivan",
@@ -80,13 +92,22 @@ export async function seedDatabase(client: PoolClient) {
     const result = await client.query<{ inserted: number }>(
       `
       INSERT INTO race_results (
-        race_date, race_id, horse_name, position, jockey, trainer, source
+        race_date, race_id, horse_number, horse_name, horse_profile, position, jockey, trainer, source
       )
-      VALUES ($1::date, $2, $3, $4::int, $5, $6, 'seed-api')
-      ON CONFLICT (race_date, race_id, horse_name, position) DO NOTHING
+      VALUES ($1::date, $2, $3::int, $4, $5, $6::int, $7, $8, 'seed-api')
+      ON CONFLICT (race_date, race_id, horse_number, horse_name, position) DO NOTHING
       RETURNING 1 AS inserted
       `,
-      [row.raceDate, row.raceId, row.horseName, row.position, row.jockey, row.trainer],
+      [
+        row.raceDate,
+        row.raceId,
+        row.horseNumber,
+        row.horseName,
+        row.horseProfile,
+        row.position,
+        row.jockey,
+        row.trainer,
+      ],
     );
     raceInserted += result.rowCount ?? 0;
   }

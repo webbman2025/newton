@@ -9,6 +9,33 @@ const bodySchema = z.object({
   mode: z.enum(["mark6", "horse"]),
   targetDate: z.string().min(10),
   locale: z.enum(locales),
+  mark6PredictionType: z.enum(["single", "multiple", "banker"]).optional(),
+  horseAnalystStrategy: z.enum(["consensus", "single"]).optional(),
+  horseAnalystProfile: z
+    .enum(["paulJones", "andyGibson", "topHandicapper"])
+    .optional(),
+  selectedRace: z
+    .object({
+      venueCode: z.enum(["ST", "HV"]),
+      venueName: z.string().min(1),
+      raceNo: z.number().int().min(1).max(15),
+      raceName: z.string().min(1),
+      postTime: z.string().min(1),
+      distance: z.number().int().min(200).max(4000).optional(),
+      runners: z
+        .array(
+          z.object({
+            horseNumber: z.number().int().min(0).max(99),
+            horseName: z.string().min(1),
+            jockey: z.string().min(1),
+            trainer: z.string().min(1),
+            draw: z.string().min(1),
+            winOdds: z.string().min(1).optional(),
+          }),
+        )
+        .min(1),
+    })
+    .optional(),
 });
 
 export async function POST(request: Request) {

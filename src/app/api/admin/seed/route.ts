@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withTransaction } from "@/lib/db";
+import { ensureSchema, withTransaction } from "@/lib/db";
 import { seedDatabase } from "@/lib/seed";
 
 export const runtime = "nodejs";
@@ -17,6 +17,7 @@ export async function POST() {
   }
 
   try {
+    await ensureSchema();
     const result = await withTransaction(async (client) => seedDatabase(client));
     return NextResponse.json({
       status: "ok",

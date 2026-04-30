@@ -16,6 +16,7 @@ Set these for both Preview and Production:
 - `APP_ENV`
 - `DISABLE_SUGGESTION_GENERATION`
 - `ENABLE_ADMIN_SEED` (keep `false` in production)
+- `ENABLE_WEB_INGEST` (keep `false` by default; run manually when needed)
 - `SENTRY_DSN` (optional)
 
 ## 3) Database Setup
