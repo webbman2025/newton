@@ -827,9 +827,6 @@ export default function Home() {
                             size="small"
                             clickable
                             onClick={() => {
-                              if (isManualMark6Complete && mark6ManualNumbers.length === 0) {
-                                resetManualMark6Builder();
-                              }
                               setMark6ManualNumbers((current) =>
                                 current.includes(number)
                                   ? current.filter((item) => item !== number)
