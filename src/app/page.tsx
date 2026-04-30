@@ -621,6 +621,14 @@ export default function Home() {
     setMark6ManualNumbers([]);
   };
 
+  const resetManualMark6Builder = () => {
+    setError(null);
+    setResult(null);
+    setMixedMark6Sets([]);
+    setMark6ManualSets([]);
+    setMark6ManualNumbers([]);
+  };
+
   const handleMixGeneratedMark6Sets = () => {
     if (!canMixMark6Sets) {
       setMixedMark6Sets([]);
@@ -786,6 +794,9 @@ export default function Home() {
                             size="small"
                             clickable
                             onClick={() => {
+                              if (isManualMark6Complete && mark6ManualNumbers.length === 0) {
+                                resetManualMark6Builder();
+                              }
                               setMark6ManualNumbers((current) =>
                                 current.includes(number)
                                   ? current.filter((item) => item !== number)
@@ -816,6 +827,16 @@ export default function Home() {
                         </Typography>
                       ) : null}
                     </Stack>
+                    {isManualMark6Complete ? (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        sx={{ mt: 0.8 }}
+                        onClick={resetManualMark6Builder}
+                      >
+                        {t.mark6ManualStartNewAction}
+                      </Button>
+                    ) : null}
                   </Box>
                 ) : null}
                 <Stack direction="row" spacing={1} sx={{ mt: 1 }}>

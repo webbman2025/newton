@@ -61,6 +61,7 @@ type CopyShape = {
   mark6ManualSetProgressLabel: string;
   mark6ManualNeedExactlyLabel: string;
   mark6ManualAllSetsAddedLabel: string;
+  mark6ManualStartNewAction: string;
   mark6ManualNeedAtLeastLabel: string;
   mark6GenerateCountLabel: string;
   mark6GenerateCountOptionSets: string;
@@ -191,6 +192,7 @@ export const copy: Record<Locale, CopyShape> = {
     mark6ManualSetProgressLabel: "Manual sets progress",
     mark6ManualNeedExactlyLabel: "Pick exactly 6 numbers to add a set.",
     mark6ManualAllSetsAddedLabel: "All manual sets already added for selected set count.",
+    mark6ManualStartNewAction: "Start New Manual Sets",
     mark6ManualNeedAtLeastLabel: "Pick at least 6 numbers to generate in manual mode.",
     mark6GenerateCountLabel: "Generate How Many Sets",
     mark6GenerateCountOptionSets: "sets",
@@ -317,6 +319,7 @@ export const copy: Record<Locale, CopyShape> = {
     mark6ManualSetProgressLabel: "手動組合進度",
     mark6ManualNeedExactlyLabel: "每組必須剛好選6個號碼才可加入。",
     mark6ManualAllSetsAddedLabel: "已按所選組數完成全部手動組合。",
+    mark6ManualStartNewAction: "開始新一輪手動組合",
     mark6ManualNeedAtLeastLabel: "手動模式需至少選擇6個號碼。",
     mark6GenerateCountLabel: "一次生成組數",
     mark6GenerateCountOptionSets: "組",
