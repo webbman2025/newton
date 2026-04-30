@@ -863,7 +863,14 @@ export default function Home() {
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.6 }}>
                       {t.mark6ManualSetProgressLabel}: {mark6ManualSets.length}/{mark6BatchCount}
                     </Typography>
-                    <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap" }}>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+                        gap: 0.6,
+                        justifyItems: "center",
+                      }}
+                    >
                       {Array.from({ length: 49 }, (_value, index) => index + 1).map((number) => {
                         const selected = mark6ManualNumbers.includes(number);
                         return (
@@ -897,7 +904,7 @@ export default function Home() {
                           />
                         );
                       })}
-                    </Stack>
+                    </Box>
                     {!canGenerateMark6Manual ? (
                       <Typography variant="caption" color="warning.main" sx={{ mt: 0.8, display: "block" }}>
                         {t.mark6ManualNeedExactlyLabel}
