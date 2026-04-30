@@ -213,6 +213,7 @@ export default function Home() {
     "mixed",
   );
   const [mark6ManualNumbers, setMark6ManualNumbers] = useState<number[]>([]);
+  const [mark6ManualSets, setMark6ManualSets] = useState<number[][]>([]);
   const [mixedMark6Sets, setMixedMark6Sets] = useState<number[][]>([]);
   const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split("T")[0] ?? "");
   const [isLoading, setIsLoading] = useState(false);
@@ -289,14 +290,30 @@ export default function Home() {
       ),
     [horseRaceCardsForDate, selectedRaceIdForDate],
   );
+  const isManualMark6 = mode === "mark6" && mark6GenerateMode === "manual";
   const baseMark6Sets = useMemo(() => getBaseMark6Sets(result), [result]);
+  const displayMark6Sets = useMemo(
+    () => (isManualMark6 ? mark6ManualSets : baseMark6Sets),
+    [baseMark6Sets, isManualMark6, mark6ManualSets],
+  );
   const canMixMark6Sets = useMemo(() => {
-    if (baseMark6Sets.length < 2) {
+    if (displayMark6Sets.length < 2) {
       return false;
     }
-    const unique = new Set(baseMark6Sets.flat());
+    const unique = new Set(displayMark6Sets.flat());
     return unique.size >= 8;
-  }, [baseMark6Sets]);
+  }, [displayMark6Sets]);
+  const canAddManualMark6Set = useMemo(
+    () =>
+      isManualMark6 &&
+      mark6ManualNumbers.length === 6 &&
+      mark6ManualSets.length < mark6BatchCount,
+    [isManualMark6, mark6BatchCount, mark6ManualNumbers.length, mark6ManualSets.length],
+  );
+  const isManualMark6Complete = useMemo(
+    () => isManualMark6 && mark6ManualSets.length >= mark6BatchCount,
+    [isManualMark6, mark6BatchCount, mark6ManualSets.length],
+  );
   const canGenerateMark6Manual = useMemo(
     () => mark6GenerateMode !== "manual" || mark6ManualNumbers.length >= 6,
     [mark6GenerateMode, mark6ManualNumbers.length],
@@ -585,12 +602,31 @@ export default function Home() {
     }
   };
 
+  const handleAddManualMark6Set = () => {
+    setError(null);
+    if (mark6ManualNumbers.length !== 6) {
+      setError(t.mark6ManualNeedExactlyLabel);
+      return;
+    }
+    if (mark6ManualSets.length >= mark6BatchCount) {
+      setError(t.mark6ManualAllSetsAddedLabel);
+      return;
+    }
+    setResult(null);
+    setMixedMark6Sets([]);
+    setMark6ManualSets((current) => [
+      ...current,
+      [...mark6ManualNumbers].sort((a, b) => a - b),
+    ]);
+    setMark6ManualNumbers([]);
+  };
+
   const handleMixGeneratedMark6Sets = () => {
     if (!canMixMark6Sets) {
       setMixedMark6Sets([]);
       return;
     }
-    setMixedMark6Sets(buildMixedMark6Sets(baseMark6Sets, baseMark6Sets.length));
+    setMixedMark6Sets(buildMixedMark6Sets(displayMark6Sets, displayMark6Sets.length));
   };
 
   return (
@@ -734,9 +770,12 @@ export default function Home() {
                     >
                       <Typography variant="body2">{t.mark6ManualPickLabel}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {t.mark6ManualPickedCountLabel}: {mark6ManualNumbers.length}
+                        {t.mark6ManualPickedCountLabel}: {mark6ManualNumbers.length}/6
                       </Typography>
                     </Stack>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.6 }}>
+                      {t.mark6ManualSetProgressLabel}: {mark6ManualSets.length}/{mark6BatchCount}
+                    </Typography>
                     <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap" }}>
                       {Array.from({ length: 49 }, (_value, index) => index + 1).map((number) => {
                         const selected = mark6ManualNumbers.includes(number);
@@ -750,7 +789,9 @@ export default function Home() {
                               setMark6ManualNumbers((current) =>
                                 current.includes(number)
                                   ? current.filter((item) => item !== number)
-                                  : [...current, number].sort((a, b) => a - b),
+                                  : current.length >= 6
+                                    ? current
+                                    : [...current, number].sort((a, b) => a - b),
                               );
                             }}
                             color={selected ? "primary" : "default"}
@@ -771,7 +812,7 @@ export default function Home() {
                       </Button>
                       {!canGenerateMark6Manual ? (
                         <Typography variant="caption" color="warning.main">
-                          {t.mark6ManualNeedAtLeastLabel}
+                          {t.mark6ManualNeedExactlyLabel}
                         </Typography>
                       ) : null}
                     </Stack>
@@ -787,6 +828,10 @@ export default function Home() {
                       const nextCount = Number.parseInt(event.target.value, 10);
                       if (Number.isFinite(nextCount)) {
                         setMark6BatchCount(nextCount);
+                        setMark6ManualSets((current) =>
+                          current.length > nextCount ? current.slice(0, nextCount) : current,
+                        );
+                        setMixedMark6Sets([]);
                       }
                     }}
                     fullWidth
@@ -818,12 +863,17 @@ export default function Home() {
             ) : null}
             {mode !== "horse" || !isHorsePastDate ? (
               <Button
-                onClick={generateSuggestions}
+                onClick={isManualMark6 ? handleAddManualMark6Set : generateSuggestions}
                 variant="contained"
-                disabled={isLoading || (mode === "mark6" && !canGenerateMark6Manual)}
+                disabled={
+                  isLoading ||
+                  (isManualMark6
+                    ? !canAddManualMark6Set
+                    : mode === "mark6" && !canGenerateMark6Manual)
+                }
               >
                 <SparkleRegular fontSize={18} style={{ marginRight: 6 }} />
-                {isLoading ? t.generating : t.generate}
+                {isLoading ? t.generating : isManualMark6 ? t.mark6AddAction : t.generate}
               </Button>
             ) : (
               <Alert severity="info" sx={{ py: 0.2 }}>
@@ -850,7 +900,7 @@ export default function Home() {
         <CardContent>
           <Stack spacing={1.2}>
             <Typography variant="h6">{t.suggestionsTitle}</Typography>
-            {result ? (
+            {result && !isManualMark6 ? (
               <>
                 {result.mode === "horse" && result.horseSuggestions?.length ? (
                   <Stack spacing={1.4}>
@@ -1120,6 +1170,72 @@ export default function Home() {
                 </Typography>
                 <Alert severity="info">{result.disclaimer}</Alert>
               </>
+            ) : isManualMark6 && mark6ManualSets.length > 0 ? (
+              <Stack spacing={1}>
+                <Typography variant="caption" color="text.secondary">
+                  {t.mark6GeneratedSetsLabel}
+                </Typography>
+                {mark6ManualSets.map((set, index) => (
+                  <Box key={`mark6-manual-set-${index}`}>
+                    <Typography variant="caption" sx={{ display: "block", mb: 0.4 }}>
+                      {t.mark6SetLabel} {index + 1}
+                    </Typography>
+                    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                      {set.map((item) => (
+                        <Chip
+                          key={`mark6-manual-${index}-${item}`}
+                          label={item}
+                          color="primary"
+                          icon={<TrophyFilled />}
+                          sx={{ fontWeight: 600 }}
+                        />
+                      ))}
+                    </Stack>
+                  </Box>
+                ))}
+                <Stack spacing={0.8} sx={{ mt: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleMixGeneratedMark6Sets}
+                    disabled={!isManualMark6Complete || !canMixMark6Sets}
+                  >
+                    {t.mark6MixGeneratedSetsAction}
+                  </Button>
+                  {(!isManualMark6Complete || !canMixMark6Sets) ? (
+                    <Typography variant="caption" color="text.secondary">
+                      {!isManualMark6Complete
+                        ? `${t.mark6ManualSetProgressLabel}: ${mark6ManualSets.length}/${mark6BatchCount}`
+                        : t.mark6MixNotEnoughNumbers}
+                    </Typography>
+                  ) : null}
+                  {mixedMark6Sets.length > 0 ? (
+                    <Stack spacing={1}>
+                      <Typography variant="caption" color="text.secondary">
+                        {t.mark6MixedSetsLabel}
+                      </Typography>
+                      {mixedMark6Sets.map((set, index) => (
+                        <Box key={`mark6-mixed-manual-${index}`}>
+                          <Typography variant="caption" sx={{ display: "block", mb: 0.4 }}>
+                            {t.mark6SetLabel} {index + 1}
+                          </Typography>
+                          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                            {set.map((item) => (
+                              <Chip
+                                key={`mark6-mixed-manual-${index}-${item}`}
+                                label={item}
+                                color="secondary"
+                                icon={<TrophyFilled />}
+                                sx={{ fontWeight: 600 }}
+                              />
+                            ))}
+                          </Stack>
+                        </Box>
+                      ))}
+                    </Stack>
+                  ) : null}
+                </Stack>
+              </Stack>
             ) : (
               <Typography variant="body2" color="text.secondary">
                 {t.noSuggestionYet}
