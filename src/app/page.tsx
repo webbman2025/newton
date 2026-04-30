@@ -761,6 +761,9 @@ export default function Home() {
                     onChange={(_event, value) => {
                       if (value) {
                         setMark6GenerateMode(value);
+                        if (value === "manual") {
+                          setMark6BatchCount(1);
+                        }
                       }
                     }}
                     fullWidth
