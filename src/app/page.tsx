@@ -304,23 +304,16 @@ export default function Home() {
     const unique = new Set(displayMark6Sets.flat());
     return unique.size >= 8;
   }, [displayMark6Sets]);
-  const mark6SetsForCopy = useMemo(() => {
-    if (mixedMark6Sets.length > 0) {
-      return mixedMark6Sets;
-    }
-    if (isManualMark6 && mark6ManualSets.length > 0) {
-      return mark6ManualSets;
-    }
-    if (baseMark6Sets.length > 0) {
-      return baseMark6Sets;
-    }
-    return [];
-  }, [baseMark6Sets, isManualMark6, mark6ManualSets, mixedMark6Sets]);
+  const mark6GeneratedSetsForCopy = useMemo(
+    () => (displayMark6Sets.length > 0 ? displayMark6Sets : []),
+    [displayMark6Sets],
+  );
   const canCopyMark6Prediction = useMemo(
     () =>
       mode === "mark6" &&
-      (mark6SetsForCopy.length > 0 || (result?.suggestions?.length ?? 0) > 0),
-    [mark6SetsForCopy.length, mode, result?.suggestions],
+      ((mark6GeneratedSetsForCopy.length > 0 || mixedMark6Sets.length > 0) ||
+        (result?.suggestions?.length ?? 0) > 0),
+    [mark6GeneratedSetsForCopy.length, mixedMark6Sets.length, mode, result?.suggestions],
   );
   const canAddManualMark6Set = useMemo(
     () =>
@@ -660,9 +653,9 @@ export default function Home() {
   const handleCopyMark6Prediction = async () => {
     try {
       const text = buildMark6CopyText({
-        sets: mark6SetsForCopy,
+        generatedSets: mark6GeneratedSetsForCopy,
+        mixedSets: mixedMark6Sets,
         fallbackSuggestions: result?.suggestions ?? [],
-        setLabel: t.mark6SetLabel,
       });
       if (!text) {
         return;
@@ -2104,23 +2097,23 @@ function buildMixedMark6Sets(baseSets: number[][], desiredCount: number): number
 }
 
 function buildMark6CopyText({
-  sets,
+  generatedSets,
+  mixedSets,
   fallbackSuggestions,
-  setLabel,
 }: {
-  sets: number[][];
+  generatedSets: number[][];
+  mixedSets: number[][];
   fallbackSuggestions: string[];
-  setLabel: string;
 }): string {
-  if (sets.length > 0) {
-    return sets
-      .map(
-        (set, index) =>
-          `${setLabel} ${index + 1}: ${set
-            .map((value) => value.toString())
-            .join(", ")}`,
-      )
-      .join("\n");
+  const rows: string[] = [];
+  for (const set of generatedSets) {
+    rows.push(set.map((value) => value.toString()).join(", "));
+  }
+  for (const set of mixedSets) {
+    rows.push(set.map((value) => value.toString()).join(", "));
+  }
+  if (rows.length > 0) {
+    return rows.join("\n");
   }
   if (fallbackSuggestions.length > 0) {
     return fallbackSuggestions.join(", ");
