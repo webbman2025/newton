@@ -883,22 +883,24 @@ export default function Home() {
                       </MenuItem>
                     ))}
                   </TextField>
-                  <TextField
-                    select
-                    size="small"
-                    label={t.mark6NumberMixLabel}
-                    value={mark6NumberMix}
-                    onChange={(event) =>
-                      setMark6NumberMix(
-                        event.target.value as "mixed" | "smallOnly" | "bigOnly",
-                      )
-                    }
-                    fullWidth
-                  >
-                    <MenuItem value="mixed">{t.mark6NumberMixMixed}</MenuItem>
-                    <MenuItem value="smallOnly">{t.mark6NumberMixSmallOnly}</MenuItem>
-                    <MenuItem value="bigOnly">{t.mark6NumberMixBigOnly}</MenuItem>
-                  </TextField>
+                  {mark6GenerateMode === "auto" ? (
+                    <TextField
+                      select
+                      size="small"
+                      label={t.mark6NumberMixLabel}
+                      value={mark6NumberMix}
+                      onChange={(event) =>
+                        setMark6NumberMix(
+                          event.target.value as "mixed" | "smallOnly" | "bigOnly",
+                        )
+                      }
+                      fullWidth
+                    >
+                      <MenuItem value="mixed">{t.mark6NumberMixMixed}</MenuItem>
+                      <MenuItem value="smallOnly">{t.mark6NumberMixSmallOnly}</MenuItem>
+                      <MenuItem value="bigOnly">{t.mark6NumberMixBigOnly}</MenuItem>
+                    </TextField>
+                  ) : null}
                 </Stack>
               </Box>
             ) : null}
