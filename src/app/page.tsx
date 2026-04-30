@@ -207,10 +207,12 @@ export default function Home() {
   const [mark6PredictionType, setMark6PredictionType] = useState<
     "single" | "multiple" | "banker"
   >("single");
+  const [mark6GenerateMode, setMark6GenerateMode] = useState<"auto" | "manual">("auto");
   const [mark6BatchCount, setMark6BatchCount] = useState<number>(3);
   const [mark6NumberMix, setMark6NumberMix] = useState<"mixed" | "smallOnly" | "bigOnly">(
     "mixed",
   );
+  const [mark6ManualNumbers, setMark6ManualNumbers] = useState<number[]>([]);
   const [mixedMark6Sets, setMixedMark6Sets] = useState<number[][]>([]);
   const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split("T")[0] ?? "");
   const [isLoading, setIsLoading] = useState(false);
@@ -295,6 +297,10 @@ export default function Home() {
     const unique = new Set(baseMark6Sets.flat());
     return unique.size >= 8;
   }, [baseMark6Sets]);
+  const canGenerateMark6Manual = useMemo(
+    () => mark6GenerateMode !== "manual" || mark6ManualNumbers.length >= 6,
+    [mark6GenerateMode, mark6ManualNumbers.length],
+  );
   const toDisplayName = (english: string, chinese?: string) =>
     locale === "zh-HK" ? chinese || english : english;
   const horseBetTypeLabels: Record<HorseBetType, string> = {
@@ -453,6 +459,10 @@ export default function Home() {
     if (mode === "horse" && isHorsePastDate) {
       return;
     }
+    if (mode === "mark6" && !canGenerateMark6Manual) {
+      setError(t.mark6ManualNeedAtLeastLabel);
+      return;
+    }
     setError(null);
     setIsLoading(true);
     setResult(null);
@@ -552,6 +562,8 @@ export default function Home() {
           mark6PredictionType,
           mark6BatchCount,
           mark6NumberMix,
+          mark6GenerateMode,
+          mark6ManualNumbers,
         }),
       });
       if (!response.ok) {
@@ -660,6 +672,26 @@ export default function Home() {
             )}
             {mode === "mark6" ? (
               <Box>
+                <Box sx={{ mb: 1 }}>
+                  <Typography variant="body2" sx={{ mb: 0.8 }}>
+                    {t.mark6GenerateModeLabel}
+                  </Typography>
+                  <ToggleButtonGroup
+                    color="primary"
+                    exclusive
+                    size="small"
+                    value={mark6GenerateMode}
+                    onChange={(_event, value) => {
+                      if (value) {
+                        setMark6GenerateMode(value);
+                      }
+                    }}
+                    fullWidth
+                  >
+                    <ToggleButton value="auto">{t.mark6GenerateModeAuto}</ToggleButton>
+                    <ToggleButton value="manual">{t.mark6GenerateModeManual}</ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
                 <Box
                   sx={{
                     mb: 0.8,
@@ -693,6 +725,58 @@ export default function Home() {
                   <ToggleButton value="multiple">{t.mark6PredictionMultiple}</ToggleButton>
                   <ToggleButton value="banker">{t.mark6PredictionBanker}</ToggleButton>
                 </ToggleButtonGroup>
+                {mark6GenerateMode === "manual" ? (
+                  <Box sx={{ mt: 1 }}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.8 }}
+                    >
+                      <Typography variant="body2">{t.mark6ManualPickLabel}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {t.mark6ManualPickedCountLabel}: {mark6ManualNumbers.length}
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap" }}>
+                      {Array.from({ length: 49 }, (_value, index) => index + 1).map((number) => {
+                        const selected = mark6ManualNumbers.includes(number);
+                        return (
+                          <Chip
+                            key={`mark6-manual-${number}`}
+                            label={number}
+                            size="small"
+                            clickable
+                            onClick={() => {
+                              setMark6ManualNumbers((current) =>
+                                current.includes(number)
+                                  ? current.filter((item) => item !== number)
+                                  : [...current, number].sort((a, b) => a - b),
+                              );
+                            }}
+                            color={selected ? "primary" : "default"}
+                            variant={selected ? "filled" : "outlined"}
+                            sx={{ minWidth: 42 }}
+                          />
+                        );
+                      })}
+                    </Stack>
+                    <Stack direction="row" spacing={1} sx={{ mt: 0.8, alignItems: "center" }}>
+                      <Button
+                        variant="text"
+                        size="small"
+                        onClick={() => setMark6ManualNumbers([])}
+                        disabled={mark6ManualNumbers.length === 0}
+                      >
+                        {t.mark6ManualClearAction}
+                      </Button>
+                      {!canGenerateMark6Manual ? (
+                        <Typography variant="caption" color="warning.main">
+                          {t.mark6ManualNeedAtLeastLabel}
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                  </Box>
+                ) : null}
                 <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                   <TextField
                     select
@@ -733,7 +817,11 @@ export default function Home() {
               </Box>
             ) : null}
             {mode !== "horse" || !isHorsePastDate ? (
-              <Button onClick={generateSuggestions} variant="contained" disabled={isLoading}>
+              <Button
+                onClick={generateSuggestions}
+                variant="contained"
+                disabled={isLoading || (mode === "mark6" && !canGenerateMark6Manual)}
+              >
                 <SparkleRegular fontSize={18} style={{ marginRight: 6 }} />
                 {isLoading ? t.generating : t.generate}
               </Button>

@@ -12,6 +12,8 @@ const bodySchema = z.object({
   mark6PredictionType: z.enum(["single", "multiple", "banker"]).optional(),
   mark6BatchCount: z.number().int().min(1).max(12).optional(),
   mark6NumberMix: z.enum(["mixed", "smallOnly", "bigOnly"]).optional(),
+  mark6GenerateMode: z.enum(["auto", "manual"]).optional(),
+  mark6ManualNumbers: z.array(z.number().int().min(1).max(49)).max(49).optional(),
   horseAnalystStrategy: z.enum(["consensus", "single"]).optional(),
   horseAnalystProfile: z
     .enum(["paulJones", "andyGibson", "topHandicapper"])

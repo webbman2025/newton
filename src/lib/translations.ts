@@ -51,6 +51,13 @@ type CopyShape = {
   mark6PredictionSingle: string;
   mark6PredictionMultiple: string;
   mark6PredictionBanker: string;
+  mark6GenerateModeLabel: string;
+  mark6GenerateModeAuto: string;
+  mark6GenerateModeManual: string;
+  mark6ManualPickLabel: string;
+  mark6ManualPickedCountLabel: string;
+  mark6ManualClearAction: string;
+  mark6ManualNeedAtLeastLabel: string;
   mark6GenerateCountLabel: string;
   mark6GenerateCountOptionSets: string;
   mark6NumberMixLabel: string;
@@ -170,6 +177,13 @@ export const copy: Record<Locale, CopyShape> = {
     mark6PredictionSingle: "Single",
     mark6PredictionMultiple: "Multiple",
     mark6PredictionBanker: "Banker",
+    mark6GenerateModeLabel: "Generation Mode",
+    mark6GenerateModeAuto: "Auto",
+    mark6GenerateModeManual: "Manual",
+    mark6ManualPickLabel: "Tap Numbers (1-49)",
+    mark6ManualPickedCountLabel: "Picked",
+    mark6ManualClearAction: "Clear Picks",
+    mark6ManualNeedAtLeastLabel: "Pick at least 6 numbers to generate in manual mode.",
     mark6GenerateCountLabel: "Generate How Many Sets",
     mark6GenerateCountOptionSets: "sets",
     mark6NumberMixLabel: "Number Mix Style",
@@ -285,6 +299,13 @@ export const copy: Record<Locale, CopyShape> = {
     mark6PredictionSingle: "單式",
     mark6PredictionMultiple: "複式",
     mark6PredictionBanker: "膽拖",
+    mark6GenerateModeLabel: "生成模式",
+    mark6GenerateModeAuto: "自動",
+    mark6GenerateModeManual: "手動",
+    mark6ManualPickLabel: "點選號碼（1-49）",
+    mark6ManualPickedCountLabel: "已選",
+    mark6ManualClearAction: "清除已選",
+    mark6ManualNeedAtLeastLabel: "手動模式需至少選擇6個號碼。",
     mark6GenerateCountLabel: "一次生成組數",
     mark6GenerateCountOptionSets: "組",
     mark6NumberMixLabel: "號碼分佈",

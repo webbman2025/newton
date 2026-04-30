@@ -3,6 +3,7 @@ import { dbQuery, ensureSchema, withTransaction } from "@/lib/db";
 
 type Mark6PredictionType = "single" | "multiple" | "banker";
 type Mark6NumberMix = "mixed" | "smallOnly" | "bigOnly";
+type Mark6GenerateMode = "auto" | "manual";
 
 export type SuggestionResponse = {
   status: "ok" | "stale";
@@ -637,6 +638,19 @@ function getNumberMixFilteredEntries(
   return entries;
 }
 
+function normalizeManualMark6Numbers(numbers?: number[]): number[] {
+  if (!numbers || numbers.length === 0) {
+    return [];
+  }
+  const unique = new Set<number>();
+  for (const value of numbers) {
+    if (Number.isInteger(value) && value >= 1 && value <= 49) {
+      unique.add(value);
+    }
+  }
+  return [...unique].sort((a, b) => a - b);
+}
+
 function pickMark6SetWithMix(
   entries: Array<{ number: number; score: number }>,
   numberMix: Mark6NumberMix,
@@ -798,9 +812,18 @@ async function getMark6Suggestion(
   predictionType: Mark6PredictionType,
   batchCount: number,
   numberMix: Mark6NumberMix,
+  generateMode: Mark6GenerateMode,
+  manualNumbers?: number[],
 ): Promise<SuggestionBase> {
   if (!canUseDatabase()) {
-    return getMark6SuggestionFallback(locale, predictionType, batchCount, numberMix);
+    return getMark6SuggestionFallback(
+      locale,
+      predictionType,
+      batchCount,
+      numberMix,
+      generateMode,
+      manualNumbers,
+    );
   }
 
   try {
@@ -816,7 +839,14 @@ async function getMark6Suggestion(
     );
 
     if (draws.rows.length === 0) {
-      return getMark6SuggestionFallback(locale, predictionType, batchCount, numberMix);
+      return getMark6SuggestionFallback(
+        locale,
+        predictionType,
+        batchCount,
+        numberMix,
+        generateMode,
+        manualNumbers,
+      );
     }
 
     const scoreByNumber = new Map<number, number>();
@@ -833,9 +863,17 @@ async function getMark6Suggestion(
       }
     }
 
-    const ranked = [...scoreByNumber.entries()]
+    const normalizedManualPool = normalizeManualMark6Numbers(manualNumbers);
+    const effectiveGenerateMode: Mark6GenerateMode =
+      generateMode === "manual" && normalizedManualPool.length >= 6 ? "manual" : "auto";
+    const candidateEntries =
+      effectiveGenerateMode === "manual" && normalizedManualPool.length > 0
+        ? [...scoreByNumber.entries()].filter(([number]) => normalizedManualPool.includes(number))
+        : [...scoreByNumber.entries()];
+
+    const ranked = candidateEntries
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 20)
+      .slice(0, Math.max(20, normalizedManualPool.length || 0))
       .map(([number, score]) => ({ number, score }));
     const confidenceBand = getMark6Confidence({
       drawCount: draws.rows.length,
@@ -856,11 +894,22 @@ async function getMark6Suggestion(
       confidenceBand,
       explanation:
         locale === "zh-HK"
-          ? `已學習近${HISTORY_YEARS}年（${draws.rows.length}期）歷史結果，並加入同月同日、相鄰週期與節日檔期權重，按你選擇的號碼分佈模式生成${Math.max(1, Math.min(batchCount, 12))}組建議。`
-          : `Learned from the last ${HISTORY_YEARS} years of draws (${draws.rows.length} records), then weighted same day-month patterns, nearby weekly/monthly windows, and holiday seasons to generate ${Math.max(1, Math.min(batchCount, 12))} set(s) with your selected number-mix style.`,
+          ? effectiveGenerateMode === "manual" && normalizedManualPool.length > 0
+            ? `已學習近${HISTORY_YEARS}年（${draws.rows.length}期）歷史結果與節日/週期信號，並在你手動選擇的號碼池內生成${Math.max(1, Math.min(batchCount, 12))}組建議。`
+            : `已學習近${HISTORY_YEARS}年（${draws.rows.length}期）歷史結果，並加入同月同日、相鄰週期與節日檔期權重，按你選擇的號碼分佈模式生成${Math.max(1, Math.min(batchCount, 12))}組建議。`
+          : effectiveGenerateMode === "manual" && normalizedManualPool.length > 0
+            ? `Learned from the last ${HISTORY_YEARS} years of draws (${draws.rows.length} records) with seasonal weighting, then generated ${Math.max(1, Math.min(batchCount, 12))} set(s) inside your manually selected number pool.`
+            : `Learned from the last ${HISTORY_YEARS} years of draws (${draws.rows.length} records), then weighted same day-month patterns, nearby weekly/monthly windows, and holiday seasons to generate ${Math.max(1, Math.min(batchCount, 12))} set(s) with your selected number-mix style.`,
     };
   } catch {
-    return getMark6SuggestionFallback(locale, predictionType, batchCount, numberMix);
+    return getMark6SuggestionFallback(
+      locale,
+      predictionType,
+      batchCount,
+      numberMix,
+      generateMode,
+      manualNumbers,
+    );
   }
 }
 
@@ -1221,6 +1270,8 @@ function getMark6SuggestionFallback(
   predictionType: Mark6PredictionType,
   batchCount: number,
   numberMix: Mark6NumberMix,
+  generateMode: Mark6GenerateMode,
+  manualNumbers?: number[],
 ): SuggestionBase {
   const frequencies = new Map<number, number>();
   for (const draw of mark6FallbackRows) {
@@ -1229,9 +1280,17 @@ function getMark6SuggestionFallback(
     }
   }
 
-  const ranked = [...frequencies.entries()]
+  const normalizedManualPool = normalizeManualMark6Numbers(manualNumbers);
+  const effectiveGenerateMode: Mark6GenerateMode =
+    generateMode === "manual" && normalizedManualPool.length >= 6 ? "manual" : "auto";
+  const candidateEntries =
+    effectiveGenerateMode === "manual" && normalizedManualPool.length > 0
+      ? [...frequencies.entries()].filter(([number]) => normalizedManualPool.includes(number))
+      : [...frequencies.entries()];
+
+  const ranked = candidateEntries
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 16)
+    .slice(0, Math.max(16, normalizedManualPool.length || 0))
     .map(([number, score]) => ({ number, score }));
   const confidenceBand = getMark6Confidence({
     drawCount: mark6FallbackRows.length,
@@ -1252,8 +1311,12 @@ function getMark6SuggestionFallback(
     confidenceBand,
     explanation:
       locale === "zh-HK"
-        ? "此組合基於最近樣本的頻率、週期與節日檔期信號，並按所選號碼分佈模式加權抽樣生成。"
-        : "This set is generated from sample frequency, cyclical, and holiday-season signals, then weighted by your selected number-mix style.",
+        ? effectiveGenerateMode === "manual" && normalizedManualPool.length > 0
+          ? "此組合基於示例樣本中的頻率與週期信號，並限制在你手動選擇的號碼池內生成。"
+          : "此組合基於最近樣本的頻率、週期與節日檔期信號，並按所選號碼分佈模式加權抽樣生成。"
+        : effectiveGenerateMode === "manual" && normalizedManualPool.length > 0
+          ? "This set uses sample frequency and cyclical signals, constrained to your manually selected number pool."
+          : "This set is generated from sample frequency, cyclical, and holiday-season signals, then weighted by your selected number-mix style.",
   };
 }
 
@@ -1381,6 +1444,8 @@ export async function getSuggestion({
   mark6PredictionType = "single",
   mark6BatchCount = 1,
   mark6NumberMix = "mixed",
+  mark6GenerateMode = "auto",
+  mark6ManualNumbers,
   selectedRace,
   horseAnalystStrategy,
   horseAnalystProfile,
@@ -1391,6 +1456,8 @@ export async function getSuggestion({
   mark6PredictionType?: Mark6PredictionType;
   mark6BatchCount?: number;
   mark6NumberMix?: Mark6NumberMix;
+  mark6GenerateMode?: Mark6GenerateMode;
+  mark6ManualNumbers?: number[];
   selectedRace?: SelectedRaceInput;
   horseAnalystStrategy?: HorseAnalystStrategy;
   horseAnalystProfile?: HorseAnalystProfile;
@@ -1411,6 +1478,8 @@ export async function getSuggestion({
           mark6PredictionType,
           Math.max(1, Math.min(mark6BatchCount, 12)),
           mark6NumberMix,
+          mark6GenerateMode,
+          mark6ManualNumbers,
         )
       : await getHorseSuggestion(locale, targetDate, selectedRace, {
           strategy: horseAnalystStrategy,
@@ -1435,6 +1504,8 @@ export async function getSuggestion({
               locale,
               mark6BatchCount,
               mark6NumberMix,
+              mark6GenerateMode,
+              mark6ManualNumbers,
               selectedRace,
               horseAnalystStrategy,
               horseAnalystProfile,
