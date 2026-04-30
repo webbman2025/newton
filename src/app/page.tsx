@@ -802,63 +802,6 @@ export default function Home() {
                   <ToggleButton value="multiple">{t.mark6PredictionMultiple}</ToggleButton>
                   <ToggleButton value="banker">{t.mark6PredictionBanker}</ToggleButton>
                 </ToggleButtonGroup>
-                {mark6GenerateMode === "manual" ? (
-                  <Box sx={{ mt: 1 }}>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.8 }}
-                    >
-                      <Typography variant="body2">{t.mark6ManualPickLabel}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {t.mark6ManualPickedCountLabel}: {mark6ManualNumbers.length}/6
-                      </Typography>
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.6 }}>
-                      {t.mark6ManualSetProgressLabel}: {mark6ManualSets.length}/{mark6BatchCount}
-                    </Typography>
-                    <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap" }}>
-                      {Array.from({ length: 49 }, (_value, index) => index + 1).map((number) => {
-                        const selected = mark6ManualNumbers.includes(number);
-                        return (
-                          <Chip
-                            key={`mark6-manual-${number}`}
-                            label={number}
-                            size="small"
-                            clickable
-                            onClick={() => {
-                              setMark6ManualNumbers((current) =>
-                                current.includes(number)
-                                  ? current.filter((item) => item !== number)
-                                  : current.length >= 6
-                                    ? current
-                                    : [...current, number].sort((a, b) => a - b),
-                              );
-                            }}
-                            color={selected ? "primary" : "default"}
-                            variant={selected ? "filled" : "outlined"}
-                            sx={{ minWidth: 42 }}
-                          />
-                        );
-                      })}
-                    </Stack>
-                    {!canGenerateMark6Manual ? (
-                      <Typography variant="caption" color="warning.main" sx={{ mt: 0.8, display: "block" }}>
-                        {t.mark6ManualNeedExactlyLabel}
-                      </Typography>
-                    ) : null}
-                    {isManualMark6Complete ? (
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        sx={{ mt: 0.8 }}
-                        onClick={resetManualMark6Builder}
-                      >
-                        {t.mark6ManualStartNewAction}
-                      </Button>
-                    ) : null}
-                  </Box>
-                ) : null}
                 <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                   <TextField
                     select
@@ -902,6 +845,73 @@ export default function Home() {
                     </TextField>
                   ) : null}
                 </Stack>
+                {mark6GenerateMode === "manual" ? (
+                  <Box sx={{ mt: 1 }}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.8 }}
+                    >
+                      <Typography variant="body2">{t.mark6ManualPickLabel}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {t.mark6ManualPickedCountLabel}: {mark6ManualNumbers.length}/6
+                      </Typography>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.6 }}>
+                      {t.mark6ManualSetProgressLabel}: {mark6ManualSets.length}/{mark6BatchCount}
+                    </Typography>
+                    <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap" }}>
+                      {Array.from({ length: 49 }, (_value, index) => index + 1).map((number) => {
+                        const selected = mark6ManualNumbers.includes(number);
+                        return (
+                          <Chip
+                            key={`mark6-manual-${number}`}
+                            label={number}
+                            size="small"
+                            clickable
+                            onClick={() => {
+                              setMark6ManualNumbers((current) =>
+                                current.includes(number)
+                                  ? current.filter((item) => item !== number)
+                                  : current.length >= 6
+                                    ? current
+                                    : [...current, number].sort((a, b) => a - b),
+                              );
+                            }}
+                            color={selected ? "primary" : "default"}
+                            variant={selected ? "filled" : "outlined"}
+                            sx={{
+                              width: 44,
+                              height: 44,
+                              minWidth: 44,
+                              borderRadius: "50%",
+                              "& .MuiChip-label": {
+                                px: 0,
+                                fontSize: "0.79rem",
+                                fontWeight: 600,
+                              },
+                            }}
+                          />
+                        );
+                      })}
+                    </Stack>
+                    {!canGenerateMark6Manual ? (
+                      <Typography variant="caption" color="warning.main" sx={{ mt: 0.8, display: "block" }}>
+                        {t.mark6ManualNeedExactlyLabel}
+                      </Typography>
+                    ) : null}
+                    {isManualMark6Complete ? (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        sx={{ mt: 0.8 }}
+                        onClick={resetManualMark6Builder}
+                      >
+                        {t.mark6ManualStartNewAction}
+                      </Button>
+                    ) : null}
+                  </Box>
+                ) : null}
               </Box>
             ) : null}
             {mode !== "horse" || !isHorsePastDate ? (
