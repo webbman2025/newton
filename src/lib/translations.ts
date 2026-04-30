@@ -58,6 +58,9 @@ type CopyShape = {
   mark6NumberMixSmallOnly: string;
   mark6NumberMixBigOnly: string;
   mark6GeneratedSetsLabel: string;
+  mark6MixGeneratedSetsAction: string;
+  mark6MixedSetsLabel: string;
+  mark6MixNotEnoughNumbers: string;
   mark6SetLabel: string;
   mark6BankerLabel: string;
   mark6SelectionsLabel: string;
@@ -174,6 +177,10 @@ export const copy: Record<Locale, CopyShape> = {
     mark6NumberMixSmallOnly: "Small numbers only",
     mark6NumberMixBigOnly: "Big numbers only",
     mark6GeneratedSetsLabel: "Generated sets",
+    mark6MixGeneratedSetsAction: "Mix Within Generated Sets",
+    mark6MixedSetsLabel: "Mixed sets",
+    mark6MixNotEnoughNumbers:
+      "Need at least 2 generated sets and enough unique numbers to mix.",
     mark6SetLabel: "Set",
     mark6BankerLabel: "Banker",
     mark6SelectionsLabel: "Selections",
@@ -285,6 +292,9 @@ export const copy: Record<Locale, CopyShape> = {
     mark6NumberMixSmallOnly: "只要細號",
     mark6NumberMixBigOnly: "只要大號",
     mark6GeneratedSetsLabel: "已生成組合",
+    mark6MixGeneratedSetsAction: "混合同批組合",
+    mark6MixedSetsLabel: "混合後組合",
+    mark6MixNotEnoughNumbers: "需要至少2組已生成組合及足夠不重複號碼才可混合。",
     mark6SetLabel: "組合",
     mark6BankerLabel: "膽",
     mark6SelectionsLabel: "拖碼",

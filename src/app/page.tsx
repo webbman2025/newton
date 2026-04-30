@@ -211,6 +211,7 @@ export default function Home() {
   const [mark6NumberMix, setMark6NumberMix] = useState<"mixed" | "smallOnly" | "bigOnly">(
     "mixed",
   );
+  const [mixedMark6Sets, setMixedMark6Sets] = useState<number[][]>([]);
   const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split("T")[0] ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [progressText, setProgressText] = useState<string>("");
@@ -286,6 +287,14 @@ export default function Home() {
       ),
     [horseRaceCardsForDate, selectedRaceIdForDate],
   );
+  const baseMark6Sets = useMemo(() => getBaseMark6Sets(result), [result]);
+  const canMixMark6Sets = useMemo(() => {
+    if (baseMark6Sets.length < 2) {
+      return false;
+    }
+    const unique = new Set(baseMark6Sets.flat());
+    return unique.size >= 8;
+  }, [baseMark6Sets]);
   const toDisplayName = (english: string, chinese?: string) =>
     locale === "zh-HK" ? chinese || english : english;
   const horseBetTypeLabels: Record<HorseBetType, string> = {
@@ -447,6 +456,7 @@ export default function Home() {
     setError(null);
     setIsLoading(true);
     setResult(null);
+    setMixedMark6Sets([]);
     setProgressValue(0);
     if (mode === "horse") {
       setHorseRacePredictions({});
@@ -561,6 +571,14 @@ export default function Home() {
       window.clearInterval(timer);
       setIsLoading(false);
     }
+  };
+
+  const handleMixGeneratedMark6Sets = () => {
+    if (!canMixMark6Sets) {
+      setMixedMark6Sets([]);
+      return;
+    }
+    setMixedMark6Sets(buildMixedMark6Sets(baseMark6Sets, baseMark6Sets.length));
   };
 
   return (
@@ -961,6 +979,48 @@ export default function Home() {
                           ))}
                         </Stack>
                       )
+                    ) : null}
+                    {result.mode === "mark6" && baseMark6Sets.length > 0 ? (
+                      <Stack spacing={0.8} sx={{ mt: 1 }}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={handleMixGeneratedMark6Sets}
+                          disabled={!canMixMark6Sets}
+                        >
+                          {t.mark6MixGeneratedSetsAction}
+                        </Button>
+                        {!canMixMark6Sets ? (
+                          <Typography variant="caption" color="text.secondary">
+                            {t.mark6MixNotEnoughNumbers}
+                          </Typography>
+                        ) : null}
+                        {mixedMark6Sets.length > 0 ? (
+                          <Stack spacing={1}>
+                            <Typography variant="caption" color="text.secondary">
+                              {t.mark6MixedSetsLabel}
+                            </Typography>
+                            {mixedMark6Sets.map((set, index) => (
+                              <Box key={`mark6-mixed-${index}`}>
+                                <Typography variant="caption" sx={{ display: "block", mb: 0.4 }}>
+                                  {t.mark6SetLabel} {index + 1}
+                                </Typography>
+                                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                                  {set.map((item) => (
+                                    <Chip
+                                      key={`mark6-mixed-${index}-${item}`}
+                                      label={item}
+                                      color="secondary"
+                                      icon={<TrophyFilled />}
+                                      sx={{ fontWeight: 600 }}
+                                    />
+                                  ))}
+                                </Stack>
+                              </Box>
+                            ))}
+                          </Stack>
+                        ) : null}
+                      </Stack>
                     ) : null}
                   </Box>
                 )}
@@ -1659,4 +1719,102 @@ function nChooseK(n: number, k: number): number {
     result = (result * (n - m + i)) / i;
   }
   return Math.round(result);
+}
+
+function getBaseMark6Sets(result: SuggestionPayload | null): number[][] {
+  if (!result || result.mode !== "mark6") {
+    return [];
+  }
+  if ((result.mark6BatchSets?.length ?? 0) > 0) {
+    return (result.mark6BatchSets ?? []).map((set) => [...set].sort((a, b) => a - b));
+  }
+  if (result.mark6Prediction?.type === "multiple") {
+    return (result.mark6Prediction.multiple ?? []).map((set) => [...set].sort((a, b) => a - b));
+  }
+  if (result.mark6Prediction?.type === "single" && (result.mark6Prediction.single?.length ?? 0) > 0) {
+    return [[...(result.mark6Prediction.single ?? [])].sort((a, b) => a - b)];
+  }
+  const parsed = result.suggestions
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isFinite(value) && value >= 1 && value <= 49);
+  if (parsed.length >= 6) {
+    return [parsed.slice(0, 6).sort((a, b) => a - b)];
+  }
+  return [];
+}
+
+function weightedPickDistinctNumbers(
+  entries: Array<{ number: number; score: number }>,
+  count: number,
+): number[] {
+  const pool = [...entries];
+  const picked: number[] = [];
+  while (picked.length < count && pool.length > 0) {
+    const total = pool.reduce((sum, item) => sum + Math.max(0.001, item.score), 0);
+    let cursor = Math.random() * total;
+    let selectedIndex = 0;
+    for (let i = 0; i < pool.length; i += 1) {
+      cursor -= Math.max(0.001, pool[i]?.score ?? 0);
+      if (cursor <= 0) {
+        selectedIndex = i;
+        break;
+      }
+    }
+    const selected = pool.splice(selectedIndex, 1)[0];
+    if (selected) {
+      picked.push(selected.number);
+    }
+  }
+  return picked.sort((a, b) => a - b);
+}
+
+function buildMixedMark6Sets(baseSets: number[][], desiredCount: number): number[][] {
+  const validSets = baseSets.filter((set) => set.length >= 6);
+  if (validSets.length < 2) {
+    return [];
+  }
+
+  const frequency = new Map<number, number>();
+  for (const set of validSets) {
+    for (const num of set) {
+      frequency.set(num, (frequency.get(num) ?? 0) + 1);
+    }
+  }
+  const entries = [...frequency.entries()].map(([number, count]) => ({
+    number,
+    score: count,
+  }));
+  if (entries.length < 8) {
+    return [];
+  }
+
+  const targetCount = Math.max(1, Math.min(desiredCount, 12));
+  const results: number[][] = [];
+  const seen = new Set<string>();
+  let attempts = 0;
+
+  while (results.length < targetCount && attempts < targetCount * 10) {
+    attempts += 1;
+    const smallEntries = entries.filter((entry) => entry.number <= 24);
+    const bigEntries = entries.filter((entry) => entry.number >= 25);
+    let candidate: number[];
+    if (smallEntries.length >= 3 && bigEntries.length >= 3) {
+      const small = weightedPickDistinctNumbers(smallEntries, 3);
+      const big = weightedPickDistinctNumbers(bigEntries, 3);
+      candidate = [...small, ...big].sort((a, b) => a - b);
+    } else {
+      candidate = weightedPickDistinctNumbers(entries, 6);
+    }
+    if (candidate.length < 6) {
+      continue;
+    }
+    const key = candidate.join("-");
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    results.push(candidate);
+  }
+
+  return results;
 }
