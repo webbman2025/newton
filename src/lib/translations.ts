@@ -73,6 +73,9 @@ type CopyShape = {
   mark6MixGeneratedSetsAction: string;
   mark6MixedSetsLabel: string;
   mark6MixNotEnoughNumbers: string;
+  mark6CopyAction: string;
+  mark6CopySuccess: string;
+  mark6CopyFailed: string;
   mark6SetLabel: string;
   mark6BankerLabel: string;
   mark6SelectionsLabel: string;
@@ -205,6 +208,9 @@ export const copy: Record<Locale, CopyShape> = {
     mark6MixedSetsLabel: "Mixed sets",
     mark6MixNotEnoughNumbers:
       "Need at least 2 generated sets and enough unique numbers to mix.",
+    mark6CopyAction: "Copy",
+    mark6CopySuccess: "Copied to clipboard.",
+    mark6CopyFailed: "Unable to copy. Please try again.",
     mark6SetLabel: "Set",
     mark6BankerLabel: "Banker",
     mark6SelectionsLabel: "Selections",
@@ -331,6 +337,9 @@ export const copy: Record<Locale, CopyShape> = {
     mark6MixGeneratedSetsAction: "混合同批組合",
     mark6MixedSetsLabel: "混合後組合",
     mark6MixNotEnoughNumbers: "需要至少2組已生成組合及足夠不重複號碼才可混合。",
+    mark6CopyAction: "複製",
+    mark6CopySuccess: "已複製到剪貼板。",
+    mark6CopyFailed: "無法複製，請再試一次。",
     mark6SetLabel: "組合",
     mark6BankerLabel: "膽",
     mark6SelectionsLabel: "拖碼",

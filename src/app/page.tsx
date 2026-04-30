@@ -215,6 +215,7 @@ export default function Home() {
   const [mark6ManualNumbers, setMark6ManualNumbers] = useState<number[]>([]);
   const [mark6ManualSets, setMark6ManualSets] = useState<number[][]>([]);
   const [mixedMark6Sets, setMixedMark6Sets] = useState<number[][]>([]);
+  const [mark6CopyStatus, setMark6CopyStatus] = useState<"idle" | "ok" | "error">("idle");
   const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split("T")[0] ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [progressText, setProgressText] = useState<string>("");
@@ -303,6 +304,24 @@ export default function Home() {
     const unique = new Set(displayMark6Sets.flat());
     return unique.size >= 8;
   }, [displayMark6Sets]);
+  const mark6SetsForCopy = useMemo(() => {
+    if (mixedMark6Sets.length > 0) {
+      return mixedMark6Sets;
+    }
+    if (isManualMark6 && mark6ManualSets.length > 0) {
+      return mark6ManualSets;
+    }
+    if (baseMark6Sets.length > 0) {
+      return baseMark6Sets;
+    }
+    return [];
+  }, [baseMark6Sets, isManualMark6, mark6ManualSets, mixedMark6Sets]);
+  const canCopyMark6Prediction = useMemo(
+    () =>
+      mode === "mark6" &&
+      (mark6SetsForCopy.length > 0 || (result?.suggestions?.length ?? 0) > 0),
+    [mark6SetsForCopy.length, mode, result?.suggestions],
+  );
   const canAddManualMark6Set = useMemo(
     () =>
       isManualMark6 &&
@@ -483,6 +502,7 @@ export default function Home() {
     setError(null);
     setIsLoading(true);
     setResult(null);
+    setMark6CopyStatus("idle");
     setMixedMark6Sets([]);
     setProgressValue(0);
     if (mode === "horse") {
@@ -635,6 +655,26 @@ export default function Home() {
       return;
     }
     setMixedMark6Sets(buildMixedMark6Sets(displayMark6Sets, displayMark6Sets.length));
+  };
+
+  const handleCopyMark6Prediction = async () => {
+    try {
+      const text = buildMark6CopyText({
+        sets: mark6SetsForCopy,
+        fallbackSuggestions: result?.suggestions ?? [],
+        setLabel: t.mark6SetLabel,
+      });
+      if (!text) {
+        return;
+      }
+      if (!navigator?.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(text);
+      setMark6CopyStatus("ok");
+    } catch {
+      setMark6CopyStatus("error");
+    }
   };
 
   return (
@@ -920,7 +960,26 @@ export default function Home() {
         <Card>
         <CardContent>
           <Stack spacing={1.2}>
-            <Typography variant="h6">{t.suggestionsTitle}</Typography>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+              <Typography variant="h6">{t.suggestionsTitle}</Typography>
+              {canCopyMark6Prediction ? (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleCopyMark6Prediction}
+                >
+                  {t.mark6CopyAction}
+                </Button>
+              ) : null}
+            </Box>
+            {mark6CopyStatus !== "idle" ? (
+              <Typography
+                variant="caption"
+                color={mark6CopyStatus === "ok" ? "success.main" : "warning.main"}
+              >
+                {mark6CopyStatus === "ok" ? t.mark6CopySuccess : t.mark6CopyFailed}
+              </Typography>
+            ) : null}
             {result && !isManualMark6 ? (
               <>
                 {result.mode === "horse" && result.horseSuggestions?.length ? (
@@ -2042,4 +2101,29 @@ function buildMixedMark6Sets(baseSets: number[][], desiredCount: number): number
   }
 
   return results;
+}
+
+function buildMark6CopyText({
+  sets,
+  fallbackSuggestions,
+  setLabel,
+}: {
+  sets: number[][];
+  fallbackSuggestions: string[];
+  setLabel: string;
+}): string {
+  if (sets.length > 0) {
+    return sets
+      .map(
+        (set, index) =>
+          `${setLabel} ${index + 1}: ${set
+            .map((value) => value.toString())
+            .join(", ")}`,
+      )
+      .join("\n");
+  }
+  if (fallbackSuggestions.length > 0) {
+    return fallbackSuggestions.join(", ");
+  }
+  return "";
 }
