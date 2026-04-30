@@ -748,8 +748,8 @@ export default function Home() {
               </LocalizationProvider>
             )}
             {mode === "mark6" ? (
-              <Box>
-                <Box sx={{ mb: 1 }}>
+              <Stack spacing={2}>
+                <Box>
                   <Typography variant="body2" sx={{ mb: 0.8 }}>
                     {t.mark6GenerateModeLabel}
                   </Typography>
@@ -774,7 +774,6 @@ export default function Home() {
                 </Box>
                 <Box
                   sx={{
-                    mb: 0.8,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
@@ -805,7 +804,7 @@ export default function Home() {
                   <ToggleButton value="multiple">{t.mark6PredictionMultiple}</ToggleButton>
                   <ToggleButton value="banker">{t.mark6PredictionBanker}</ToggleButton>
                 </ToggleButtonGroup>
-                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                <Stack direction="row" spacing={2}>
                   <TextField
                     select
                     size="small"
@@ -849,7 +848,7 @@ export default function Home() {
                   ) : null}
                 </Stack>
                 {mark6GenerateMode === "manual" ? (
-                  <Box sx={{ mt: 1 }}>
+                  <Stack spacing={2}>
                     <Stack
                       direction="row"
                       spacing={1}
@@ -906,7 +905,7 @@ export default function Home() {
                       })}
                     </Box>
                     {!canGenerateMark6Manual ? (
-                      <Typography variant="caption" color="warning.main" sx={{ mt: 0.8, display: "block" }}>
+                      <Typography variant="caption" color="warning.main" sx={{ display: "block" }}>
                         {t.mark6ManualNeedExactlyLabel}
                       </Typography>
                     ) : null}
@@ -914,15 +913,14 @@ export default function Home() {
                       <Button
                         variant="outlined"
                         size="small"
-                        sx={{ mt: 0.8 }}
                         onClick={resetManualMark6Builder}
                       >
                         {t.mark6ManualStartNewAction}
                       </Button>
                     ) : null}
-                  </Box>
+                  </Stack>
                 ) : null}
-              </Box>
+              </Stack>
             ) : null}
             {mode !== "horse" || !isHorsePastDate ? (
               isManualMark6 ? (
@@ -977,7 +975,7 @@ export default function Home() {
       <Box ref={predictionsRef}>
         <Card>
         <CardContent>
-          <Stack spacing={1.2}>
+          <Stack spacing={2}>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
               <Typography variant="h6">{t.suggestionsTitle}</Typography>
               {canCopyMark6Prediction ? (
@@ -1118,10 +1116,10 @@ export default function Home() {
                 ) : (
                   <Box>
                     {result.mode === "mark6" && result.mark6Prediction?.type === "multiple" ? (
-                      <Stack spacing={1}>
+                      <Stack spacing={2}>
                         {(result.mark6Prediction.multiple ?? []).map((set, index) => (
                           <Box key={`set-${index}`}>
-                            <Typography variant="caption" sx={{ display: "block", mb: 0.4 }}>
+                            <Typography variant="caption" sx={{ display: "block", mb: 0.8 }}>
                               {t.mark6SetLabel} {index + 1}
                             </Typography>
                             <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
@@ -1141,7 +1139,7 @@ export default function Home() {
                     ) : null}
 
                     {result.mode === "mark6" && result.mark6Prediction?.type === "banker" ? (
-                      <Stack spacing={1}>
+                      <Stack spacing={2}>
                         <Typography variant="caption" sx={{ display: "block" }}>
                           {t.mark6BankerLabel}
                         </Typography>
@@ -1179,13 +1177,13 @@ export default function Home() {
                       result.mark6Prediction?.type === "single" ||
                       !result.mark6Prediction) ? (
                       result.mode === "mark6" && (result.mark6BatchSets?.length ?? 0) > 0 ? (
-                        <Stack spacing={1}>
+                        <Stack spacing={2}>
                           <Typography variant="caption" color="text.secondary">
                             {t.mark6GeneratedSetsLabel}
                           </Typography>
                           {result.mark6BatchSets?.map((set, index) => (
                             <Box key={`mark6-batch-${index}`}>
-                              <Typography variant="caption" sx={{ display: "block", mb: 0.4 }}>
+                              <Typography variant="caption" sx={{ display: "block", mb: 0.8 }}>
                                 {t.mark6SetLabel} {index + 1}
                               </Typography>
                               <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
@@ -1269,13 +1267,13 @@ export default function Home() {
                 <Alert severity="info">{result.disclaimer}</Alert>
               </>
             ) : isManualMark6 && mark6ManualSets.length > 0 ? (
-              <Stack spacing={1}>
+                      <Stack spacing={2}>
                 <Typography variant="caption" color="text.secondary">
                   {t.mark6GeneratedSetsLabel}
                 </Typography>
                 {mark6ManualSets.map((set, index) => (
                   <Box key={`mark6-manual-set-${index}`}>
-                    <Typography variant="caption" sx={{ display: "block", mb: 0.4 }}>
+                            <Typography variant="caption" sx={{ display: "block", mb: 0.8 }}>
                       {t.mark6SetLabel} {index + 1}
                     </Typography>
                     <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
@@ -1291,7 +1289,7 @@ export default function Home() {
                     </Stack>
                   </Box>
                 ))}
-                <Stack spacing={0.8} sx={{ mt: 1 }}>
+                <Stack spacing={2} sx={{ mt: 1 }}>
                   <Button
                     variant="outlined"
                     size="small"
@@ -1308,13 +1306,13 @@ export default function Home() {
                     </Typography>
                   ) : null}
                   {mixedMark6Sets.length > 0 ? (
-                    <Stack spacing={1}>
+                    <Stack spacing={2}>
                       <Typography variant="caption" color="text.secondary">
                         {t.mark6MixedSetsLabel}
                       </Typography>
                       {mixedMark6Sets.map((set, index) => (
                         <Box key={`mark6-mixed-manual-${index}`}>
-                          <Typography variant="caption" sx={{ display: "block", mb: 0.4 }}>
+                          <Typography variant="caption" sx={{ display: "block", mb: 0.8 }}>
                             {t.mark6SetLabel} {index + 1}
                           </Typography>
                           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
