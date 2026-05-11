@@ -37,6 +37,18 @@ type CopyShape = {
   analyticsHorseCalibrationBand: string;
   analyticsHorseCalibrationHitRate: string;
   analyticsHorseCalibrationSample: string;
+  analyticsQuickReadTitle: string;
+  analyticsQuickReadSubtitle: string;
+  analyticsMetricRecentAccuracy: string;
+  analyticsMetricRecentAccuracyHint: string;
+  analyticsMetricConfidenceNow: string;
+  analyticsMetricConfidenceNowHint: string;
+  analyticsMetricDataStatus: string;
+  analyticsMetricDataStatusHint: string;
+  analyticsDataStatusLive: string;
+  analyticsDataStatusLimited: string;
+  analyticsAdvancedDetails: string;
+  analyticsAdvancedDetailsHint: string;
   staleDataFallback: string;
   upcomingRacesTitle: string;
   upcomingRacesLoading: string;
@@ -147,7 +159,7 @@ export const copy: Record<Locale, CopyShape> = {
     appTitle: "Mobile Betting Assistant",
     navHome: "Home",
     navHistory: "History",
-    navAnalytics: "Analytics",
+    navAnalytics: "Performance",
     mark6: "Mark Six",
     horse: "Horse Racing",
     selectDate: "Select Date",
@@ -169,7 +181,7 @@ export const copy: Record<Locale, CopyShape> = {
     footerDisclaimer:
       "Entertainment only. No guaranteed winnings. This app does not process bets.",
     historyTitle: "Past Winners",
-    analyticsTitle: "Trend Analytics",
+    analyticsTitle: "Performance & Trust",
     historyDate: "Date",
     historyRace: "Race",
     historyResult: "Results",
@@ -183,6 +195,20 @@ export const copy: Record<Locale, CopyShape> = {
     analyticsHorseCalibrationBand: "Band",
     analyticsHorseCalibrationHitRate: "Hit Rate",
     analyticsHorseCalibrationSample: "Samples",
+    analyticsQuickReadTitle: "Quick Read",
+    analyticsQuickReadSubtitle:
+      "Simple health signals to help users judge reliability before using picks.",
+    analyticsMetricRecentAccuracy: "Recent Accuracy",
+    analyticsMetricRecentAccuracyHint: "How often the top pick won in backtested races.",
+    analyticsMetricConfidenceNow: "Current Confidence",
+    analyticsMetricConfidenceNowHint: "Dominant confidence level in recent model outputs.",
+    analyticsMetricDataStatus: "Data Status",
+    analyticsMetricDataStatusHint: "Shows whether metrics are based on live race data.",
+    analyticsDataStatusLive: "Live data",
+    analyticsDataStatusLimited: "Limited data",
+    analyticsAdvancedDetails: "Advanced Details",
+    analyticsAdvancedDetailsHint:
+      "Technical charts and calibration tables for internal model review.",
     staleDataFallback:
       "Data is currently unavailable or stale. Please try again later.",
     upcomingRacesTitle: "Upcoming Sha Tin / Happy Valley Races",
@@ -300,7 +326,7 @@ export const copy: Record<Locale, CopyShape> = {
     appTitle: "流動投注助手",
     navHome: "主頁",
     navHistory: "歷史",
-    navAnalytics: "分析",
+    navAnalytics: "表現",
     mark6: "六合彩",
     horse: "賽馬",
     selectDate: "選擇日期",
@@ -315,7 +341,7 @@ export const copy: Record<Locale, CopyShape> = {
     disclaimer: "僅供娛樂用途，不保證中獎，並非財務建議。",
     footerDisclaimer: "僅供娛樂用途，不保證中獎。本應用不處理任何投注。",
     historyTitle: "過往結果",
-    analyticsTitle: "趨勢分析",
+    analyticsTitle: "表現與可信度",
     historyDate: "日期",
     historyRace: "場次",
     historyResult: "結果",
@@ -329,6 +355,18 @@ export const copy: Record<Locale, CopyShape> = {
     analyticsHorseCalibrationBand: "等級",
     analyticsHorseCalibrationHitRate: "命中率",
     analyticsHorseCalibrationSample: "樣本",
+    analyticsQuickReadTitle: "快速重點",
+    analyticsQuickReadSubtitle: "用最簡單的指標，幫助用戶判斷目前推薦是否可靠。",
+    analyticsMetricRecentAccuracy: "近期準確率",
+    analyticsMetricRecentAccuracyHint: "回測中頭號推薦實際跑出頭馬的比例。",
+    analyticsMetricConfidenceNow: "目前信心",
+    analyticsMetricConfidenceNowHint: "近期模型輸出中最常見的信心等級。",
+    analyticsMetricDataStatus: "資料狀態",
+    analyticsMetricDataStatusHint: "顯示指標是否主要來自即時賽馬資料。",
+    analyticsDataStatusLive: "即時資料",
+    analyticsDataStatusLimited: "資料有限",
+    analyticsAdvancedDetails: "進階細節",
+    analyticsAdvancedDetailsHint: "提供技術圖表與校準表，供內部模型檢視。",
     staleDataFallback: "資料暫時未能提供或已過期，請稍後再試。",
     upcomingRacesTitle: "沙田 / 跑馬地 即將開跑賽事",
     upcomingRacesLoading: "正在載入即將開跑賽事...",
