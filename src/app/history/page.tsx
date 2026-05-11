@@ -3,17 +3,14 @@
 import { useEffect, useState } from "react";
 import {
   Alert,
+  Box,
   Card,
   CardContent,
   Chip,
+  Divider,
   MenuItem,
   Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Typography,
 } from "@mui/material";
 import { HistoryRegular } from "@fluentui/react-icons";
@@ -86,27 +83,66 @@ export default function HistoryPage() {
           sx={{ mt: 1, mb: 1 }}
         />
         {error ? <Alert severity="warning">{error}</Alert> : null}
-        <Table size="small" sx={{ "& .MuiTableCell-head": { color: "text.secondary", fontWeight: 700 } }}>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t.historyDate}</TableCell>
-              <TableCell>{t.historyRace}</TableCell>
-              <TableCell>{t.historyResult}</TableCell>
-              <TableCell>{t.historyNote}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map((row, index) => (
-              <TableRow key={`${row.date}-${row.raceId ?? "draw"}-${index}`}>
-                <TableCell>{row.date}</TableCell>
-                <TableCell>{mode === "horse" ? formatRaceLabel(row.raceId, locale) : "-"}</TableCell>
-                <TableCell>{row.result}</TableCell>
-                <TableCell>{row.note}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <Stack spacing={1.1}>
+          {rows.map((row, index) => (
+            <Card
+              key={`${row.date}-${row.raceId ?? "draw"}-${index}`}
+              variant="outlined"
+              sx={{ borderRadius: 2 }}
+            >
+              <CardContent sx={{ p: 1.4, "&:last-child": { pb: 1.4 } }}>
+                <Stack spacing={1}>
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                    <Chip size="small" variant="outlined" label={`${t.historyDate}: ${row.date}`} />
+                    {mode === "horse" ? (
+                      <Chip
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                        label={`${t.historyRace}: ${formatRaceLabel(row.raceId, locale)}`}
+                      />
+                    ) : null}
+                  </Stack>
+                  <Divider />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                      {t.historyResult}
+                    </Typography>
+                    <Stack spacing={0.35}>
+                      {renderHistoryResult(row.result).map((entry) => (
+                        <Typography key={`${row.date}-${row.raceId ?? "draw"}-${entry}`} variant="body2">
+                          {entry}
+                        </Typography>
+                      ))}
+                    </Stack>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.3 }}>
+                      {t.historyNote}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {row.note}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          ))}
+          {rows.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              {t.staleDataFallback}
+            </Typography>
+          ) : null}
+        </Stack>
       </CardContent>
     </Card>
   );
+}
+
+function renderHistoryResult(result: string): string[] {
+  const entries = result
+    .split(" | ")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return entries.length > 0 ? entries : [result];
 }

@@ -30,6 +30,13 @@ type CopyShape = {
   historyNote: string;
   analyticsConfidence: string;
   analyticsTrend: string;
+  analyticsHorseBacktestTitle: string;
+  analyticsHorseBacktestTop1: string;
+  analyticsHorseBacktestSamples: string;
+  analyticsHorseCalibrationTitle: string;
+  analyticsHorseCalibrationBand: string;
+  analyticsHorseCalibrationHitRate: string;
+  analyticsHorseCalibrationSample: string;
   staleDataFallback: string;
   upcomingRacesTitle: string;
   upcomingRacesLoading: string;
@@ -96,8 +103,15 @@ type CopyShape = {
   horsePredictionColumnHorse: string;
   horsePredictionColumnPosition: string;
   horsePredictionColumnSpeed: string;
+  horsePredictionColumnModelProb: string;
   horsePredictionColumnOdds: string;
   horsePredictionColumnEdge: string;
+  horseTopDriversLabel: string;
+  horseDataFreshnessLabel: string;
+  horseDataFreshnessLive: string;
+  horseDataFreshnessFallback: string;
+  horseModelVersionLabel: string;
+  horseProfilesUsedLabel: string;
   horsePredictedWinnerLabel: string;
   horsePredictedWinnerUnavailable: string;
   horseTop3PredictionsLabel: string;
@@ -162,6 +176,13 @@ export const copy: Record<Locale, CopyShape> = {
     historyNote: "AI Notes",
     analyticsConfidence: "Confidence Distribution",
     analyticsTrend: "Suggestion Outcome Trend",
+    analyticsHorseBacktestTitle: "Horse Backtest Metrics",
+    analyticsHorseBacktestTop1: "Top-1 Hit Rate",
+    analyticsHorseBacktestSamples: "Evaluated Races",
+    analyticsHorseCalibrationTitle: "Confidence Calibration",
+    analyticsHorseCalibrationBand: "Band",
+    analyticsHorseCalibrationHitRate: "Hit Rate",
+    analyticsHorseCalibrationSample: "Samples",
     staleDataFallback:
       "Data is currently unavailable or stale. Please try again later.",
     upcomingRacesTitle: "Upcoming Sha Tin / Happy Valley Races",
@@ -232,8 +253,15 @@ export const copy: Record<Locale, CopyShape> = {
     horsePredictionColumnHorse: "Horse",
     horsePredictionColumnPosition: "Predicted Position",
     horsePredictionColumnSpeed: "Speed Index",
+    horsePredictionColumnModelProb: "Model Prob",
     horsePredictionColumnOdds: "Odds",
     horsePredictionColumnEdge: "Edge Score",
+    horseTopDriversLabel: "Top Drivers (Explainability)",
+    horseDataFreshnessLabel: "Data",
+    horseDataFreshnessLive: "Live",
+    horseDataFreshnessFallback: "Fallback",
+    horseModelVersionLabel: "Model",
+    horseProfilesUsedLabel: "Profiles",
     horsePredictedWinnerLabel: "Predicted Winner",
     horsePredictedWinnerUnavailable: "Generate to see winner prediction.",
     horseTop3PredictionsLabel: "Top 3 Predicted Horses",
@@ -294,6 +322,13 @@ export const copy: Record<Locale, CopyShape> = {
     historyNote: "AI 備註",
     analyticsConfidence: "信心分佈",
     analyticsTrend: "推薦結果趨勢",
+    analyticsHorseBacktestTitle: "賽馬回測指標",
+    analyticsHorseBacktestTop1: "頭馬命中率",
+    analyticsHorseBacktestSamples: "已評估場次",
+    analyticsHorseCalibrationTitle: "信心校準",
+    analyticsHorseCalibrationBand: "等級",
+    analyticsHorseCalibrationHitRate: "命中率",
+    analyticsHorseCalibrationSample: "樣本",
     staleDataFallback: "資料暫時未能提供或已過期，請稍後再試。",
     upcomingRacesTitle: "沙田 / 跑馬地 即將開跑賽事",
     upcomingRacesLoading: "正在載入即將開跑賽事...",
@@ -360,8 +395,15 @@ export const copy: Record<Locale, CopyShape> = {
     horsePredictionColumnHorse: "馬匹",
     horsePredictionColumnPosition: "預測名次",
     horsePredictionColumnSpeed: "速度指數",
+    horsePredictionColumnModelProb: "模型機率",
     horsePredictionColumnOdds: "賠率",
     horsePredictionColumnEdge: "優勢分數",
+    horseTopDriversLabel: "主要驅動因素（可解釋）",
+    horseDataFreshnessLabel: "資料",
+    horseDataFreshnessLive: "即時",
+    horseDataFreshnessFallback: "備援",
+    horseModelVersionLabel: "模型",
+    horseProfilesUsedLabel: "分析檔案",
     horsePredictedWinnerLabel: "預測冠軍",
     horsePredictedWinnerUnavailable: "請先生成以查看預測冠軍。",
     horseTop3PredictionsLabel: "預測前三名",

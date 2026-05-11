@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Alert, Card, CardContent, Stack, Typography } from "@mui/material";
+import {
+  Alert,
+  Card,
+  CardContent,
+  Chip,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+} from "@mui/material";
 import {
   BarChart,
   LineChart,
@@ -14,6 +26,15 @@ import { useCopy } from "@/components/locale-provider";
 type AnalyticsPayload = {
   confidenceDistribution: { band: string; value: number }[];
   trend: { label: string; value: number }[];
+  horseBacktest?: {
+    sampleSize: number;
+    top1AccuracyPct: number;
+    byBand: Array<{
+      band: "Low" | "Medium" | "High";
+      sampleSize: number;
+      hitRatePct: number;
+    }>;
+  };
 };
 
 export default function AnalyticsPage() {
@@ -85,6 +106,46 @@ export default function AnalyticsPage() {
               series={[{ data: data.trend.map((item) => item.value), color: "#107c10" }]}
             />
           ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2, display: "flex", alignItems: "center", gap: 0.8 }}>
+            <DataTrendingRegular fontSize={20} />
+            {t.analyticsHorseBacktestTitle}
+          </Typography>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mb: 1.2 }}>
+            <Chip
+              variant="outlined"
+              label={`${t.analyticsHorseBacktestTop1}: ${data?.horseBacktest?.top1AccuracyPct ?? 0}%`}
+            />
+            <Chip
+              variant="outlined"
+              label={`${t.analyticsHorseBacktestSamples}: ${data?.horseBacktest?.sampleSize ?? 0}`}
+            />
+          </Stack>
+          <Typography variant="subtitle2" sx={{ mb: 0.8 }}>
+            {t.analyticsHorseCalibrationTitle}
+          </Typography>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>{t.analyticsHorseCalibrationBand}</TableCell>
+                <TableCell>{t.analyticsHorseCalibrationHitRate}</TableCell>
+                <TableCell>{t.analyticsHorseCalibrationSample}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(data?.horseBacktest?.byBand ?? []).map((item) => (
+                <TableRow key={`calib-${item.band}`}>
+                  <TableCell>{item.band}</TableCell>
+                  <TableCell>{item.hitRatePct}%</TableCell>
+                  <TableCell>{item.sampleSize}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </Stack>

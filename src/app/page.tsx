@@ -77,7 +77,30 @@ type SuggestionPayload = {
     impliedProbability?: number;
     edgeScore?: number;
     marketOdds?: string;
+    marketSignal?: "value" | "neutral" | "overbet";
+    topFactors?: Array<{
+      label: string;
+      impactScore: number;
+    }>;
   }[];
+  modelVersion?: string;
+  generatedAt?: string;
+  dataFreshness?: {
+    source: "database" | "fallback";
+    historyRecordCount: number;
+    historyWindowYears: number;
+  };
+  featureCoverage?: {
+    probability: boolean;
+    explainability: boolean;
+    marketContext: boolean;
+    paceProxy: boolean;
+    breedingProxy: boolean;
+  };
+  horseAnalysis?: {
+    strategy: "consensus" | "single";
+    activeProfiles: Array<"paulJones" | "andyGibson" | "topHandicapper">;
+  };
   confidenceBand: "Low" | "Medium" | "High";
   explanation: string;
   disclaimer: string;
@@ -151,10 +174,18 @@ type HorseRacePrediction = {
     impliedProbability?: number;
     edgeScore?: number;
     marketOdds?: string;
+    marketSignal?: "value" | "neutral" | "overbet";
+    topFactors?: Array<{
+      label: string;
+      impactScore: number;
+    }>;
   }[];
   confidenceBand: "Low" | "Medium" | "High";
   generatedAt: string;
   predictionMargin?: number;
+  modelVersion?: string;
+  dataFreshnessSource?: "database" | "fallback";
+  activeProfiles?: Array<"paulJones" | "andyGibson" | "topHandicapper">;
 };
 
 type HorseBetType =
@@ -561,10 +592,15 @@ export default function Home() {
                 impliedProbability: horse.impliedProbability,
                 edgeScore: horse.edgeScore,
                 marketOdds: horse.marketOdds,
+                marketSignal: horse.marketSignal,
+                topFactors: horse.topFactors,
               })),
               confidenceBand: payload.confidenceBand,
-              generatedAt: new Date().toISOString(),
+              generatedAt: payload.generatedAt ?? new Date().toISOString(),
               predictionMargin: calculatePredictionMargin(payload.horseSuggestions ?? []),
+              modelVersion: payload.modelVersion,
+              dataFreshnessSource: payload.dataFreshness?.source,
+              activeProfiles: payload.horseAnalysis?.activeProfiles,
             };
           } catch {
             nextPredictions[raceId] = {
@@ -1566,6 +1602,29 @@ export default function Home() {
                             horseRacePredictions[raceId].predictionMargin?.toFixed(1) ?? "-"
                           }`}
                         />
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={`${t.horseDataFreshnessLabel}: ${
+                            horseRacePredictions[raceId].dataFreshnessSource === "database"
+                              ? t.horseDataFreshnessLive
+                              : t.horseDataFreshnessFallback
+                          }`}
+                        />
+                        {horseRacePredictions[raceId].modelVersion ? (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={`${t.horseModelVersionLabel}: ${horseRacePredictions[raceId].modelVersion}`}
+                          />
+                        ) : null}
+                        {(horseRacePredictions[raceId].activeProfiles?.length ?? 0) > 0 ? (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={`${t.horseProfilesUsedLabel}: ${horseRacePredictions[raceId].activeProfiles?.join(", ")}`}
+                          />
+                        ) : null}
                       </Stack>
                     ) : null}
                     <Typography variant="caption" sx={{ display: "block" }}>
@@ -1613,6 +1672,9 @@ export default function Home() {
                                   {t.horsePredictionColumnSpeed}
                                 </TableCell>
                                 <TableCell sx={{ py: 0.6, px: 0.8 }}>
+                                  {t.horsePredictionColumnModelProb}
+                                </TableCell>
+                                <TableCell sx={{ py: 0.6, px: 0.8 }}>
                                   {t.horsePredictionColumnOdds}
                                 </TableCell>
                                 <TableCell sx={{ py: 0.6, px: 0.8 }}>
@@ -1642,6 +1704,11 @@ export default function Home() {
                                     {pick.speedIndex?.toFixed(1) ?? "-"}
                                   </TableCell>
                                   <TableCell sx={{ py: 0.5, px: 0.8 }}>
+                                    {typeof pick.modelProbability === "number"
+                                      ? `${pick.modelProbability.toFixed(1)}%`
+                                      : "-"}
+                                  </TableCell>
+                                  <TableCell sx={{ py: 0.5, px: 0.8 }}>
                                     {pick.marketOdds ?? "-"}
                                   </TableCell>
                                   <TableCell sx={{ py: 0.5, px: 0.8 }}>
@@ -1653,6 +1720,22 @@ export default function Home() {
                               ))}
                             </TableBody>
                           </Table>
+                          <Stack spacing={0.6} sx={{ mt: 0.8 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {t.horseTopDriversLabel}
+                            </Typography>
+                            {horseRacePredictions[raceId].picks.map((pick) => (
+                              <Typography
+                                key={`${raceId}-drivers-${pick.horseNumber}`}
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ display: "block" }}
+                              >
+                                #{pick.horseNumber} {pick.horseName}:{" "}
+                                {(pick.topFactors ?? []).map((factor) => factor.label).join(" / ") || "-"}
+                              </Typography>
+                            ))}
+                          </Stack>
                         </>
                       ) : (
                         <Typography
