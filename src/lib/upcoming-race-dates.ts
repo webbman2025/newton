@@ -6,6 +6,14 @@ type UpcomingRaceDatesResponse = {
 };
 
 const FIXTURE_BASE_URL = "https://racing.hkjc.com/en-us/local/information/fixture";
+const RACE_DATES_CACHE_TTL_MS = 10 * 60 * 1000;
+const raceDatesCache = new Map<
+  string,
+  {
+    value: UpcomingRaceDatesResponse;
+    expiresAt: number;
+  }
+>();
 
 function startOfDay(date: Date) {
   const normalized = new Date(date);
@@ -62,7 +70,7 @@ async function fetchFixtureMonth(year: number, month: number) {
     headers: {
       "User-Agent": "Mozilla/5.0 (compatible; MobileBettingAssistant/1.0)",
     },
-    cache: "no-store",
+    next: { revalidate: 1800 },
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch fixture month ${year}-${monthParam}`);
@@ -74,36 +82,60 @@ export async function getUpcomingHorseRaceDates(
   limit = 30,
   monthsAhead = 6,
 ): Promise<UpcomingRaceDatesResponse> {
+  const normalizedLimit = Math.max(1, Math.min(limit, 120));
+  const normalizedMonthsAhead = Math.max(1, Math.min(monthsAhead, 12));
+  const cacheKey = `${normalizedLimit}-${normalizedMonthsAhead}`;
+  const nowMs = Date.now();
+  const cached = raceDatesCache.get(cacheKey);
+  if (cached && cached.expiresAt > nowMs) {
+    return cached.value;
+  }
+
   const today = startOfDay(new Date());
   const collected = new Set<string>();
 
-  for (let offset = 0; offset < monthsAhead; offset += 1) {
+  const monthTasks: Array<Promise<string[]>> = [];
+  for (let offset = 0; offset < normalizedMonthsAhead; offset += 1) {
     const cursor = new Date(today.getFullYear(), today.getMonth() + offset, 1);
     const year = cursor.getFullYear();
     const month = cursor.getMonth() + 1;
-    try {
-      const html = await fetchFixtureMonth(year, month);
-      const dates = parseFixtureCalendarDates(html);
-      for (const dateText of dates) {
-        if (dateText >= formatDateYYYYMMDD(today)) {
-          collected.add(dateText);
-        }
+    monthTasks.push(
+      fetchFixtureMonth(year, month).then((html) => parseFixtureCalendarDates(html)),
+    );
+  }
+
+  const monthResults = await Promise.allSettled(monthTasks);
+  for (const monthResult of monthResults) {
+    if (monthResult.status !== "fulfilled") {
+      continue;
+    }
+    for (const dateText of monthResult.value) {
+      if (dateText >= formatDateYYYYMMDD(today)) {
+        collected.add(dateText);
       }
-    } catch {
-      // Continue scanning later months if one month fetch fails.
     }
   }
 
-  const sorted = [...collected].sort().slice(0, limit);
+  const sorted = [...collected].sort().slice(0, normalizedLimit);
   if (sorted.length > 0) {
-    return {
+    const value: UpcomingRaceDatesResponse = {
       dates: sorted,
       source: "website",
     };
+    raceDatesCache.set(cacheKey, {
+      value,
+      expiresAt: nowMs + RACE_DATES_CACHE_TTL_MS,
+    });
+    return value;
   }
 
-  return {
-    dates: [],
+  const fallbackValue: UpcomingRaceDatesResponse = {
+    dates: [] as string[],
     source: "fallback",
   };
+  raceDatesCache.set(cacheKey, {
+    value: fallbackValue,
+    expiresAt: nowMs + Math.min(RACE_DATES_CACHE_TTL_MS, 2 * 60 * 1000),
+  });
+  return fallbackValue;
 }
