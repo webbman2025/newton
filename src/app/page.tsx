@@ -183,9 +183,7 @@ type HorseRacePrediction = {
   confidenceBand: "Low" | "Medium" | "High";
   generatedAt: string;
   predictionMargin?: number;
-  modelVersion?: string;
   dataFreshnessSource?: "database" | "fallback";
-  activeProfiles?: Array<"paulJones" | "andyGibson" | "topHandicapper">;
 };
 
 type HorseBetType =
@@ -605,9 +603,7 @@ export default function Home() {
               confidenceBand: payload.confidenceBand,
               generatedAt: payload.generatedAt ?? new Date().toISOString(),
               predictionMargin: calculatePredictionMargin(payload.horseSuggestions ?? []),
-              modelVersion: payload.modelVersion,
               dataFreshnessSource: payload.dataFreshness?.source,
-              activeProfiles: payload.horseAnalysis?.activeProfiles,
             };
           } catch {
             nextPredictions[raceId] = {
@@ -1653,31 +1649,6 @@ export default function Home() {
                               : t.horseDataFreshnessFallback
                           }`}
                         />
-                        {horseRacePredictions[raceId].modelVersion ? (
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            label={`${t.horseModelVersionLabel}: ${horseRacePredictions[raceId].modelVersion}`}
-                            sx={{ maxWidth: "100%" }}
-                          />
-                        ) : null}
-                        {(horseRacePredictions[raceId].activeProfiles?.length ?? 0) > 0 ? (
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            label={`${t.horseProfilesUsedLabel}: ${horseRacePredictions[raceId].activeProfiles?.join(", ")}`}
-                            sx={{
-                              maxWidth: "100%",
-                              height: "auto",
-                              "& .MuiChip-label": {
-                                whiteSpace: "normal",
-                                wordBreak: "break-word",
-                                lineHeight: 1.25,
-                                py: 0.4,
-                              },
-                            }}
-                          />
-                        ) : null}
                       </Stack>
                     ) : null}
                     <Typography variant="caption" sx={{ display: "block" }}>
