@@ -1395,24 +1395,28 @@ export default function Home() {
                   {t.selectedRaceLabel}: {selectedRace.venueName} - Race {selectedRace.raceNo}
                 </Typography>
               ) : null}
-              {!isHorsePastDate && horseRaceCardsForDate.length === 0 ? (
+              {!isHorsePastDate &&
+              horseRaceCardsForDate.length === 0 &&
+              selectedDateHorseRows.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
                   {t.horseCalendarNoRacesForDate}
                 </Typography>
               ) : null}
-              {isHorsePastDate ? (
+              {(isHorsePastDate || selectedDateHorseRows.length > 0 || isSelectedDateHorseRowsLoading) ? (
                 <>
                   <Typography variant="body2" color="text.secondary">
-                    {t.horseResultsOnDateLabel}: {targetDate}
+                    {t.horseCompletedRacesLabel}: {targetDate}
                   </Typography>
                   {isHorseWinnerLoading || isSelectedDateHorseRowsLoading ? (
                     <Typography variant="body2" color="text.secondary">
                       {t.horsePreviousWinnerLoading}
                     </Typography>
                   ) : selectedDateHorseRows.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">
-                      {t.horseResultsOnDateEmpty}
-                    </Typography>
+                    isHorsePastDate ? (
+                      <Typography variant="body2" color="text.secondary">
+                        {t.horseResultsOnDateEmpty}
+                      </Typography>
+                    ) : null
                   ) : (
                     selectedDateHorseRows.map((row) => (
                       (() => {
@@ -1442,6 +1446,13 @@ export default function Home() {
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 0.8 }}>
                             {t.horseResultsOnDateLabel}: {row.date}
                           </Typography>
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                            label={t.horseRaceStatusResult}
+                            sx={{ mb: 0.8 }}
+                          />
                           <Chip
                             size="small"
                             color="success"
@@ -1501,6 +1512,11 @@ export default function Home() {
                   )}
                 </>
               ) : null}
+              {!isHorsePastDate && horseRaceCardsForDate.length > 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t.horseUpcomingRacesLabel}: {targetDate}
+                </Typography>
+              ) : null}
               {horseRaceCardsForDate.map((race) => {
                 const raceId = `${race.venueCode}-${race.raceNo}-${race.postTime}`;
                 const isSelected = raceId === selectedRaceIdForDate;
@@ -1549,6 +1565,13 @@ export default function Home() {
                     </Typography>
                     <Chip
                       size="small"
+                      variant="outlined"
+                      color="info"
+                      label={t.horseRaceStatusUpcoming}
+                      sx={{ mb: 0.8 }}
+                    />
+                    <Chip
+                      size="small"
                       color="success"
                       variant="outlined"
                       icon={<TrophyFilled />}
@@ -1564,7 +1587,7 @@ export default function Home() {
                             )}`
                           : t.horsePredictedWinnerUnavailable
                       }
-                      sx={{ mb: 0.8 }}
+                      sx={{ mb: 0.8, ...WRAPPING_CHIP_SX }}
                     />
                     {horseRacePredictions[raceId] ? (
                       <Stack
@@ -1584,6 +1607,7 @@ export default function Home() {
                                 : "warning"
                           }
                           label={`${t.confidenceTitle}: ${horseRacePredictions[raceId].confidenceBand}`}
+                          sx={WRAPPING_CHIP_SX}
                         />
                         <Chip
                           size="small"
@@ -1594,6 +1618,7 @@ export default function Home() {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}`}
+                          sx={WRAPPING_CHIP_SX}
                         />
                         <Chip
                           size="small"
@@ -1601,6 +1626,7 @@ export default function Home() {
                           label={`${t.horsePredictionMarginLabel}: ${
                             horseRacePredictions[raceId].predictionMargin?.toFixed(1) ?? "-"
                           }`}
+                          sx={WRAPPING_CHIP_SX}
                         />
                         <Chip
                           size="small"
@@ -1610,12 +1636,14 @@ export default function Home() {
                               ? t.horseDataFreshnessLive
                               : t.horseDataFreshnessFallback
                           }`}
+                          sx={WRAPPING_CHIP_SX}
                         />
                         {horseRacePredictions[raceId].modelVersion ? (
                           <Chip
                             size="small"
                             variant="outlined"
                             label={`${t.horseModelVersionLabel}: ${horseRacePredictions[raceId].modelVersion}`}
+                            sx={WRAPPING_CHIP_SX}
                           />
                         ) : null}
                         {(horseRacePredictions[raceId].activeProfiles?.length ?? 0) > 0 ? (
@@ -1623,6 +1651,7 @@ export default function Home() {
                             size="small"
                             variant="outlined"
                             label={`${t.horseProfilesUsedLabel}: ${horseRacePredictions[raceId].activeProfiles?.join(", ")}`}
+                            sx={WRAPPING_CHIP_SX}
                           />
                         ) : null}
                       </Stack>
@@ -1656,7 +1685,7 @@ export default function Home() {
                           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.6 }}>
                             {t.horseTop3PredictionsLabel}
                           </Typography>
-                          <Table size="small" sx={{ mt: 0.2 }}>
+                          <Table size="small" sx={{ mt: 0.2, tableLayout: "fixed", width: "100%" }}>
                             <TableHead>
                               <TableRow>
                                 <TableCell sx={{ py: 0.6, px: 0.8 }}>
@@ -1686,7 +1715,7 @@ export default function Home() {
                               {horseRacePredictions[raceId].picks.map((pick, idx) => (
                                 <TableRow key={`${raceId}-top-${pick.horseNumber}-${pick.horseName}`}>
                                   <TableCell sx={{ py: 0.5, px: 0.8 }}>#{pick.horseNumber}</TableCell>
-                                  <TableCell sx={{ py: 0.5, px: 0.8 }}>
+                                  <TableCell sx={{ py: 0.5, px: 0.8, whiteSpace: "normal", wordBreak: "break-word" }}>
                                     {(() => {
                                       const localizedRunner = race.runners.find(
                                         (runner) =>
@@ -2039,6 +2068,19 @@ function getRankRibbonStyle(index: number): SxProps<Theme> {
     color: selected.text,
   };
 }
+
+const WRAPPING_CHIP_SX: SxProps<Theme> = {
+  maxWidth: "100%",
+  height: "auto",
+  "& .MuiChip-label": {
+    display: "block",
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    lineHeight: 1.25,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+};
 
 type HighlightedDayProps = PickerDayProps & {
   highlightedDays?: Set<string>;

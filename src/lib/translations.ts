@@ -62,6 +62,10 @@ type CopyShape = {
   horseCalendarNoRacesForDate: string;
   horseResultsOnDateLabel: string;
   horseResultsOnDateEmpty: string;
+  horseCompletedRacesLabel: string;
+  horseUpcomingRacesLabel: string;
+  horseRaceStatusResult: string;
+  horseRaceStatusUpcoming: string;
   horsePastDateResultsMode: string;
   horseOfficialWinnerLabel: string;
   horseOfficialTopFinishersLabel: string;
@@ -224,6 +228,10 @@ export const copy: Record<Locale, CopyShape> = {
     horseCalendarNoRacesForDate: "No race schedule for the selected date.",
     horseResultsOnDateLabel: "Race winners on selected date",
     horseResultsOnDateEmpty: "No completed race results for the selected date yet.",
+    horseCompletedRacesLabel: "Completed races",
+    horseUpcomingRacesLabel: "Upcoming races",
+    horseRaceStatusResult: "Result",
+    horseRaceStatusUpcoming: "Upcoming",
     horsePastDateResultsMode: "Past date selected: showing official race results only.",
     horseOfficialWinnerLabel: "Official Winner",
     horseOfficialTopFinishersLabel: "Top Finishers",
@@ -380,6 +388,10 @@ export const copy: Record<Locale, CopyShape> = {
     horseCalendarNoRacesForDate: "所選日期暫未有賽程。",
     horseResultsOnDateLabel: "所選日期賽果冠軍",
     horseResultsOnDateEmpty: "所選日期暫未有已完成賽果。",
+    horseCompletedRacesLabel: "已完成賽事",
+    horseUpcomingRacesLabel: "即將開跑賽事",
+    horseRaceStatusResult: "賽果",
+    horseRaceStatusUpcoming: "即將開跑",
     horsePastDateResultsMode: "已選過往日期：只顯示該日官方賽果。",
     horseOfficialWinnerLabel: "官方冠軍",
     horseOfficialTopFinishersLabel: "前列名次",
