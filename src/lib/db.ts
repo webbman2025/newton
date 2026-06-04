@@ -8,14 +8,36 @@ import {
 let pool: Pool | null = null;
 let schemaInitPromise: Promise<void> | null = null;
 
+/** Vercel Postgres injects POSTGRES_URL; local dev often uses DATABASE_URL. */
+export function getDatabaseConnectionString(): string | undefined {
+  const candidates = [
+    process.env.DATABASE_URL,
+    process.env.POSTGRES_URL,
+    process.env.POSTGRES_PRISMA_URL,
+  ];
+  for (const value of candidates) {
+    const trimmed = value?.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return undefined;
+}
+
+export function hasDatabaseConfig(): boolean {
+  return Boolean(getDatabaseConnectionString());
+}
+
 function getPool() {
   if (pool) {
     return pool;
   }
 
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = getDatabaseConnectionString();
   if (!connectionString) {
-    throw new Error("DATABASE_URL is not configured.");
+    throw new Error(
+      "Database is not configured. Set POSTGRES_URL (Vercel Postgres) or DATABASE_URL.",
+    );
   }
 
   const useSsl = !connectionString.includes("localhost");

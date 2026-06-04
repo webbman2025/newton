@@ -3,14 +3,44 @@
 ## 1) Prerequisites
 
 - Vercel project connected to this repository
-- Managed PostgreSQL instance (Neon, Supabase, or equivalent)
-- Environment variables configured in Vercel
+- **Vercel Postgres** (recommended — same dashboard as your app)
+- Other environment variables below
 
-## 2) Environment Variables
+**Billing note:** Vercel Postgres uses your **Vercel account/plan** (storage + compute). It does **not** use **Cursor tokens** or Cursor AI credits.
+
+## 2) Vercel Postgres (recommended setup)
+
+Do this once in the [Vercel dashboard](https://vercel.com/dashboard):
+
+1. Open your **project** (this app).
+2. Go to **Storage** → **Create Database** → **Postgres** → create (or pick an existing store).
+3. **Connect** the database to this project. Vercel adds env vars automatically, mainly:
+   - `POSTGRES_URL` (pooled — used by the app in production)
+   - `POSTGRES_URL_NON_POOLING` (optional — for one-off CLI tools)
+4. **Redeploy** Production (Deployments → … → Redeploy) so serverless functions see the new variables.
+
+You do **not** need to copy the password into GitHub. Secrets stay on Vercel only.
+
+**Tables:** On the first API request that needs the DB, the app runs `ensureSchema()` and creates tables (`mark6_results`, `race_results`, `suggestion_logs`). Manual `psql` migration is optional.
+
+**Fill history:** After redeploy, open the live site → generate **Mark Six** and **Horse** picks once, or visit **History** (triggers ingest). Optional: set `ENABLE_WEB_INGEST=true` for cron backfill.
+
+**Check:**
+
+```bash
+curl -s https://YOUR_APP.vercel.app/api/health
+```
+
+Look for `database.configured: true` and eventually `horseAnalyst.ready` / `mark6Expert.ready` after data ingests.
+
+**Local dev with Vercel Postgres:** `vercel env pull .env.local` then use `POSTGRES_URL` from that file, or keep Docker Postgres and `DATABASE_URL` as in the README.
+
+## 3) Environment Variables
 
 Set these for both Preview and Production:
 
-- `DATABASE_URL` (**required** for agentic horse analysts on Vercel — without it, horse picks use demo fallback only)
+- `POSTGRES_URL` — **auto-set** when Vercel Postgres is linked (preferred on Vercel)
+- `DATABASE_URL` — optional alias (local Docker); app accepts either `POSTGRES_URL` or `DATABASE_URL`
 - `DATA_SOURCE_MODE`
 - `HKJC_BASE_URL`
 - `APP_ENV`
@@ -33,11 +63,7 @@ The README analyst profiles are **not** separate AI bots. On each **Horse → up
 2. Runs a **small HKJC ingest** if the DB is still empty or thin (same path as History)
 3. Scores runners with **consensus** weights (Paul Jones + Andy Gibson + Top Handicapper averaged) unless you set `HORSE_ANALYST_*` env vars
 
-**Minimum setup:**
-
-1. Attach Neon/Supabase (or similar) and set `DATABASE_URL` on the Vercel project.
-2. Run `db/migrations/001_init.sql` against that database once.
-3. Redeploy, then open your Vercel URL → **Horse** → pick **today or a future** meeting → **generate**.
+**Minimum setup:** Link **Vercel Postgres** (section 2), redeploy, then **Horse** → upcoming day → **generate**.
 
 **Verify:**
 
@@ -60,21 +86,20 @@ On each **Mark Six → generate** request the app:
 curl -s https://YOUR_APP.vercel.app/api/health | jq .mark6Expert
 ```
 
-## 3) Database Setup
+## 4) Database Setup (optional manual)
 
-Run SQL migration:
+The app auto-creates schema via `ensureSchema()`. For manual setup or local Docker:
 
 - `db/migrations/001_init.sql`
-- Optional local/demo seed:
-  - `db/seeds/dev_seed.sql`
+- Optional demo seed: `db/seeds/dev_seed.sql`
 
-## 4) Vercel Configuration
+## 5) Vercel Configuration
 
 - `vercel.json` defines:
   - serverless function sizing for suggestion API
   - cron routes for Mark Six and racing ingestion scaffolds
 
-## 5) Validate Deployment
+## 6) Validate Deployment
 
 - Open `/api/health` and verify `status: ok`
 - Open home/history/analytics routes on mobile viewport

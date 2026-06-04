@@ -1,5 +1,5 @@
 import type { ConfidenceBand, Locale, Mode } from "@/lib/translations";
-import { dbQuery, ensureSchema, withTransaction } from "@/lib/db";
+import { dbQuery, ensureSchema, hasDatabaseConfig, withTransaction } from "@/lib/db";
 import {
   isHorseHistoryEntryShape,
 } from "@/lib/horse-history-shape";
@@ -507,7 +507,7 @@ async function finalizeHistoryFallback(
 }
 
 function canUseDatabase() {
-  return Boolean(process.env.DATABASE_URL);
+  return hasDatabaseConfig();
 }
 
 function getHistoryWindow(targetDate: string) {

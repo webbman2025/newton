@@ -12,7 +12,7 @@ Entertainment-only mobile web app for Mark Six and horse racing suggestions with
 
 ## Agentic Horse Racing Analyst Profiles
 
-These profiles define the intended analysis style for horse-racing educational insights. On **Vercel**, they run automatically when you generate **horse** picks for an **upcoming** race day — provided `DATABASE_URL` is set and migrations have been applied (see `DEPLOYMENT.md`). Check `/api/health` → `horseAnalyst.ready`.
+These profiles define the intended analysis style for horse-racing educational insights. On **Vercel**, they run automatically when you generate **horse** picks for an **upcoming** race day — link **Vercel Postgres** (see `DEPLOYMENT.md`). Check `/api/health` → `horseAnalyst.ready`.
 
 1. **Paul Jones**
    - Specialty: Cheltenham Festival and big-race trends
@@ -46,7 +46,7 @@ These profiles blend different signal weights on each Mark Six generate (default
    - Emphasis: previous-draw neighbours (±1/±2), mirror numbers (50−n), decade bands
    - Style: pattern-following after the latest official result
 
-On **Vercel**, experts run when you generate **Mark Six** picks with `DATABASE_URL` set. Check `/api/health` → `mark6Expert.ready`. Optional env: `MARK6_EXPERT_STRATEGY`, `MARK6_EXPERT_PROFILE` (see `DEPLOYMENT.md`).
+On **Vercel**, experts run when you generate **Mark Six** picks with **Vercel Postgres** linked. Check `/api/health` → `mark6Expert.ready`. Optional env: `MARK6_EXPERT_STRATEGY`, `MARK6_EXPERT_PROFILE` (see `DEPLOYMENT.md`).
 
 ## Quick Start
 

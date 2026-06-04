@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { dbQuery } from "@/lib/db";
+import { dbQuery, hasDatabaseConfig } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -22,7 +22,7 @@ function resolveMark6Profiles(strategy: "consensus" | "single", profileRaw: stri
 }
 
 export async function GET() {
-  const hasDatabase = Boolean(process.env.DATABASE_URL);
+  const hasDatabase = hasDatabaseConfig();
 
   const horseStrategyRaw = (process.env.HORSE_ANALYST_STRATEGY ?? "consensus").toLowerCase();
   const horseStrategy = horseStrategyRaw === "single" ? "single" : "consensus";
@@ -76,7 +76,7 @@ export async function GET() {
         ? "Horse picks use analyst weight profiles on each /api/suggestions call."
         : hasDatabase
           ? "DATABASE_URL is set but race_results is empty — generate horse picks once to ingest."
-          : "Set DATABASE_URL on Vercel and run db/migrations/001_init.sql.",
+          : "Link Vercel Postgres to this project (POSTGRES_URL) and redeploy.",
     },
     mark6Expert: {
       ready: mark6ExpertReady,
@@ -88,7 +88,13 @@ export async function GET() {
         ? "Mark Six picks use expert weight profiles on each /api/suggestions call."
         : hasDatabase
           ? "DATABASE_URL is set but mark6_results is empty — generate Mark Six once to ingest."
-          : "Set DATABASE_URL on Vercel and run db/migrations/001_init.sql.",
+          : "Link Vercel Postgres to this project (POSTGRES_URL) and redeploy.",
+    },
+    database: {
+      configured: hasDatabase,
+      envHint: hasDatabase
+        ? "Using POSTGRES_URL or DATABASE_URL (secrets stay on Vercel — not Cursor)."
+        : "Create Storage → Postgres in Vercel and connect it to this project.",
     },
   });
 }
