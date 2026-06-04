@@ -18,16 +18,39 @@ type CopyShape = {
   suggestionsTitle: string;
   explanationTitle: string;
   confidenceTitle: string;
+  confidenceBandLow: string;
+  confidenceBandMedium: string;
+  confidenceBandHigh: string;
+  mark6ManualChipAriaLabel: string;
+  errorGenerateSuggestionsFailed: string;
+  errorMark6OverviewFailed: string;
   progressSteps: [string, string, string, string];
   noSuggestionYet: string;
   disclaimer: string;
   footerDisclaimer: string;
+  donationButton: string;
+  donationHint: string;
+  donationQrTitle: string;
+  donationQrDesktopHint: string;
+  donationQrMobileHint: string;
+  donationQrOpenImage: string;
+  donationQrBack: string;
+  donationQrClose: string;
   historyTitle: string;
   analyticsTitle: string;
   historyDate: string;
   historyRace: string;
   historyResult: string;
   historyNote: string;
+  historyNoRowsMessage: string;
+  historyHorseRangeLabel: string;
+  historyHorseRangeWeek: string;
+  historyHorseRangeAll: string;
+  historyHorseVenueSt: string;
+  historyHorseVenueHv: string;
+  historyHorseMeetingsHeading: string;
+  historyHorseAccordionSummary: string;
+  historyHorseMoreLines: string;
   analyticsConfidence: string;
   analyticsTrend: string;
   analyticsHorseBacktestTitle: string;
@@ -93,6 +116,14 @@ type CopyShape = {
   mark6NumberMixSmallOnly: string;
   mark6NumberMixBigOnly: string;
   mark6GeneratedSetsLabel: string;
+  mark6NumberProbabilityLabel: string;
+  mark6OverviewAction: string;
+  mark6OverviewTitle: string;
+  mark6OverviewSubtitle: string;
+  mark6OverviewLoading: string;
+  mark6OverviewRankLabel: string;
+  mark6OverviewProbabilityLabel: string;
+  mark6OverviewFiveYearCountLabel: string;
   mark6MixGeneratedSetsAction: string;
   mark6MixedSetsLabel: string;
   mark6MixNotEnoughNumbers: string;
@@ -106,6 +137,24 @@ type CopyShape = {
   mark6UpcomingDrawDatesLabel: string;
   mark6UpcomingDrawDatesLoading: string;
   mark6UpcomingDrawDatesFallback: string;
+  mark6PreviousDrawTitle: string;
+  mark6PreviousDrawDateLabel: string;
+  mark6PreviousDrawSpecialLabel: string;
+  mark6PreviousDrawLiveSource: string;
+  mark6PreviousDrawLoading: string;
+  mark6PreviousDrawUnavailable: string;
+  mark6ImpactBestLabel: string;
+  mark6MatchedNumbersLabel: string;
+  mark6ImpactNearWinning: string;
+  mark6ImpactSomeImpact: string;
+  mark6ImpactOffMark: string;
+  mark6NextDrawLeanTitle: string;
+  mark6NextDrawLeanSubtitle: string;
+  mark6NextDrawLeanScoreLabel: string;
+  mark6NextDrawLeanDisclaimer: string;
+  mark6NextDrawLeanMoreSetsAction: string;
+  mark6NextDrawLeanResetSetsAction: string;
+  mark6NextDrawLeanRankBandLabel: string;
   horseWinningHorseLabel: string;
   horsePreviousWinnerLabel: string;
   horsePreviousWinnerDateLabel: string;
@@ -152,9 +201,13 @@ type CopyShape = {
   horseBetTypeInfoTrio: string;
   horseBetTypeInfoTierce: string;
   horseStakeLabel: string;
+  horseStakeClearAriaLabel: string;
+  horseSuggestionRankLabel: string;
   horseEstimatedPayoutTitle: string;
   horseEstimatedReturnLabel: string;
   horseEstimatedProfitLabel: string;
+  horseEstimatedRoiLabel: string;
+  horseEstimatedRoiDisclaimer: string;
   horseEstimatedPayoutDisclaimer: string;
 };
 
@@ -173,6 +226,13 @@ export const copy: Record<Locale, CopyShape> = {
     suggestionsTitle: "Predictions",
     explanationTitle: "Explanation",
     confidenceTitle: "Confidence",
+    confidenceBandLow: "Low",
+    confidenceBandMedium: "Medium",
+    confidenceBandHigh: "High",
+    mark6ManualChipAriaLabel: "Mark Six number {number}",
+    errorGenerateSuggestionsFailed:
+      "Couldn't generate suggestions. Please try again.",
+    errorMark6OverviewFailed: "Couldn't load the overview. Please try again.",
     progressSteps: [
       "Fetching data...",
       "Analyzing...",
@@ -184,12 +244,30 @@ export const copy: Record<Locale, CopyShape> = {
       "For entertainment only. No guaranteed winnings. No financial advice.",
     footerDisclaimer:
       "Entertainment only. No guaranteed winnings. This app does not process bets.",
+    donationButton: "Support this site",
+    donationHint: "Like the service? A small AlipayHK donation helps keep it running.",
+    donationQrTitle: "Support with AlipayHK",
+    donationQrDesktopHint: "On desktop, scan this QR code with AlipayHK.",
+    donationQrMobileHint:
+      "On mobile, long-press or open the QR image, save/screenshot it, then choose it from AlipayHK Scan > Album.",
+    donationQrOpenImage: "Open QR image",
+    donationQrBack: "Back to previous page",
+    donationQrClose: "Close",
     historyTitle: "Past Winners",
     analyticsTitle: "Performance & Trust",
     historyDate: "Date",
     historyRace: "Race",
     historyResult: "Results",
     historyNote: "AI Notes",
+    historyNoRowsMessage: "No results to show.",
+    historyHorseRangeLabel: "Date range",
+    historyHorseRangeWeek: "Past 7 days",
+    historyHorseRangeAll: "All available",
+    historyHorseVenueSt: "Sha Tin",
+    historyHorseVenueHv: "Happy Valley",
+    historyHorseMeetingsHeading: "Race day",
+    historyHorseAccordionSummary: "Full results ({count})",
+    historyHorseMoreLines: "+{count} more lines",
     analyticsConfidence: "Confidence Distribution",
     analyticsTrend: "Suggestion Outcome Trend",
     analyticsHorseBacktestTitle: "Horse Backtest Metrics",
@@ -259,6 +337,15 @@ export const copy: Record<Locale, CopyShape> = {
     mark6NumberMixSmallOnly: "Small numbers only",
     mark6NumberMixBigOnly: "Big numbers only",
     mark6GeneratedSetsLabel: "Generated sets",
+    mark6NumberProbabilityLabel: "Model likelihood per number",
+    mark6OverviewAction: "View 1-49 Overview",
+    mark6OverviewTitle: "Mark Six 1-49 Overview",
+    mark6OverviewSubtitle:
+      "Trained model likelihood for every number, refreshed from HKJC history and previous-draw signals.",
+    mark6OverviewLoading: "Loading model overview...",
+    mark6OverviewRankLabel: "Rank",
+    mark6OverviewProbabilityLabel: "Likelihood",
+    mark6OverviewFiveYearCountLabel: "5-year hits",
     mark6MixGeneratedSetsAction: "Mix Within Generated Sets",
     mark6MixedSetsLabel: "Mixed sets",
     mark6MixNotEnoughNumbers:
@@ -274,6 +361,26 @@ export const copy: Record<Locale, CopyShape> = {
     mark6UpcomingDrawDatesLoading: "Loading draw dates...",
     mark6UpcomingDrawDatesFallback:
       "Using estimated draw pattern (Tue/Thu/Sat) while live schedule is unavailable.",
+    mark6PreviousDrawTitle: "Previous Night Mark Six",
+    mark6PreviousDrawDateLabel: "Draw date",
+    mark6PreviousDrawSpecialLabel: "Special",
+    mark6PreviousDrawLiveSource: "HKJC live result",
+    mark6PreviousDrawLoading: "Loading latest Mark Six result...",
+    mark6PreviousDrawUnavailable: "Latest Mark Six result is unavailable right now.",
+    mark6ImpactBestLabel: "Best previous-draw impact",
+    mark6MatchedNumbersLabel: "Matched numbers",
+    mark6ImpactNearWinning: "Near-winning signal: several selected numbers overlapped with the previous draw.",
+    mark6ImpactSomeImpact: "Some impact: a couple of selected numbers overlapped, but it was still short of a near win.",
+    mark6ImpactOffMark: "Off the mark: very few selected numbers overlapped with the previous draw.",
+    mark6NextDrawLeanTitle: "Next draw — highest model scores",
+    mark6NextDrawLeanSubtitle:
+      "These six numbers rank at the top after the same blend the app uses for suggestions: multi-year draw history, then a weighting pass on the latest official result (nearby numbers, mirror pairs 50−n, light same-decade nudges, and slightly lower emphasis on immediate repeats). Percentages are relative model scores, not true win odds.",
+    mark6NextDrawLeanScoreLabel: "Score {score}%",
+    mark6NextDrawLeanDisclaimer:
+      "For exploration only. Lottery outcomes are random; this is not a payout or investment claim.",
+    mark6NextDrawLeanMoreSetsAction: "More high-score picks",
+    mark6NextDrawLeanResetSetsAction: "Restore top six",
+    mark6NextDrawLeanRankBandLabel: "Model ranks {start}–{end}",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
     horsePreviousWinnerDateLabel: "Last result date",
@@ -324,9 +431,14 @@ export const copy: Record<Locale, CopyShape> = {
     horseBetTypeInfoTierce:
       "Tierce / Trifecta — pick top 3 in exact order.",
     horseStakeLabel: "Stake (HKD)",
+    horseStakeClearAriaLabel: "Clear stake amount",
+    horseSuggestionRankLabel: "Rank #{rank}",
     horseEstimatedPayoutTitle: "Estimated Payout (Pool-based)",
     horseEstimatedReturnLabel: "Return",
     horseEstimatedProfitLabel: "Profit",
+    horseEstimatedRoiLabel: "Gross ROI",
+    horseEstimatedRoiDisclaimer:
+      "Gross ROI counts money returned against stake; profit is the net win or loss after stake.",
     horseEstimatedPayoutDisclaimer:
       "Estimate only. Final dividend depends on pool size, market bets, and official result settlement.",
   },
@@ -344,16 +456,40 @@ export const copy: Record<Locale, CopyShape> = {
     suggestionsTitle: "預測結果",
     explanationTitle: "解說",
     confidenceTitle: "信心等級",
+    confidenceBandLow: "低",
+    confidenceBandMedium: "中",
+    confidenceBandHigh: "高",
+    mark6ManualChipAriaLabel: "六合彩號碼 {number}",
+    errorGenerateSuggestionsFailed: "無法生成推薦，請稍後再試。",
+    errorMark6OverviewFailed: "無法載入總覽，請稍後再試。",
     progressSteps: ["正在獲取資料...", "正在分析...", "正在生成推薦...", "完成。"],
     noSuggestionYet: "請先選擇遊戲與日期，然後生成推薦。",
     disclaimer: "僅供娛樂用途，不保證中獎，並非財務建議。",
     footerDisclaimer: "僅供娛樂用途，不保證中獎。本應用不處理任何投注。",
+    donationButton: "支持本站",
+    donationHint: "喜歡這個服務？可透過 AlipayHK 小額支持網站營運。",
+    donationQrTitle: "透過 AlipayHK 支持",
+    donationQrDesktopHint: "如使用電腦，請用 AlipayHK 掃描此 QR Code。",
+    donationQrMobileHint:
+      "如使用手機，請長按或打開 QR 圖片並儲存/截圖，再到 AlipayHK 掃描 > 相簿選取圖片。",
+    donationQrOpenImage: "打開 QR 圖片",
+    donationQrBack: "返回上一頁",
+    donationQrClose: "關閉",
     historyTitle: "過往結果",
     analyticsTitle: "表現與可信度",
     historyDate: "日期",
     historyRace: "場次",
     historyResult: "結果",
     historyNote: "AI 備註",
+    historyNoRowsMessage: "暫無可查記錄。",
+    historyHorseRangeLabel: "日期範圍",
+    historyHorseRangeWeek: "過去 7 日",
+    historyHorseRangeAll: "全部顯示",
+    historyHorseVenueSt: "沙田",
+    historyHorseVenueHv: "跑馬地",
+    historyHorseMeetingsHeading: "賽馬日",
+    historyHorseAccordionSummary: "完整名次（{count} 行）",
+    historyHorseMoreLines: "另有 {count} 行",
     analyticsConfidence: "信心分佈",
     analyticsTrend: "推薦結果趨勢",
     analyticsHorseBacktestTitle: "賽馬回測指標",
@@ -419,6 +555,14 @@ export const copy: Record<Locale, CopyShape> = {
     mark6NumberMixSmallOnly: "只要細號",
     mark6NumberMixBigOnly: "只要大號",
     mark6GeneratedSetsLabel: "已生成組合",
+    mark6NumberProbabilityLabel: "每個號碼的模型機率",
+    mark6OverviewAction: "查看1-49總覽",
+    mark6OverviewTitle: "六合彩1-49總覽",
+    mark6OverviewSubtitle: "每個號碼的訓練模型機率，按香港賽馬會歷史及上一期訊號更新。",
+    mark6OverviewLoading: "正在載入模型總覽...",
+    mark6OverviewRankLabel: "排名",
+    mark6OverviewProbabilityLabel: "機率",
+    mark6OverviewFiveYearCountLabel: "5年出現次數",
     mark6MixGeneratedSetsAction: "混合同批組合",
     mark6MixedSetsLabel: "混合後組合",
     mark6MixNotEnoughNumbers: "需要至少2組已生成組合及足夠不重複號碼才可混合。",
@@ -432,6 +576,25 @@ export const copy: Record<Locale, CopyShape> = {
     mark6UpcomingDrawDatesLabel: "即將開彩日期",
     mark6UpcomingDrawDatesLoading: "正在載入開彩日期...",
     mark6UpcomingDrawDatesFallback: "暫時未能取得官方日程，先以週二/四/六估算顯示。",
+    mark6PreviousDrawTitle: "上一晚六合彩",
+    mark6PreviousDrawDateLabel: "開彩日期",
+    mark6PreviousDrawSpecialLabel: "特別號碼",
+    mark6PreviousDrawLiveSource: "香港賽馬會即時結果",
+    mark6PreviousDrawLoading: "正在載入最新六合彩結果...",
+    mark6PreviousDrawUnavailable: "暫時未能取得最新六合彩結果。",
+    mark6ImpactBestLabel: "最佳接近命中比例",
+    mark6MatchedNumbersLabel: "命中號碼",
+    mark6ImpactNearWinning: "接近中獎訊號：多個已選號碼與上一期重疊。",
+    mark6ImpactSomeImpact: "有少量影響：有兩個號碼重疊，但仍未算接近中獎。",
+    mark6ImpactOffMark: "偏離結果：與上一期重疊的號碼很少。",
+    mark6NextDrawLeanTitle: "下一期 — 模型分數最高六個號碼",
+    mark6NextDrawLeanSubtitle:
+      "此六個號碼在與建議相同的演算下排名最前：先用近年的開彩歷史統計，再以最近一期官方結果作權重調整（鄰近號碼、鏡像號碼 50−n、同頭（十個一組）輕微加成，並對即時重複略為降權）。顯示百分比為相對模型分數，並非實際中獎機率。",
+    mark6NextDrawLeanScoreLabel: "分數 {score}%",
+    mark6NextDrawLeanDisclaimer: "僅供參考探索。抽獎結果具隨機性，並非派彩或投資建議。",
+    mark6NextDrawLeanMoreSetsAction: "更多高分組合",
+    mark6NextDrawLeanResetSetsAction: "還原本期首選六個號碼",
+    mark6NextDrawLeanRankBandLabel: "模型排名第 {start}–{end} 位",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",
     horsePreviousWinnerDateLabel: "最近結果日期",
@@ -478,10 +641,27 @@ export const copy: Record<Locale, CopyShape> = {
     horseBetTypeInfoTrio: "三重彩（任意）— 選中前3名，次序不限。",
     horseBetTypeInfoTierce: "單T / Trifecta — 選中前3名且次序正確。",
     horseStakeLabel: "投注金額（港元）",
+    horseStakeClearAriaLabel: "清除投注金額",
+    horseSuggestionRankLabel: "第{rank}名",
     horseEstimatedPayoutTitle: "預計派彩（彩池制）",
     horseEstimatedReturnLabel: "回報",
     horseEstimatedProfitLabel: "盈利",
+    horseEstimatedRoiLabel: "總回報率",
+    horseEstimatedRoiDisclaimer:
+      "總回報率計算取回金額相對投注本金；盈利才是扣除本金後的實際盈虧。",
     horseEstimatedPayoutDisclaimer:
       "僅為估算。最終派彩取決於彩池金額、市場投注分佈及官方賽果結算。",
   },
 };
+
+export function formatConfidenceBandLabel(band: string | undefined, locale: Locale): string {
+  const t = copy[locale];
+  switch (band) {
+    case "High":
+      return t.confidenceBandHigh;
+    case "Medium":
+      return t.confidenceBandMedium;
+    default:
+      return t.confidenceBandLow;
+  }
+}

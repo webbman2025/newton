@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getHorseHistoryByDate } from "@/lib/data";
 import { locales, type Locale } from "@/lib/translations";
 
+/** Same ingest as History (throttled inside getHorseHistoryByDate) — bypass edge caching. */
+export const dynamic = "force-dynamic";
+
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {

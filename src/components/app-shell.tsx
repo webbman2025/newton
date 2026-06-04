@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -7,6 +8,8 @@ import {
   Box,
   Button,
   Container,
+  Dialog,
+  DialogContent,
   Divider,
   MenuItem,
   Select,
@@ -24,15 +27,22 @@ import {
   InfoRegular,
 } from "@fluentui/react-icons";
 import { useCopy, useLocale } from "@/components/locale-provider";
+import { getAlipayHkQrLandingUrl } from "@/lib/alipayhk-donation";
 import type { Locale } from "@/lib/translations";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { locale, setLocale } = useLocale();
   const t = useCopy();
+  const donationUrl = process.env.NEXT_PUBLIC_ALIPAY_HK_DONATION_URL?.trim();
+  const donationQrImageUrl =
+    process.env.NEXT_PUBLIC_ALIPAY_HK_QR_IMAGE_URL?.trim() || "/alipayhk-qr.png";
+  const alipayHkQrLandingUrl = donationQrImageUrl ? getAlipayHkQrLandingUrl() : "";
+  const hasDonationSupport = Boolean(donationUrl || donationQrImageUrl);
+  const [isDonationQrFullscreenOpen, setIsDonationQrFullscreenOpen] = useState(false);
 
   return (
-    <Box sx={{ minHeight: "100vh", pb: 8 }}>
+    <Box sx={{ minHeight: "100vh", pb: hasDonationSupport ? 17 : 8 }}>
       <AppBar position="sticky" color="primary">
         <Toolbar sx={{ gap: 1.5, justifyContent: "space-between", minHeight: 64 }}>
           <Typography variant="h6" sx={{ fontSize: "1rem", display: "flex", alignItems: "center", gap: 0.8 }}>
@@ -76,6 +86,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         sx={{
           position: "fixed",
           bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: (theme) => theme.zIndex.appBar,
           width: "100%",
           bgcolor: "background.paper",
           borderTop: "1px solid #e1dfdd",
@@ -84,12 +97,160 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <Container maxWidth="sm">
           <Divider sx={{ mb: 1 }} />
-          <Typography variant="caption" sx={{ display: "flex", color: "text.secondary", gap: 0.8, alignItems: "center" }}>
-            <InfoRegular fontSize={14} />
-            {t.footerDisclaimer}
-          </Typography>
+          <Stack spacing={0.8}>
+            {hasDonationSupport ? (
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1}
+                sx={{
+                  alignItems: { xs: "stretch", sm: "center" },
+                  justifyContent: "space-between",
+                  gap: 1,
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
+                  {t.donationHint}
+                </Typography>
+                {donationQrImageUrl ? (
+                  <Button
+                    type="button"
+                    variant="contained"
+                    size="small"
+                    onClick={() => setIsDonationQrFullscreenOpen(true)}
+                    sx={{
+                      borderRadius: 999,
+                      minHeight: 40,
+                      minWidth: { xs: "100%", sm: 180 },
+                      px: 2.5,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {t.donationButton}
+                  </Button>
+                ) : (
+                  <Button
+                    component="a"
+                    href={donationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="contained"
+                    size="small"
+                    sx={{
+                      borderRadius: 999,
+                      minHeight: 40,
+                      minWidth: { xs: "100%", sm: 180 },
+                      px: 2.5,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {t.donationButton}
+                  </Button>
+                )}
+              </Stack>
+            ) : null}
+            <Typography variant="caption" sx={{ display: "flex", color: "text.secondary", gap: 0.8, alignItems: "center" }}>
+              <InfoRegular fontSize={14} />
+              {t.footerDisclaimer}
+            </Typography>
+          </Stack>
         </Container>
       </Box>
+
+      {donationQrImageUrl ? (
+        <Dialog
+          fullScreen
+          open={isDonationQrFullscreenOpen}
+          onClose={() => setIsDonationQrFullscreenOpen(false)}
+          aria-label={t.donationQrTitle}
+          slotProps={{
+            root: {
+              sx: {
+                zIndex: (theme) => theme.zIndex.modal + 200,
+              },
+            },
+            paper: {
+              elevation: 0,
+              sx: {
+                bgcolor: "background.default",
+                display: "flex",
+                flexDirection: "column",
+                backgroundImage:
+                  "radial-gradient(1200px 300px at 50% -120px, rgba(15,108,189,0.12), transparent)",
+              },
+            },
+          }}
+        >
+          <DialogContent
+            sx={{
+              flex: "1 1 auto",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 3,
+              px: 2,
+              py: 3,
+              pt: "calc(12px + env(safe-area-inset-top, 0px))",
+              pb: "calc(24px + env(safe-area-inset-bottom, 0px))",
+              overflow: "auto",
+            }}
+          >
+            <Box
+              component="a"
+              href={alipayHkQrLandingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t.donationQrTitle}
+              sx={{
+                display: "block",
+                width: "min(92vw, 360px)",
+                maxWidth: "100%",
+                borderRadius: 3,
+                overflow: "hidden",
+                border: "1px solid",
+                borderColor: "divider",
+                bgcolor: "background.paper",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+                lineHeight: 0,
+                textDecoration: "none",
+                "&:focus-visible": {
+                  outline: "3px solid",
+                  outlineColor: "primary.main",
+                  outlineOffset: 4,
+                },
+              }}
+            >
+              <Box
+                component="img"
+                src={donationQrImageUrl}
+                alt=""
+                sx={{
+                  width: "100%",
+                  maxHeight: "min(52vh, 380px)",
+                  height: "auto",
+                  objectFit: "contain",
+                  display: "block",
+                  verticalAlign: "bottom",
+                }}
+              />
+            </Box>
+            <Button
+              type="button"
+              variant="contained"
+              fullWidth
+              onClick={() => setIsDonationQrFullscreenOpen(false)}
+              sx={{
+                maxWidth: 360,
+                minHeight: 48,
+                borderRadius: 2,
+                fontWeight: 700,
+              }}
+            >
+              {t.donationQrBack}
+            </Button>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </Box>
   );
 }

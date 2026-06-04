@@ -12,7 +12,7 @@ Entertainment-only mobile web app for Mark Six and horse racing suggestions with
 
 ## Agentic Horse Racing Analyst Profiles
 
-These profiles define the intended analysis style for horse-racing educational insights.
+These profiles define the intended analysis style for horse-racing educational insights. On **Vercel**, they run automatically when you generate **horse** picks for an **upcoming** race day — provided `DATABASE_URL` is set and migrations have been applied (see `DEPLOYMENT.md`). Check `/api/health` → `horseAnalyst.ready`.
 
 1. **Paul Jones**
    - Specialty: Cheltenham Festival and big-race trends
@@ -30,14 +30,38 @@ These profiles define the intended analysis style for horse-racing educational i
    - Qualities: Deep racing knowledge, strong analytical skills, objectivity in predictions, and years of experience adapting to trends
    - Influence: Insights used by bettors, racing publications, and trainers to optimize race strategies
 
+## Agentic Mark Six Expert Profiles
+
+These profiles blend different signal weights on each Mark Six generate (default **consensus** = all three averaged). Not separate AI bots — statistical tuning only.
+
+1. **Frequency Historian**
+   - Emphasis: long-horizon draw frequency and trained logistic model lift
+   - Style: stable historical baselines, lighter neighbour-of-last-draw boosts
+
+2. **Momentum Tracker**
+   - Emphasis: seasonal / same-day-month temporal boosts and recent-model lift
+   - Style: cyclical and holiday-window sensitivity
+
+3. **Draw Pattern Specialist**
+   - Emphasis: previous-draw neighbours (±1/±2), mirror numbers (50−n), decade bands
+   - Style: pattern-following after the latest official result
+
+On **Vercel**, experts run when you generate **Mark Six** picks with `DATABASE_URL` set. Check `/api/health` → `mark6Expert.ready`. Optional env: `MARK6_EXPERT_STRATEGY`, `MARK6_EXPERT_PROFILE` (see `DEPLOYMENT.md`).
+
 ## Quick Start
+
+### Production (Vercel — what you use day to day)
+
+Open your deployed site, for example `https://<your-project>.vercel.app` (find it in the Vercel dashboard → **Domains**). The live app never points users at `localhost`.
+
+### Local development only
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Then open `http://localhost:3000` on the machine where you ran `npm run dev`. Cursor’s preview or “Open in Browser” after `npm run dev` also uses this URL — that is expected for local work, not your Vercel deployment.
 
 ## Local Postgres Setup
 
@@ -104,9 +128,10 @@ Notes:
 
 - `POST /api/suggestions`
 - `GET /api/history`
+  - Horse mode: optional `pastDays=N` limits results to HK calendar dates from _(today − (N−1))_ through today (inclusive); omit for the full capped list served to legacy callers (e.g. home overview).
 - `GET /api/analytics`
 - `GET /api/health`
 
 ## Deploy
 
-See `DEPLOYMENT.md` and `vercel.json`.
+See `DEPLOYMENT.md` and `vercel.json`. After deploy, use your **Vercel URL** for the app and for checks such as `/api/health` — not `localhost`.

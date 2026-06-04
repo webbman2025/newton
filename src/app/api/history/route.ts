@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getHistory } from "@/lib/data";
 import { locales, type Locale, type Mode } from "@/lib/translations";
 
+/** Always hit origin + DB ingest on read so horse History follows newly finished races without waiting for cron. */
+export const dynamic = "force-dynamic";
+
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
@@ -16,7 +19,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unsupported mode." }, { status: 400 });
     }
 
-    return NextResponse.json({ rows: await getHistory(mode, locale) });
+    const pastDaysRaw = searchParams.get("pastDays");
+    let horsePastDays: number | undefined;
+    if (mode === "horse" && pastDaysRaw !== null && pastDaysRaw !== "") {
+      const parsed = Number.parseInt(pastDaysRaw, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        horsePastDays = Math.min(parsed, 366);
+      }
+    }
+
+    return NextResponse.json({
+      rows: await getHistory(mode, locale, horsePastDays ? { horsePastDays } : undefined),
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to load history." },

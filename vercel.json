@@ -1,9 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
+    "src/app/api/history/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/history/horse-date/route.ts": {
+      "maxDuration": 120
+    },
     "src/app/api/suggestions/route.ts": {
       "memory": 512,
-      "maxDuration": 10
+      "maxDuration": 60
     }
   },
   "crons": [

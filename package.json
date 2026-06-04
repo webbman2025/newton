@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "uat:horse-shape": "npx --yes tsx scripts/uat-horse-history-shape.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

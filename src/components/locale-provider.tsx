@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -16,6 +17,13 @@ type LocaleContextValue = {
 
 const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
 const STORAGE_KEY = "mba-locale";
+
+function HtmlLangAttributeSync({ locale }: { locale: Locale }) {
+  useEffect(() => {
+    document.documentElement.lang = locale === "zh-HK" ? "zh-Hant-HK" : "en";
+  }, [locale]);
+  return null;
+}
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => {
@@ -32,7 +40,12 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo(() => ({ locale, setLocale }), [locale]);
-  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
+  return (
+    <LocaleContext.Provider value={value}>
+      <HtmlLangAttributeSync locale={locale} />
+      {children}
+    </LocaleContext.Provider>
+  );
 }
 
 export function useLocale() {

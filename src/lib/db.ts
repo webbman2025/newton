@@ -106,6 +106,11 @@ export async function ensureSchema() {
     `);
 
     await dbQuery(`
+      ALTER TABLE mark6_results
+      ADD COLUMN IF NOT EXISTS special_number INTEGER;
+    `);
+
+    await dbQuery(`
       CREATE TABLE IF NOT EXISTS suggestion_logs (
         id BIGSERIAL PRIMARY KEY,
         mode TEXT NOT NULL CHECK (mode IN ('mark6', 'horse')),

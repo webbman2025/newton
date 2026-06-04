@@ -1,9 +1,21 @@
 import type { ConfidenceBand, Locale, Mode } from "@/lib/translations";
 import { dbQuery, ensureSchema, withTransaction } from "@/lib/db";
+import {
+  isHorseHistoryEntryShape,
+} from "@/lib/horse-history-shape";
+import { ingestHorseRacingFromHkjc, ingestMarkSixFromWeb } from "@/lib/web-ingest";
 
 type Mark6PredictionType = "single" | "multiple" | "banker";
 type Mark6NumberMix = "mixed" | "smallOnly" | "bigOnly";
 type Mark6GenerateMode = "auto" | "manual";
+type Mark6NumberProbability = {
+  number: number;
+  probability: number;
+};
+type Mark6TrainingDraw = {
+  drawDate: Date;
+  numbers: number[];
+};
 
 export type SuggestionResponse = {
   status: "ok" | "stale";
@@ -22,6 +34,8 @@ export type SuggestionResponse = {
     };
   };
   mark6BatchSets?: number[][];
+  mark6PreviousDraw?: Mark6PreviousDraw;
+  mark6NumberProbabilities?: Mark6NumberProbability[];
   horseSuggestions?: {
     horseNumber: number;
     horseName: string;
@@ -56,6 +70,10 @@ export type SuggestionResponse = {
   horseAnalysis?: {
     strategy: HorseAnalystStrategy;
     activeProfiles: HorseAnalystProfile[];
+  };
+  mark6Analysis?: {
+    strategy: Mark6ExpertStrategy;
+    activeProfiles: Mark6ExpertProfile[];
   };
   confidenceBand: ConfidenceBand;
   explanation: string;
@@ -103,12 +121,15 @@ type SuggestionBase = {
   mark6PredictionType?: Mark6PredictionType;
   mark6Prediction?: SuggestionResponse["mark6Prediction"];
   mark6BatchSets?: number[][];
+  mark6PreviousDraw?: Mark6PreviousDraw;
+  mark6NumberProbabilities?: Mark6NumberProbability[];
   horseSuggestions?: HorseSuggestionItem[];
   modelVersion?: string;
   generatedAt?: string;
   dataFreshness?: SuggestionResponse["dataFreshness"];
   featureCoverage?: SuggestionResponse["featureCoverage"];
   horseAnalysis?: SuggestionResponse["horseAnalysis"];
+  mark6Analysis?: SuggestionResponse["mark6Analysis"];
   confidenceBand: ConfidenceBand;
   explanation: string;
 };
@@ -123,6 +144,13 @@ type HistoryEntry = {
 type Mark6FallbackResult = {
   date: string;
   numbers: number[];
+};
+
+type Mark6PreviousDraw = {
+  date: string;
+  numbers: number[];
+  specialNumber?: number;
+  source?: "hkjc" | "database" | "fallback";
 };
 
 type RaceFallbackResult = {
@@ -270,6 +298,57 @@ const raceFallbackRows: RaceFallbackResult[] = [
 const HISTORY_YEARS = 5;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const HISTORY_WINDOW_DAYS = HISTORY_YEARS * 365;
+const MARK6_BASELINE_PROBABILITY = 6 / 49;
+const HKJC_MARK6_GRAPHQL_URL = "https://info.cld.hkjc.com/graphql/base/";
+const HKJC_MARK6_DRAW_QUERY = `
+fragment lotteryDrawsFragment on LotteryDraw {
+    id
+    year
+    no
+    openDate
+    closeDate
+    drawDate
+    status
+    snowballCode
+    snowballName_en
+    snowballName_ch
+    lotteryPool {
+      sell
+      status
+      totalInvestment
+      jackpot
+      unitBet
+      estimatedPrize
+      derivedFirstPrizeDiv
+      lotteryPrizes {
+        type
+        winningUnit
+        dividend
+      }
+    }
+    drawResult {
+      drawnNo
+      xDrawnNo
+    }
+  }
+query marksixDraw {
+            timeOffset {
+                m6  
+                ts  
+            }
+            lotteryDraws {
+                ...lotteryDrawsFragment
+            }
+        }`;
+
+type HkjcMark6Draw = {
+  drawDate?: string;
+  status?: string;
+  drawResult?: {
+    drawnNo?: number[];
+    xDrawnNo?: number;
+  };
+};
 
 function extractRaceNumber(raceId?: string): number {
   if (!raceId) {
@@ -281,6 +360,150 @@ function extractRaceNumber(raceId?: string): number {
   }
   const value = Number.parseInt(match[1], 10);
   return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
+}
+
+function extractRaceCourse(raceId?: string): "ST" | "HV" | undefined {
+  const match = raceId?.match(/(?:^|[-])(ST|HV)-R\d+$/i);
+  return (match?.[1]?.toUpperCase() as "ST" | "HV" | undefined) ?? undefined;
+}
+
+function dedupeMirroredHorseHistoryRows(rows: HistoryEntry[]): HistoryEntry[] {
+  const dateCourseHasRaceOne = new Set<string>();
+  for (const row of rows) {
+    const course = extractRaceCourse(row.raceId);
+    if (course && extractRaceNumber(row.raceId) === 1) {
+      dateCourseHasRaceOne.add(`${row.date}-${course}`);
+    }
+  }
+
+  const byRaceResult = new Map<string, HistoryEntry>();
+  for (const row of rows) {
+    const raceNo = extractRaceNumber(row.raceId);
+    const key = `${row.date}-${raceNo}-${row.result}`;
+    const existing = byRaceResult.get(key);
+    if (!existing) {
+      byRaceResult.set(key, row);
+      continue;
+    }
+
+    const rowCourse = extractRaceCourse(row.raceId);
+    const existingCourse = extractRaceCourse(existing.raceId);
+    const rowCourseHasRaceOne = rowCourse
+      ? dateCourseHasRaceOne.has(`${row.date}-${rowCourse}`)
+      : false;
+    const existingCourseHasRaceOne = existingCourse
+      ? dateCourseHasRaceOne.has(`${existing.date}-${existingCourse}`)
+      : false;
+    if (rowCourseHasRaceOne && !existingCourseHasRaceOne) {
+      byRaceResult.set(key, row);
+    }
+  }
+
+  return [...byRaceResult.values()];
+}
+
+export type GetHistoryOptions = {
+  /** Restrict horse history to HK calendar dates from (today − (pastDays − 1)) through today inclusive. Omit for full list (legacy API clients). */
+  horsePastDays?: number;
+};
+
+function normalizeHorsePastDays(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  const n = Math.floor(value);
+  if (n < 1) {
+    return undefined;
+  }
+  return Math.min(n, 366);
+}
+
+function subtractCalendarDaysIso(ymd: string, subtractDays: number): string {
+  const [ys, ms, ds] = ymd.split("-");
+  const y = Number.parseInt(ys ?? "0", 10);
+  const m = Number.parseInt(ms ?? "0", 10);
+  const d = Number.parseInt(ds ?? "0", 10);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return ymd;
+  }
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - subtractDays);
+  return dt.toISOString().slice(0, 10);
+}
+
+/** HK calendar date fallback when DB is unreachable. */
+function hkYmdIntlFallback(): string {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(new Date());
+  let year = "";
+  let month = "";
+  let day = "";
+  for (const p of parts) {
+    if (p.type === "year") {
+      year = p.value;
+    }
+    if (p.type === "month") {
+      month = p.value;
+    }
+    if (p.type === "day") {
+      day = p.value;
+    }
+  }
+  if (!year || !month || !day) {
+    return new Date().toISOString().slice(0, 10);
+  }
+  const mm = month.padStart(2, "0");
+  const dd = day.padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
+}
+
+async function hkTodayYmdForHistory(): Promise<string> {
+  if (!canUseDatabase()) {
+    return hkYmdIntlFallback();
+  }
+  try {
+    const row = await dbQuery<{ ymd: string }>(
+      `SELECT TO_CHAR((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Hong_Kong')::date, 'YYYY-MM-DD') AS ymd`,
+    );
+    const ymd = row.rows[0]?.ymd;
+    if (ymd && /^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      return ymd;
+    }
+  } catch {
+    /* fall through */
+  }
+  return hkYmdIntlFallback();
+}
+
+function filterHorseHistoryByPastDays(rows: HistoryEntry[], pastDays: number, hkToday: string): HistoryEntry[] {
+  const cutoff = subtractCalendarDaysIso(hkToday, pastDays - 1);
+  return rows.filter((row) => row.date >= cutoff);
+}
+
+async function finalizeHorseFallbackRows(locale: Locale, options?: GetHistoryOptions): Promise<HistoryEntry[]> {
+  const rows = getHistoryFallback("horse", locale);
+  const pd = normalizeHorsePastDays(options?.horsePastDays);
+  if (!pd) {
+    return rows;
+  }
+  const hk = await hkTodayYmdForHistory();
+  return filterHorseHistoryByPastDays(rows, pd, hk);
+}
+
+async function finalizeHistoryFallback(
+  mode: Mode,
+  locale: Locale,
+  options?: GetHistoryOptions,
+): Promise<HistoryEntry[]> {
+  if (mode !== "horse") {
+    return getHistoryFallback(mode, locale);
+  }
+  return finalizeHorseFallbackRows(locale, options);
 }
 
 function canUseDatabase() {
@@ -309,8 +532,258 @@ function getHistoryWindow(targetDate: string) {
   };
 }
 
+/** Best-effort HKJC scrape of recent racedays — mirrors cron tuning so newest races appear on History shortly after HKJC publishes. */
+let horseRaceIngestNearTermInFlight: Promise<void> | undefined;
+/** Avoid hammering HKJC when the home calendar triggers many sequential requests. */
+let horseRaceNearTermLastAttemptMs = 0;
+const HORSE_RACE_NEAR_TERM_COOLDOWN_MS = 90_000;
+
+/** When `/api/history` already has substantial race aggregates, skip on-read ingestion to avoid lambdas timing out (~60s) while sequentially scraping HKJC. */
+async function horseHistoryCorpusWarmEnoughForSkipIngest(): Promise<boolean> {
+  if (!canUseDatabase()) {
+    return false;
+  }
+  try {
+    const threshold = Number.parseInt(
+      process.env.HISTORY_HORSE_SKIP_INGEST_MIN_DISTINCT ?? "",
+      10,
+    );
+    const effectiveMinDistinct = Number.isFinite(threshold)
+      ? Math.max(12, threshold)
+      : 28;
+
+    const { rows } = await dbQuery<{ races: number }>(
+      `
+      SELECT COUNT(DISTINCT (race_date::text || '|' || race_id))::int AS races
+      FROM race_results
+      WHERE race_id ~ '^([0-9]{4}-[0-9]{2}-[0-9]{2}-)?(ST|HV)-R[0-9]+$'
+      `,
+    );
+    return (rows[0]?.races ?? 0) >= effectiveMinDistinct;
+  } catch {
+    return false;
+  }
+}
+
+async function refreshHorseRaceResultsNearTerm(): Promise<void> {
+  const now = Date.now();
+
+  const inFlight = horseRaceIngestNearTermInFlight;
+  if (inFlight) {
+    await inFlight;
+    return;
+  }
+
+  if (await horseHistoryCorpusWarmEnoughForSkipIngest()) {
+    return;
+  }
+
+  if (now - horseRaceNearTermLastAttemptMs < HORSE_RACE_NEAR_TERM_COOLDOWN_MS) {
+    return;
+  }
+
+  horseRaceNearTermLastAttemptMs = now;
+
+  const meetingCap = Number.parseInt(
+    process.env.HISTORY_HORSE_INGEST_MAX_MEETING_DATES ?? "",
+    10,
+  );
+  const effectiveMeetingsCap = Number.isFinite(meetingCap)
+    ? Math.max(2, Math.min(12, meetingCap))
+    : 4;
+
+  const runIngest = (async (): Promise<void> => {
+    const start = new Date();
+    const from = new Date(start);
+    from.setDate(start.getDate() - 18);
+    const fromDate = from.toISOString().slice(0, 10);
+    await ingestHorseRacingFromHkjc({
+      fromDate,
+      /** Keep read-path ingestion small so `/api/history` stays under invocation limits even with cold DB. Cron can widen coverage. */
+      maxMeetingDates: effectiveMeetingsCap,
+    }).catch(() => undefined);
+  })();
+
+  horseRaceIngestNearTermInFlight = runIngest.then(() => undefined).finally(() => {
+    horseRaceIngestNearTermInFlight = undefined;
+  });
+
+  await horseRaceIngestNearTermInFlight;
+}
+
+let mark6IngestNearTermInFlight: Promise<void> | undefined;
+let mark6NearTermLastAttemptMs = 0;
+const MARK6_NEAR_TERM_COOLDOWN_MS = 90_000;
+
+/** Best-effort Mark Six history ingest when DB is thin — mirrors History read-path for Vercel generate. */
+async function refreshMark6ResultsNearTerm(): Promise<void> {
+  if (!canUseDatabase()) {
+    return;
+  }
+
+  const inFlight = mark6IngestNearTermInFlight;
+  if (inFlight) {
+    await inFlight;
+    return;
+  }
+
+  try {
+    const { rows } = await dbQuery<{ draws: number }>(
+      `SELECT COUNT(*)::int AS draws FROM mark6_results`,
+    );
+    if ((rows[0]?.draws ?? 0) >= 25) {
+      return;
+    }
+  } catch {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - mark6NearTermLastAttemptMs < MARK6_NEAR_TERM_COOLDOWN_MS) {
+    return;
+  }
+  mark6NearTermLastAttemptMs = now;
+
+  const runIngest = (async (): Promise<void> => {
+    const { startDate } = getHistoryWindow(new Date().toISOString().slice(0, 10));
+    await ingestMarkSixFromWeb({ fromDate: startDate }).catch(() => undefined);
+  })();
+
+  mark6IngestNearTermInFlight = runIngest.then(() => undefined).finally(() => {
+    mark6IngestNearTermInFlight = undefined;
+  });
+
+  await mark6IngestNearTermInFlight;
+}
+
 function toDate(value: string | Date) {
   return value instanceof Date ? value : new Date(value);
+}
+
+function formatDateKey(value: string | Date): string {
+  return toDate(value).toISOString().slice(0, 10);
+}
+
+function getFallbackPreviousMark6Draw(targetDate: string): Mark6PreviousDraw {
+  const target = toDate(targetDate);
+  const targetTime = Number.isNaN(target.getTime()) ? Date.now() : target.getTime();
+  const previousDraw =
+    [...mark6FallbackRows]
+      .sort((a, b) => toDate(b.date).getTime() - toDate(a.date).getTime())
+      .find((row) => toDate(row.date).getTime() < targetTime) ?? mark6FallbackRows.at(-1);
+
+  return {
+    date: previousDraw?.date ?? "",
+    numbers: [...(previousDraw?.numbers ?? [])].sort((a, b) => a - b),
+    source: "fallback",
+  };
+}
+
+async function getLatestHkjcMark6PreviousDraw(): Promise<Mark6PreviousDraw | null> {
+  const response = await fetch(HKJC_MARK6_GRAPHQL_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (compatible; MobileBettingAssistant/1.0)",
+      Origin: "https://bet.hkjc.com",
+      Referer: "https://bet.hkjc.com/marksix/Results.aspx?lang=en",
+    },
+    body: JSON.stringify({
+      query: HKJC_MARK6_DRAW_QUERY,
+      variables: {},
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`HKJC Mark Six fetch failed (${response.status})`);
+  }
+
+  const payload = (await response.json()) as {
+    data?: { lotteryDraws?: HkjcMark6Draw[] | null };
+  };
+  const latestResult = (payload.data?.lotteryDraws ?? []).find(
+    (draw) =>
+      draw.status === "Result" &&
+      (draw.drawResult?.drawnNo?.filter((value) => Number.isInteger(value)).length ?? 0) >= 6,
+  );
+  if (!latestResult?.drawDate || !latestResult.drawResult?.drawnNo) {
+    return null;
+  }
+
+  return {
+    date: latestResult.drawDate.slice(0, 10),
+    numbers: latestResult.drawResult.drawnNo.slice(0, 6).sort((a, b) => a - b),
+    specialNumber: Number.isInteger(latestResult.drawResult.xDrawnNo)
+      ? latestResult.drawResult.xDrawnNo
+      : undefined,
+    source: "hkjc",
+  };
+}
+
+async function upsertMark6PreviousDraw(draw: Mark6PreviousDraw) {
+  if (!canUseDatabase() || draw.source !== "hkjc" || draw.numbers.length !== 6) {
+    return;
+  }
+
+  try {
+    await dbQuery(
+      `
+      INSERT INTO mark6_results (draw_date, numbers, special_number, jackpot_amount, source)
+      VALUES ($1::date, $2::int[], $3, NULL, 'hkjc-live')
+      ON CONFLICT (draw_date)
+      DO UPDATE SET
+        numbers = EXCLUDED.numbers,
+        special_number = EXCLUDED.special_number,
+        source = EXCLUDED.source,
+        ingested_at = NOW()
+      `,
+      [draw.date, draw.numbers, draw.specialNumber ?? null],
+    );
+  } catch {
+    // Live display should not fail if the local history cache cannot be updated.
+  }
+}
+
+export async function getLatestMark6PreviousDraw(
+  targetDate = new Date().toISOString().slice(0, 10),
+): Promise<Mark6PreviousDraw> {
+  const liveDraw = await getLatestHkjcMark6PreviousDraw().catch(() => null);
+  if (liveDraw) {
+    await upsertMark6PreviousDraw(liveDraw);
+    return liveDraw;
+  }
+
+  if (canUseDatabase()) {
+    try {
+      await ensureSchema();
+      const rows = await dbQuery<{
+        draw_date: string;
+        numbers: number[];
+        special_number: number | null;
+      }>(
+        `
+        SELECT draw_date, numbers, special_number
+        FROM mark6_results
+        ORDER BY draw_date DESC
+        LIMIT 1
+        `,
+      );
+      const latest = rows.rows[0];
+      if (latest) {
+        return {
+          date: formatDateKey(latest.draw_date),
+          numbers: [...latest.numbers].sort((a, b) => a - b),
+          specialNumber: latest.special_number ?? undefined,
+          source: "database",
+        };
+      }
+    } catch {
+      // Fall through to bundled sample result.
+    }
+  }
+
+  return getFallbackPreviousMark6Draw(targetDate);
 }
 
 type FormStats = { total: number; top3: number; wins: number };
@@ -504,6 +977,132 @@ function getHorseAnalystConfig(overrides?: {
   };
 }
 
+export type Mark6ExpertProfile = "frequencyHistorian" | "momentumTracker" | "drawPatternSpecialist";
+export type Mark6ExpertStrategy = "consensus" | "single";
+
+type Mark6ExpertWeightProfile = {
+  historicalHitWeight: number;
+  trainedModelFrequencyBlend: number;
+  trainedModelLiftBlend: number;
+  previousDrawRepeatMultiplier: number;
+  previousDrawAdjacentBoost: number;
+  previousDrawNearBoost: number;
+  previousDrawMirrorBoost: number;
+  previousDrawDecadeBoost: number;
+  temporalSeasonalBoost: number;
+};
+
+const MARK6_EXPERT_WEIGHTS: Record<Mark6ExpertProfile, Mark6ExpertWeightProfile> = {
+  /** Long-horizon frequency + statistical model emphasis (PRD: Data Scientist). */
+  frequencyHistorian: {
+    historicalHitWeight: 1.35,
+    trainedModelFrequencyBlend: 0.35,
+    trainedModelLiftBlend: 0.65,
+    previousDrawRepeatMultiplier: 0.78,
+    previousDrawAdjacentBoost: 0.45,
+    previousDrawNearBoost: 0.15,
+    previousDrawMirrorBoost: 0.2,
+    previousDrawDecadeBoost: 0.06,
+    temporalSeasonalBoost: 1.05,
+  },
+  /** Recency, seasonal windows, and short-run model lift. */
+  momentumTracker: {
+    historicalHitWeight: 1.1,
+    trainedModelFrequencyBlend: 0.48,
+    trainedModelLiftBlend: 0.72,
+    previousDrawRepeatMultiplier: 0.7,
+    previousDrawAdjacentBoost: 0.55,
+    previousDrawNearBoost: 0.22,
+    previousDrawMirrorBoost: 0.28,
+    previousDrawDecadeBoost: 0.1,
+    temporalSeasonalBoost: 1.35,
+  },
+  /** Previous-draw neighbours, mirrors, and decade clustering. */
+  drawPatternSpecialist: {
+    historicalHitWeight: 0.9,
+    trainedModelFrequencyBlend: 0.42,
+    trainedModelLiftBlend: 0.48,
+    previousDrawRepeatMultiplier: 0.65,
+    previousDrawAdjacentBoost: 0.95,
+    previousDrawNearBoost: 0.42,
+    previousDrawMirrorBoost: 0.55,
+    previousDrawDecadeBoost: 0.14,
+    temporalSeasonalBoost: 1.0,
+  },
+};
+
+const MARK6_EXPERT_PROFILE_KEYS = Object.keys(MARK6_EXPERT_WEIGHTS) as Mark6ExpertProfile[];
+
+function getAverageMark6ExpertWeights(activeProfiles: Mark6ExpertProfile[]): Mark6ExpertWeightProfile {
+  const profiles: Mark6ExpertProfile[] =
+    activeProfiles.length > 0 ? activeProfiles : ["frequencyHistorian"];
+  const keys = Object.keys(MARK6_EXPERT_WEIGHTS.frequencyHistorian) as (keyof Mark6ExpertWeightProfile)[];
+  return keys.reduce((acc, key) => {
+    const sum = profiles.reduce((value, profile) => value + MARK6_EXPERT_WEIGHTS[profile][key], 0);
+    acc[key] = sum / profiles.length;
+    return acc;
+  }, {} as Mark6ExpertWeightProfile);
+}
+
+function getMark6ExpertConfig(overrides?: {
+  strategy?: Mark6ExpertStrategy;
+  primaryProfile?: Mark6ExpertProfile;
+}): {
+  strategy: Mark6ExpertStrategy;
+  primaryProfile: Mark6ExpertProfile;
+} {
+  const strategyRaw = (process.env.MARK6_EXPERT_STRATEGY ?? "consensus").toLowerCase();
+  const profileRaw = (process.env.MARK6_EXPERT_PROFILE ?? "frequencyHistorian").toLowerCase();
+
+  const strategy: Mark6ExpertStrategy = strategyRaw === "single" ? "single" : "consensus";
+
+  let primaryProfile: Mark6ExpertProfile = "frequencyHistorian";
+  if (profileRaw === "momentumtracker") {
+    primaryProfile = "momentumTracker";
+  } else if (profileRaw === "drawpatternspecialist") {
+    primaryProfile = "drawPatternSpecialist";
+  }
+
+  return {
+    strategy: overrides?.strategy ?? strategy,
+    primaryProfile: overrides?.primaryProfile ?? primaryProfile,
+  };
+}
+
+function getMark6ExpertProfileList(config: ReturnType<typeof getMark6ExpertConfig>): Mark6ExpertProfile[] {
+  return config.strategy === "single"
+    ? [config.primaryProfile]
+    : MARK6_EXPERT_PROFILE_KEYS;
+}
+
+function getMark6ExpertExplanationSnippet(
+  locale: Locale,
+  activeProfiles: Mark6ExpertProfile[],
+  strategy: Mark6ExpertStrategy,
+): string {
+  const label =
+    locale === "zh-HK"
+      ? {
+          frequencyHistorian: "頻率史學家",
+          momentumTracker: "動能追蹤",
+          drawPatternSpecialist: "開獎圖形專家",
+        }
+      : {
+          frequencyHistorian: "Frequency Historian",
+          momentumTracker: "Momentum Tracker",
+          drawPatternSpecialist: "Draw Pattern Specialist",
+        };
+  const names = activeProfiles.map((profile) => label[profile]).join(locale === "zh-HK" ? "、" : ", ");
+  if (locale === "zh-HK") {
+    return strategy === "single"
+      ? ` 並由 Mark Six 專家「${names}」調整各訊號權重。`
+      : ` 並由 Mark Six 專家共識（${names}）混合各訊號權重。`;
+  }
+  return strategy === "single"
+    ? ` Mark Six expert "${names}" tuned the signal weights.`
+    : ` Mark Six expert consensus (${names}) blended the signal weights.`;
+}
+
 function percentile(values: number[], ratio: number): number {
   if (values.length === 0) {
     return 0;
@@ -688,6 +1287,32 @@ function normalizeManualMark6Numbers(numbers?: number[]): number[] {
   return [...unique].sort((a, b) => a - b);
 }
 
+function buildRankedMark6Entries(
+  candidateEntries: Array<[number, number]>,
+  minimumCandidateCount: number,
+  numberMix: Mark6NumberMix,
+): Array<{ number: number; score: number }> {
+  const sortedEntries = [...candidateEntries].sort((a, b) => b[1] - a[1]);
+  const selectedNumbers = new Set<number>();
+  const rankedEntries = sortedEntries.slice(0, minimumCandidateCount);
+
+  for (const [number] of rankedEntries) {
+    selectedNumbers.add(number);
+  }
+
+  if (numberMix === "bigOnly") {
+    for (const entry of sortedEntries) {
+      const [number] = entry;
+      if (number >= 25 && !selectedNumbers.has(number)) {
+        rankedEntries.push(entry);
+        selectedNumbers.add(number);
+      }
+    }
+  }
+
+  return rankedEntries.map(([number, score]) => ({ number, score }));
+}
+
 function pickMark6SetWithMix(
   entries: Array<{ number: number; score: number }>,
   numberMix: Mark6NumberMix,
@@ -731,6 +1356,208 @@ function buildMark6BatchSets(
     sets.push(pickMark6SetWithMix(entries, numberMix));
   }
   return sets;
+}
+
+function applyPreviousDrawSignal(
+  scoreByNumber: Map<number, number>,
+  previousDraw?: Mark6PreviousDraw | null,
+  expertWeights?: Mark6ExpertWeightProfile,
+) {
+  if (!previousDraw || previousDraw.numbers.length < 6) {
+    return;
+  }
+
+  const w = expertWeights ?? getAverageMark6ExpertWeights(["frequencyHistorian"]);
+  const drawnNumbers = new Set(previousDraw.numbers);
+  const signalNumbers = previousDraw.specialNumber
+    ? [...previousDraw.numbers, previousDraw.specialNumber]
+    : previousDraw.numbers;
+
+  for (let number = 1; number <= 49; number += 1) {
+    let score = scoreByNumber.get(number) ?? 0;
+
+    if (drawnNumbers.has(number)) {
+      score *= w.previousDrawRepeatMultiplier;
+    }
+
+    for (const drawnNumber of signalNumbers) {
+      const distance = Math.abs(number - drawnNumber);
+      if (distance === 1) {
+        score += w.previousDrawAdjacentBoost;
+      } else if (distance === 2) {
+        score += w.previousDrawNearBoost;
+      }
+      if (number === 50 - drawnNumber) {
+        score += w.previousDrawMirrorBoost;
+      }
+      if (
+        Math.floor((number - 1) / 10) === Math.floor((drawnNumber - 1) / 10) &&
+        number !== drawnNumber
+      ) {
+        score += w.previousDrawDecadeBoost;
+      }
+    }
+
+    scoreByNumber.set(number, score);
+  }
+}
+
+function sigmoid(value: number) {
+  return 1 / (1 + Math.exp(-Math.max(-30, Math.min(30, value))));
+}
+
+function getNumberDrawFrequency(
+  draws: Mark6TrainingDraw[],
+  number: number,
+  predicate?: (draw: Mark6TrainingDraw) => boolean,
+) {
+  const matchingDraws = predicate ? draws.filter(predicate) : draws;
+  if (matchingDraws.length === 0) {
+    return MARK6_BASELINE_PROBABILITY;
+  }
+
+  const hits = matchingDraws.filter((draw) => draw.numbers.includes(number)).length;
+  return hits / matchingDraws.length;
+}
+
+function getDrawGap(draws: Mark6TrainingDraw[], number: number) {
+  for (let index = draws.length - 1; index >= 0; index -= 1) {
+    if (draws[index]?.numbers.includes(number)) {
+      return draws.length - index;
+    }
+  }
+  return 40;
+}
+
+function buildMark6ModelFeatures(
+  number: number,
+  priorDraws: Mark6TrainingDraw[],
+  targetDate: Date,
+) {
+  const previousDraw = priorDraws.at(-1);
+  const previousNumbers = previousDraw?.numbers ?? [];
+  const recent10 = priorDraws.slice(-10);
+  const recent30 = priorDraws.slice(-30);
+  const targetWeekday = targetDate.getDay();
+  const targetMonth = targetDate.getMonth();
+
+  const longFrequency = getNumberDrawFrequency(priorDraws, number);
+  const recent10Frequency = getNumberDrawFrequency(recent10, number);
+  const recent30Frequency = getNumberDrawFrequency(recent30, number);
+  const weekdayFrequency = getNumberDrawFrequency(
+    priorDraws,
+    number,
+    (draw) => draw.drawDate.getDay() === targetWeekday,
+  );
+  const monthFrequency = getNumberDrawFrequency(
+    priorDraws,
+    number,
+    (draw) => draw.drawDate.getMonth() === targetMonth,
+  );
+  const gap = getDrawGap(priorDraws, number);
+
+  return [
+    1,
+    (longFrequency - MARK6_BASELINE_PROBABILITY) * 6,
+    (recent10Frequency - MARK6_BASELINE_PROBABILITY) * 4,
+    (recent30Frequency - MARK6_BASELINE_PROBABILITY) * 5,
+    Math.min(gap, 40) / 40 - 0.5,
+    previousNumbers.includes(number) ? 1 : 0,
+    previousNumbers.some((drawnNumber) => Math.abs(drawnNumber - number) <= 2) ? 1 : 0,
+    previousNumbers.some((drawnNumber) => 50 - drawnNumber === number) ? 1 : 0,
+    previousNumbers.some(
+      (drawnNumber) =>
+        Math.floor((drawnNumber - 1) / 10) === Math.floor((number - 1) / 10) &&
+        drawnNumber !== number,
+    )
+      ? 1
+      : 0,
+    (weekdayFrequency - MARK6_BASELINE_PROBABILITY) * 4,
+    (monthFrequency - MARK6_BASELINE_PROBABILITY) * 4,
+  ];
+}
+
+function trainMark6StatisticalModel(draws: Mark6TrainingDraw[]) {
+  if (draws.length < 25) {
+    return null;
+  }
+
+  const weights = [
+    Math.log(MARK6_BASELINE_PROBABILITY / (1 - MARK6_BASELINE_PROBABILITY)),
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+  ];
+  const learningRate = 0.025;
+  const l2 = 0.0005;
+
+  for (let epoch = 0; epoch < 4; epoch += 1) {
+    for (let drawIndex = 12; drawIndex < draws.length; drawIndex += 1) {
+      const priorDraws = draws.slice(0, drawIndex);
+      const actualNumbers = new Set(draws[drawIndex]?.numbers ?? []);
+      const drawDate = draws[drawIndex]?.drawDate ?? new Date();
+
+      for (let number = 1; number <= 49; number += 1) {
+        const features = buildMark6ModelFeatures(number, priorDraws, drawDate);
+        const prediction = sigmoid(
+          features.reduce((sum, feature, index) => sum + feature * (weights[index] ?? 0), 0),
+        );
+        const label = actualNumbers.has(number) ? 1 : 0;
+        const error = label - prediction;
+
+        for (let index = 0; index < weights.length; index += 1) {
+          const regularization = index === 0 ? 0 : l2 * (weights[index] ?? 0);
+          weights[index] = (weights[index] ?? 0) + learningRate * (error * (features[index] ?? 0) - regularization);
+        }
+      }
+    }
+  }
+
+  return weights;
+}
+
+function applyTrainedMark6Model(
+  scoreByNumber: Map<number, number>,
+  draws: Mark6TrainingDraw[],
+  targetDate: Date,
+  expertWeights?: Mark6ExpertWeightProfile,
+) {
+  const weights = trainMark6StatisticalModel(draws);
+  if (!weights) {
+    return;
+  }
+
+  const blend = expertWeights ?? getAverageMark6ExpertWeights(["frequencyHistorian"]);
+
+  const modelProbabilities = new Map<number, number>();
+  for (let number = 1; number <= 49; number += 1) {
+    const features = buildMark6ModelFeatures(number, draws, targetDate);
+    modelProbabilities.set(
+      number,
+      sigmoid(features.reduce((sum, feature, index) => sum + feature * (weights[index] ?? 0), 0)),
+    );
+  }
+
+  const averageScore =
+    [...scoreByNumber.values()].reduce((sum, score) => sum + Math.max(score, 0.001), 0) /
+    Math.max(1, scoreByNumber.size);
+
+  for (let number = 1; number <= 49; number += 1) {
+    const currentScore = Math.max(scoreByNumber.get(number) ?? 0.001, 0.001);
+    const modelLift = (modelProbabilities.get(number) ?? MARK6_BASELINE_PROBABILITY) / MARK6_BASELINE_PROBABILITY;
+    scoreByNumber.set(
+      number,
+      currentScore * blend.trainedModelFrequencyBlend +
+        averageScore * modelLift * blend.trainedModelLiftBlend,
+    );
+  }
 }
 
 type Mark6HolidayKey =
@@ -837,10 +1664,41 @@ function getMark6Confidence({
   return separationRatio >= 1.12 ? "Medium" : "Low";
 }
 
+function buildMark6NumberProbabilities(
+  entries: Array<{ number: number; score: number }>,
+): Mark6NumberProbability[] {
+  const positiveEntries = entries
+    .map((entry) => ({
+      number: entry.number,
+      score: Math.max(entry.score, 0.001),
+    }))
+    .filter((entry) => entry.number >= 1 && entry.number <= 49);
+  const totalScore = positiveEntries.reduce((sum, entry) => sum + entry.score, 0);
+  if (totalScore <= 0) {
+    return [];
+  }
+
+  return positiveEntries
+    .map((entry) => ({
+      number: entry.number,
+      probability: Math.round(Math.min(99.9, (entry.score / totalScore) * 600) * 10) / 10,
+    }))
+    .sort((a, b) => b.probability - a.probability || a.number - b.number);
+}
+
 function getLocalizedDisclaimer(locale: Locale) {
   return locale === "zh-HK"
     ? "僅供娛樂用途，不保證中獎，並非財務建議。"
     : "For entertainment only. No guaranteed winnings. No financial advice.";
+}
+
+function getPreviousDrawSignalExplanation(locale: Locale, previousDraw?: Mark6PreviousDraw | null) {
+  if (!previousDraw) {
+    return "";
+  }
+  return locale === "zh-HK"
+    ? ` 並已用歷史開彩序列訓練統計模型，再加入上一期（${previousDraw.date}）官方號碼作相鄰號、鏡像號及避免即時重複的權重訊號。`
+    : ` It also trains a statistical model on the historical draw sequence, then uses the previous draw (${previousDraw.date}) as a weighting signal for adjacent numbers, mirror numbers, and reduced immediate repeats.`;
 }
 
 async function getMark6Suggestion(
@@ -851,16 +1709,61 @@ async function getMark6Suggestion(
   numberMix: Mark6NumberMix,
   generateMode: Mark6GenerateMode,
   manualNumbers?: number[],
+  previousDrawSignal?: Mark6PreviousDraw | null,
+  expertOverrides?: {
+    strategy?: Mark6ExpertStrategy;
+    primaryProfile?: Mark6ExpertProfile;
+  },
 ): Promise<SuggestionBase> {
+  const expertConfig = getMark6ExpertConfig(expertOverrides);
+  const activeExpertProfiles = getMark6ExpertProfileList(expertConfig);
+  const expertWeights = getAverageMark6ExpertWeights(activeExpertProfiles);
+  const expertSnippet = getMark6ExpertExplanationSnippet(
+    locale,
+    activeExpertProfiles,
+    expertConfig.strategy,
+  );
+
   if (!canUseDatabase()) {
     return getMark6SuggestionFallback(
       locale,
+      targetDate,
       predictionType,
       batchCount,
       numberMix,
       generateMode,
       manualNumbers,
+      previousDrawSignal,
+      expertConfig,
+      activeExpertProfiles,
+      expertWeights,
+      expertSnippet,
     );
+  }
+
+  try {
+    await ensureSchema();
+  } catch {
+    return getMark6SuggestionFallback(
+      locale,
+      targetDate,
+      predictionType,
+      batchCount,
+      numberMix,
+      generateMode,
+      manualNumbers,
+      previousDrawSignal,
+      expertConfig,
+      activeExpertProfiles,
+      expertWeights,
+      expertSnippet,
+    );
+  }
+
+  try {
+    await refreshMark6ResultsNearTerm();
+  } catch {
+    // Continue with whatever mark6_results already exist.
   }
 
   try {
@@ -878,11 +1781,17 @@ async function getMark6Suggestion(
     if (draws.rows.length === 0) {
       return getMark6SuggestionFallback(
         locale,
+        targetDate,
         predictionType,
         batchCount,
         numberMix,
         generateMode,
         manualNumbers,
+        previousDrawSignal,
+        expertConfig,
+        activeExpertProfiles,
+        expertWeights,
+        expertSnippet,
       );
     }
 
@@ -893,12 +1802,22 @@ async function getMark6Suggestion(
 
     for (const draw of draws.rows) {
       const drawDate = toDate(draw.draw_date);
-      const temporalWeight = getMark6TemporalWeight(drawDate, endDateObject);
+      const temporalWeight =
+        getMark6TemporalWeight(drawDate, endDateObject) * expertWeights.temporalSeasonalBoost;
 
       for (const number of draw.numbers) {
-        scoreByNumber.set(number, (scoreByNumber.get(number) ?? 0) + temporalWeight);
+        scoreByNumber.set(
+          number,
+          (scoreByNumber.get(number) ?? 0) + temporalWeight * expertWeights.historicalHitWeight,
+        );
       }
     }
+    const trainingDraws = draws.rows.map((draw) => ({
+      drawDate: toDate(draw.draw_date),
+      numbers: draw.numbers,
+    }));
+    applyTrainedMark6Model(scoreByNumber, trainingDraws, endDateObject, expertWeights);
+    applyPreviousDrawSignal(scoreByNumber, previousDrawSignal, expertWeights);
 
     const normalizedManualPool = normalizeManualMark6Numbers(manualNumbers);
     const effectiveGenerateMode: Mark6GenerateMode =
@@ -908,10 +1827,11 @@ async function getMark6Suggestion(
         ? [...scoreByNumber.entries()].filter(([number]) => normalizedManualPool.includes(number))
         : [...scoreByNumber.entries()];
 
-    const ranked = candidateEntries
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, Math.max(20, normalizedManualPool.length || 0))
-      .map(([number, score]) => ({ number, score }));
+    const ranked = buildRankedMark6Entries(
+      candidateEntries,
+      Math.max(20, normalizedManualPool.length || 0),
+      numberMix,
+    );
     const confidenceBand = getMark6Confidence({
       drawCount: draws.rows.length,
       rankedScores: ranked.map((item) => item.score),
@@ -919,6 +1839,10 @@ async function getMark6Suggestion(
     const batchSets = buildMark6BatchSets(ranked, batchCount, numberMix);
     const topSix = batchSets[0] ?? pickMark6SetWithMix(ranked, numberMix);
     const mark6Prediction = buildMark6Prediction(predictionType, ranked, numberMix, batchCount);
+    const mark6NumberProbabilities = buildMark6NumberProbabilities(
+      candidateEntries.map(([number, score]) => ({ number, score })),
+    );
+    const previousDraw = draws.rows.at(-1);
 
     return {
       suggestions:
@@ -928,24 +1852,43 @@ async function getMark6Suggestion(
       mark6PredictionType: predictionType,
       mark6Prediction,
       mark6BatchSets: batchSets,
+      mark6PreviousDraw: previousDraw
+        ? {
+            date: formatDateKey(previousDraw.draw_date),
+            numbers: [...previousDraw.numbers].sort((a, b) => a - b),
+            source: "database",
+          }
+        : getFallbackPreviousMark6Draw(targetDate),
+      mark6NumberProbabilities,
+      modelVersion: "mark6-expert-consensus-v1",
+      mark6Analysis: {
+        strategy: expertConfig.strategy,
+        activeProfiles: activeExpertProfiles,
+      },
       confidenceBand,
       explanation:
         locale === "zh-HK"
           ? effectiveGenerateMode === "manual" && normalizedManualPool.length > 0
-            ? `已學習近${HISTORY_YEARS}年（${draws.rows.length}期）歷史結果與節日/週期信號，並在你手動選擇的號碼池內生成${Math.max(1, Math.min(batchCount, 12))}組建議。`
-            : `已學習近${HISTORY_YEARS}年（${draws.rows.length}期）歷史結果，並加入同月同日、相鄰週期與節日檔期權重，按你選擇的號碼分佈模式生成${Math.max(1, Math.min(batchCount, 12))}組建議。`
+            ? `已學習近${HISTORY_YEARS}年（${draws.rows.length}期）歷史結果與節日/週期信號，並在你手動選擇的號碼池內生成${Math.max(1, Math.min(batchCount, 12))}組建議。${getPreviousDrawSignalExplanation(locale, previousDrawSignal)}${expertSnippet}`
+            : `已學習近${HISTORY_YEARS}年（${draws.rows.length}期）歷史結果，並加入同月同日、相鄰週期與節日檔期權重，按你選擇的號碼分佈模式生成${Math.max(1, Math.min(batchCount, 12))}組建議。${getPreviousDrawSignalExplanation(locale, previousDrawSignal)}${expertSnippet}`
           : effectiveGenerateMode === "manual" && normalizedManualPool.length > 0
-            ? `Learned from the last ${HISTORY_YEARS} years of draws (${draws.rows.length} records) with seasonal weighting, then generated ${Math.max(1, Math.min(batchCount, 12))} set(s) inside your manually selected number pool.`
-            : `Learned from the last ${HISTORY_YEARS} years of draws (${draws.rows.length} records), then weighted same day-month patterns, nearby weekly/monthly windows, and holiday seasons to generate ${Math.max(1, Math.min(batchCount, 12))} set(s) with your selected number-mix style.`,
+            ? `Learned from the last ${HISTORY_YEARS} years of draws (${draws.rows.length} records) with seasonal weighting, then generated ${Math.max(1, Math.min(batchCount, 12))} set(s) inside your manually selected number pool.${getPreviousDrawSignalExplanation(locale, previousDrawSignal)}${expertSnippet}`
+            : `Learned from the last ${HISTORY_YEARS} years of draws (${draws.rows.length} records), then weighted same day-month patterns, nearby weekly/monthly windows, and holiday seasons to generate ${Math.max(1, Math.min(batchCount, 12))} set(s) with your selected number-mix style.${getPreviousDrawSignalExplanation(locale, previousDrawSignal)}${expertSnippet}`,
     };
   } catch {
     return getMark6SuggestionFallback(
       locale,
+      targetDate,
       predictionType,
       batchCount,
       numberMix,
       generateMode,
       manualNumbers,
+      previousDrawSignal,
+      expertConfig,
+      activeExpertProfiles,
+      expertWeights,
+      expertSnippet,
     );
   }
 }
@@ -961,6 +1904,19 @@ async function getHorseSuggestion(
 ): Promise<SuggestionBase> {
   if (!canUseDatabase()) {
     return getHorseSuggestionFallback(locale);
+  }
+
+  try {
+    await ensureSchema();
+  } catch {
+    return getHorseSuggestionFallback(locale, selectedRace);
+  }
+
+  try {
+    /** Same near-term HKJC ingest as History — wakes analyst weights on Vercel without a manual cron run. */
+    await refreshHorseRaceResultsNearTerm();
+  } catch {
+    // Continue with whatever race_results already exist.
   }
 
   try {
@@ -1337,18 +2293,44 @@ async function getHorseSuggestion(
 
 function getMark6SuggestionFallback(
   locale: Locale,
+  targetDate: string,
   predictionType: Mark6PredictionType,
   batchCount: number,
   numberMix: Mark6NumberMix,
   generateMode: Mark6GenerateMode,
   manualNumbers?: number[],
+  previousDrawSignal?: Mark6PreviousDraw | null,
+  expertConfig: ReturnType<typeof getMark6ExpertConfig> = getMark6ExpertConfig(),
+  activeExpertProfiles: Mark6ExpertProfile[] = getMark6ExpertProfileList(getMark6ExpertConfig()),
+  expertWeights: Mark6ExpertWeightProfile = getAverageMark6ExpertWeights(activeExpertProfiles),
+  expertSnippet: string = getMark6ExpertExplanationSnippet(
+    locale,
+    activeExpertProfiles,
+    expertConfig.strategy,
+  ),
 ): SuggestionBase {
   const frequencies = new Map<number, number>();
+  for (let number = 1; number <= 49; number += 1) {
+    frequencies.set(number, 0.001);
+  }
   for (const draw of mark6FallbackRows) {
     for (const number of draw.numbers) {
-      frequencies.set(number, (frequencies.get(number) ?? 0) + 1);
+      frequencies.set(
+        number,
+        (frequencies.get(number) ?? 0) + expertWeights.historicalHitWeight,
+      );
     }
   }
+  applyTrainedMark6Model(
+    frequencies,
+    mark6FallbackRows.map((draw) => ({
+      drawDate: toDate(draw.date),
+      numbers: draw.numbers,
+    })),
+    toDate(targetDate),
+    expertWeights,
+  );
+  applyPreviousDrawSignal(frequencies, previousDrawSignal, expertWeights);
 
   const normalizedManualPool = normalizeManualMark6Numbers(manualNumbers);
   const effectiveGenerateMode: Mark6GenerateMode =
@@ -1358,10 +2340,11 @@ function getMark6SuggestionFallback(
       ? [...frequencies.entries()].filter(([number]) => normalizedManualPool.includes(number))
       : [...frequencies.entries()];
 
-  const ranked = candidateEntries
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, Math.max(16, normalizedManualPool.length || 0))
-    .map(([number, score]) => ({ number, score }));
+  const ranked = buildRankedMark6Entries(
+    candidateEntries,
+    Math.max(16, normalizedManualPool.length || 0),
+    numberMix,
+  );
   const confidenceBand = getMark6Confidence({
     drawCount: mark6FallbackRows.length,
     rankedScores: ranked.map((item) => item.score),
@@ -1369,6 +2352,7 @@ function getMark6SuggestionFallback(
   const batchSets = buildMark6BatchSets(ranked, batchCount, numberMix);
   const topSix = batchSets[0] ?? pickMark6SetWithMix(ranked, numberMix);
   const mark6Prediction = buildMark6Prediction(predictionType, ranked, numberMix, batchCount);
+  const mark6NumberProbabilities = buildMark6NumberProbabilities(ranked);
 
   return {
     suggestions:
@@ -1378,15 +2362,22 @@ function getMark6SuggestionFallback(
     mark6PredictionType: predictionType,
     mark6Prediction,
     mark6BatchSets: batchSets,
+    mark6PreviousDraw: getFallbackPreviousMark6Draw(targetDate),
+    mark6NumberProbabilities,
+    modelVersion: "mark6-expert-consensus-v1-fallback",
+    mark6Analysis: {
+      strategy: expertConfig.strategy,
+      activeProfiles: activeExpertProfiles,
+    },
     confidenceBand,
     explanation:
       locale === "zh-HK"
         ? effectiveGenerateMode === "manual" && normalizedManualPool.length > 0
-          ? "此組合基於示例樣本中的頻率與週期信號，並限制在你手動選擇的號碼池內生成。"
-          : "此組合基於最近樣本的頻率、週期與節日檔期信號，並按所選號碼分佈模式加權抽樣生成。"
+          ? `此組合基於示例樣本中的頻率與週期信號，並限制在你手動選擇的號碼池內生成。${getPreviousDrawSignalExplanation(locale, previousDrawSignal)}${expertSnippet}`
+          : `此組合基於最近樣本的頻率、週期與節日檔期信號，並按所選號碼分佈模式加權抽樣生成。${getPreviousDrawSignalExplanation(locale, previousDrawSignal)}${expertSnippet}`
         : effectiveGenerateMode === "manual" && normalizedManualPool.length > 0
-          ? "This set uses sample frequency and cyclical signals, constrained to your manually selected number pool."
-          : "This set is generated from sample frequency, cyclical, and holiday-season signals, then weighted by your selected number-mix style.",
+          ? `This set uses sample frequency and cyclical signals, constrained to your manually selected number pool.${getPreviousDrawSignalExplanation(locale, previousDrawSignal)}${expertSnippet}`
+          : `This set is generated from sample frequency, cyclical, and holiday-season signals, then weighted by your selected number-mix style.${getPreviousDrawSignalExplanation(locale, previousDrawSignal)}${expertSnippet}`,
   };
 }
 
@@ -1538,6 +2529,8 @@ export async function getSuggestion({
   selectedRace,
   horseAnalystStrategy,
   horseAnalystProfile,
+  mark6ExpertStrategy,
+  mark6ExpertProfile,
 }: {
   mode: Mode;
   targetDate: string;
@@ -1550,6 +2543,8 @@ export async function getSuggestion({
   selectedRace?: SelectedRaceInput;
   horseAnalystStrategy?: HorseAnalystStrategy;
   horseAnalystProfile?: HorseAnalystProfile;
+  mark6ExpertStrategy?: Mark6ExpertStrategy;
+  mark6ExpertProfile?: Mark6ExpertProfile;
 }): Promise<SuggestionResponse> {
   if (canUseDatabase()) {
     try {
@@ -1557,6 +2552,12 @@ export async function getSuggestion({
     } catch {
       // Allow fallback behavior when schema initialization fails.
     }
+  }
+
+  const liveMark6PreviousDraw =
+    mode === "mark6" ? await getLatestHkjcMark6PreviousDraw().catch(() => null) : null;
+  if (liveMark6PreviousDraw) {
+    await upsertMark6PreviousDraw(liveMark6PreviousDraw);
   }
 
   const base =
@@ -1569,6 +2570,11 @@ export async function getSuggestion({
           mark6NumberMix,
           mark6GenerateMode,
           mark6ManualNumbers,
+          liveMark6PreviousDraw,
+          {
+            strategy: mark6ExpertStrategy,
+            primaryProfile: mark6ExpertProfile,
+          },
         )
       : await getHorseSuggestion(locale, targetDate, selectedRace, {
           strategy: horseAnalystStrategy,
@@ -1598,6 +2604,8 @@ export async function getSuggestion({
               selectedRace,
               horseAnalystStrategy,
               horseAnalystProfile,
+              mark6ExpertStrategy,
+              mark6ExpertProfile,
             }),
             JSON.stringify(base.suggestions),
             base.confidenceBand,
@@ -1620,33 +2628,43 @@ export async function getSuggestion({
     suggestions: base.suggestions,
     mark6Prediction: base.mark6Prediction,
     mark6BatchSets: base.mark6BatchSets,
+    mark6PreviousDraw: liveMark6PreviousDraw ?? base.mark6PreviousDraw,
+    mark6NumberProbabilities: base.mark6NumberProbabilities,
     horseSuggestions: base.horseSuggestions,
     modelVersion: base.modelVersion,
     generatedAt: base.generatedAt,
     dataFreshness: base.dataFreshness,
     featureCoverage: base.featureCoverage,
     horseAnalysis: base.horseAnalysis,
+    mark6Analysis: base.mark6Analysis,
     confidenceBand: base.confidenceBand,
     explanation: base.explanation,
     disclaimer: getLocalizedDisclaimer(locale),
   };
 }
 
-export async function getHistory(mode: Mode, locale: Locale): Promise<HistoryEntry[]> {
+export async function getHistory(mode: Mode, locale: Locale, options?: GetHistoryOptions): Promise<HistoryEntry[]> {
   if (!canUseDatabase()) {
-    return getHistoryFallback(mode, locale);
+    return finalizeHistoryFallback(mode, locale, options);
   }
   try {
     await ensureSchema();
   } catch {
-    return getHistoryFallback(mode, locale);
+    return finalizeHistoryFallback(mode, locale, options);
   }
 
   if (mode === "mark6") {
     try {
-      const rows = await dbQuery<{ draw_date: string; numbers: number[] }>(
+      const { startDate } = getHistoryWindow(new Date().toISOString().slice(0, 10));
+      await ingestMarkSixFromWeb({ fromDate: startDate }).catch(() => null);
+
+      const rows = await dbQuery<{
+        draw_date: string;
+        numbers: number[];
+        special_number: number | null;
+      }>(
         `
-        SELECT TO_CHAR(draw_date, 'YYYY-MM-DD') AS draw_date, numbers
+        SELECT TO_CHAR(draw_date, 'YYYY-MM-DD') AS draw_date, numbers, special_number
         FROM mark6_results
         ORDER BY draw_date DESC
         LIMIT 20
@@ -1656,11 +2674,13 @@ export async function getHistory(mode: Mode, locale: Locale): Promise<HistoryEnt
       if (rows.rows.length > 0) {
         return rows.rows.map((row) => ({
           date: row.draw_date,
-          result: row.numbers.join(", "),
+          result: row.special_number
+            ? `${row.numbers.join(", ")} | ${locale === "zh-HK" ? "特別號碼" : "Special"}: ${row.special_number}`
+            : row.numbers.join(", "),
           note:
             locale === "zh-HK"
-              ? "近期號碼分布較平均。"
-              : "Recent draws show a relatively balanced spread.",
+              ? "已由香港賽馬會近期開彩結果更新。"
+              : "Updated from recent HKJC Mark Six draw results.",
         }));
       }
       return getHistoryFallback(mode, locale);
@@ -1670,29 +2690,30 @@ export async function getHistory(mode: Mode, locale: Locale): Promise<HistoryEnt
   }
 
   try {
+    await refreshHorseRaceResultsNearTerm();
+
+    const pd = normalizeHorsePastDays(options?.horsePastDays);
+    const dateFilterClause =
+      pd != null
+        ? `AND race_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Hong_Kong')::date - ($1::integer - 1)`
+        : "";
+
     const raceRows = await dbQuery<{ race_date: string; race_id: string; result: string }>(
       `
-      WITH grouped AS (
-        SELECT
-          TO_CHAR(race_date, 'YYYY-MM-DD') AS race_date,
-          race_id,
-          STRING_AGG(
-            position::text || '. #' || horse_number::text || ' ' || horse_name,
-            ' | '
-            ORDER BY position
-          ) AS result
-        FROM race_results
-        WHERE race_id ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}-(ST|HV)-R[0-9]+$'
-        GROUP BY race_date, race_id
-      )
-      SELECT DISTINCT ON (race_date, result)
-        race_date,
+      SELECT
+        TO_CHAR(race_date, 'YYYY-MM-DD') AS race_date,
         race_id,
-        result
-      FROM grouped
+        STRING_AGG(
+          position::text || '. #' || horse_number::text || ' ' || horse_name,
+          ' | '
+          ORDER BY position
+        ) AS result
+      FROM race_results
+      WHERE race_id ~ '^([0-9]{4}-[0-9]{2}-[0-9]{2}-)?(ST|HV)-R[0-9]+$'
+      ${dateFilterClause}
+      GROUP BY race_date, race_id
       ORDER BY
         race_date DESC,
-        result,
         CASE
           WHEN race_id LIKE '%-HV-R%' THEN 0
           WHEN race_id LIKE '%-ST-R%' THEN 1
@@ -1701,11 +2722,12 @@ export async function getHistory(mode: Mode, locale: Locale): Promise<HistoryEnt
         race_id ASC
       LIMIT 200
       `,
+      pd != null ? [pd] : [],
     );
 
     if (raceRows.rows.length > 0) {
-      return raceRows.rows
-        .map((row) => ({
+      const shaped = dedupeMirroredHorseHistoryRows(
+        raceRows.rows.map((row) => ({
           date: row.race_date,
           raceId: row.race_id,
           result: row.result,
@@ -1713,17 +2735,21 @@ export async function getHistory(mode: Mode, locale: Locale): Promise<HistoryEnt
             locale === "zh-HK"
               ? "按每場賽事完整名次整理。"
               : "Full finishing order from recent race results.",
-        }))
-        .sort((a, b) => {
+        })),
+      ).filter(isHorseHistoryEntryShape);
+
+      if (shaped.length > 0) {
+        return shaped.sort((a, b) => {
           if (a.date !== b.date) {
             return a.date > b.date ? -1 : 1;
           }
           return extractRaceNumber(a.raceId) - extractRaceNumber(b.raceId);
         });
+      }
     }
-    return getHistoryFallback(mode, locale);
+    return finalizeHorseFallbackRows(locale, options);
   } catch {
-    return getHistoryFallback(mode, locale);
+    return finalizeHorseFallbackRows(locale, options);
   }
 }
 
@@ -1747,30 +2773,24 @@ export async function getHorseHistoryByDate(
   }
 
   try {
+    await refreshHorseRaceResultsNearTerm();
+
     const raceRows = await dbQuery<{ race_date: string; race_id: string; result: string }>(
       `
-      WITH grouped AS (
-        SELECT
-          TO_CHAR(race_date, 'YYYY-MM-DD') AS race_date,
-          race_id,
-          STRING_AGG(
-            position::text || '. #' || horse_number::text || ' ' || horse_name,
-            ' | '
-            ORDER BY position
-          ) AS result
-        FROM race_results
-        WHERE race_date = $1::date
-          AND race_id ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}-(ST|HV)-R[0-9]+$'
-        GROUP BY race_date, race_id
-      )
-      SELECT DISTINCT ON (race_date, result)
-        race_date,
+      SELECT
+        TO_CHAR(race_date, 'YYYY-MM-DD') AS race_date,
         race_id,
-        result
-      FROM grouped
+        STRING_AGG(
+          position::text || '. #' || horse_number::text || ' ' || horse_name,
+          ' | '
+          ORDER BY position
+        ) AS result
+      FROM race_results
+      WHERE race_date = $1::date
+        AND race_id ~ '^([0-9]{4}-[0-9]{2}-[0-9]{2}-)?(ST|HV)-R[0-9]+$'
+      GROUP BY race_date, race_id
       ORDER BY
         race_date DESC,
-        result,
         CASE
           WHEN race_id LIKE '%-HV-R%' THEN 0
           WHEN race_id LIKE '%-ST-R%' THEN 1
@@ -1782,8 +2802,8 @@ export async function getHorseHistoryByDate(
     );
 
     if (raceRows.rows.length > 0) {
-      return raceRows.rows
-        .map((row) => ({
+      const shaped = dedupeMirroredHorseHistoryRows(
+        raceRows.rows.map((row) => ({
           date: row.race_date,
           raceId: row.race_id,
           result: row.result,
@@ -1791,8 +2811,12 @@ export async function getHorseHistoryByDate(
             locale === "zh-HK"
               ? "按每場賽事完整名次整理。"
               : "Full finishing order from recent race results.",
-        }))
-        .sort((a, b) => extractRaceNumber(a.raceId) - extractRaceNumber(b.raceId));
+        })),
+      ).filter(isHorseHistoryEntryShape);
+
+      if (shaped.length > 0) {
+        return shaped.sort((a, b) => extractRaceNumber(a.raceId) - extractRaceNumber(b.raceId));
+      }
     }
     return getHistoryFallback("horse", locale).filter((row) => row.date === targetDate);
   } catch {

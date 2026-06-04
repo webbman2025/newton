@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       fromDate,
       years,
       sources: {
-        markSix: "lottolyzer.com",
+        markSix: mark6.source,
         horseRacing: "racing.hkjc.com",
       },
       mark6,

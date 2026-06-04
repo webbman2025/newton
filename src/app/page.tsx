@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   alpha,
@@ -28,6 +29,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  useTheme,
 } from "@mui/material";
 import type { SxProps, Theme } from "@mui/material/styles";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -47,7 +49,8 @@ import {
   TrophyFilled,
 } from "@fluentui/react-icons";
 import { useCopy, useLocale } from "@/components/locale-provider";
-import type { Mode } from "@/lib/translations";
+import { getMark6LeanProbabilitiesKey, Mark6NextDrawLeanSection } from "@/components/mark6-next-draw-lean";
+import { formatConfidenceBandLabel, type Mode } from "@/lib/translations";
 
 type SuggestionPayload = {
   status: "ok" | "stale";
@@ -66,6 +69,11 @@ type SuggestionPayload = {
     };
   };
   mark6BatchSets?: number[][];
+  mark6PreviousDraw?: Mark6PreviousDraw;
+  mark6NumberProbabilities?: Array<{
+    number: number;
+    probability: number;
+  }>;
   horseSuggestions?: {
     horseNumber: number;
     horseName: string;
@@ -104,6 +112,17 @@ type SuggestionPayload = {
   confidenceBand: "Low" | "Medium" | "High";
   explanation: string;
   disclaimer: string;
+};
+
+type Mark6PreviousDraw = {
+  date: string;
+  numbers: number[];
+  specialNumber?: number;
+  source?: "hkjc" | "database" | "fallback";
+};
+
+type LatestMark6ResultPayload = {
+  previousDraw?: Mark6PreviousDraw;
 };
 
 type UpcomingRacePayload = {
@@ -162,6 +181,13 @@ type ParsedHorseWinner = {
   date: string;
   horseNumber: number;
   horseName: string;
+};
+
+type Mark6PreviousImpactRow = {
+  setIndex: number;
+  matchedNumbers: number[];
+  matchCount: number;
+  percentage: number;
 };
 
 type HorseRacePrediction = {
@@ -230,6 +256,7 @@ function formatRaceLabel(raceId: string | undefined, locale: string): string {
 }
 
 export default function Home() {
+  const theme = useTheme();
   const { locale } = useLocale();
   const t = useCopy();
   const [mode, setMode] = useState<Mode>("mark6");
@@ -257,6 +284,11 @@ export default function Home() {
   const [upcomingHorseRaceDates, setUpcomingHorseRaceDates] = useState<string[]>([]);
   const [mark6DateSource, setMark6DateSource] = useState<"website" | "fallback">("fallback");
   const [isMark6DatesLoading, setIsMark6DatesLoading] = useState(false);
+  const [mark6PreviousDraw, setMark6PreviousDraw] = useState<Mark6PreviousDraw | null>(null);
+  const [isMark6PreviousDrawLoading, setIsMark6PreviousDrawLoading] = useState(false);
+  const [mark6OverviewLeanProbabilities, setMark6OverviewLeanProbabilities] = useState<
+    Array<{ number: number; probability: number }> | null
+  >(null);
   const [horseHistoryRows, setHorseHistoryRows] = useState<HorseHistoryRow[]>([]);
   const [selectedDateHorseRows, setSelectedDateHorseRows] = useState<HorseHistoryRow[]>([]);
   const [isSelectedDateHorseRowsLoading, setIsSelectedDateHorseRowsLoading] = useState(false);
@@ -265,6 +297,15 @@ export default function Home() {
   const [isBetTypeInfoOpen, setIsBetTypeInfoOpen] = useState(false);
   const [horseStakeInput, setHorseStakeInput] = useState<string>("0");
   const predictionsRef = useRef<HTMLDivElement | null>(null);
+
+  const handleModeChange = useCallback((next: Mode) => {
+    setMode(next);
+    if (next !== "horse") {
+      setHorseHistoryRows([]);
+      setSelectedDateHorseRows([]);
+      setIsSelectedDateHorseRowsLoading(false);
+    }
+  }, []);
 
   const modeLabel = useMemo(
     () => (mode === "mark6" ? t.mark6 : t.horse),
@@ -336,6 +377,54 @@ export default function Home() {
   const mark6GeneratedSetsForCopy = useMemo(
     () => (displayMark6Sets.length > 0 ? displayMark6Sets : []),
     [displayMark6Sets],
+  );
+  const mark6ProbabilityByNumber = useMemo(
+    () =>
+      new Map(
+        (result?.mark6NumberProbabilities ?? []).map((item) => [
+          item.number,
+          item.probability,
+        ]),
+      ),
+    [result?.mark6NumberProbabilities],
+  );
+  const displayedMark6PreviousDraw = useMemo(
+    () =>
+      result?.mode === "mark6" && result.mark6PreviousDraw
+        ? result.mark6PreviousDraw
+        : mark6PreviousDraw,
+    [mark6PreviousDraw, result],
+  );
+
+  /** Same per-number scores shown in Overview; prefers live generate payload when dates match. */
+  const mark6LeanProbabilitySource = useMemo(() => {
+    if (mode !== "mark6") {
+      return null;
+    }
+    if (
+      result?.mode === "mark6" &&
+      result.targetDate === targetDate &&
+      result.mark6NumberProbabilities &&
+      result.mark6NumberProbabilities.length > 0
+    ) {
+      return result.mark6NumberProbabilities;
+    }
+    return mark6OverviewLeanProbabilities;
+  }, [mode, mark6OverviewLeanProbabilities, result, targetDate]);
+  const mark6PreviousImpactRows = useMemo(
+    () =>
+      displayedMark6PreviousDraw
+        ? buildMark6PreviousImpactRows(displayMark6Sets, displayedMark6PreviousDraw.numbers)
+        : [],
+    [displayMark6Sets, displayedMark6PreviousDraw],
+  );
+  const mark6BestPreviousImpact = useMemo(
+    () =>
+      mark6PreviousImpactRows.reduce<Mark6PreviousImpactRow | null>(
+        (best, row) => (!best || row.matchCount > best.matchCount ? row : best),
+        null,
+      ),
+    [mark6PreviousImpactRows],
   );
   const canCopyMark6Prediction = useMemo(
     () =>
@@ -411,6 +500,84 @@ export default function Home() {
       active = false;
     };
   }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "mark6") {
+      return;
+    }
+
+    let active = true;
+    const loadPreviousDraw = async () => {
+      setIsMark6PreviousDrawLoading(true);
+      try {
+        const response = await fetch(`/api/latest-mark6-result?targetDate=${targetDate}`);
+        if (!response.ok) {
+          throw new Error("Latest Mark Six result fetch failed.");
+        }
+        const payload = (await response.json()) as LatestMark6ResultPayload;
+        if (active) {
+          setMark6PreviousDraw(payload.previousDraw ?? null);
+        }
+      } catch {
+        if (active) {
+          setMark6PreviousDraw(null);
+        }
+      } finally {
+        if (active) {
+          setIsMark6PreviousDrawLoading(false);
+        }
+      }
+    };
+
+    void loadPreviousDraw();
+    return () => {
+      active = false;
+    };
+  }, [mode, targetDate]);
+
+  useEffect(() => {
+    if (mode !== "mark6") {
+      return;
+    }
+
+    const useGenerated =
+      result?.mode === "mark6" &&
+      result.targetDate === targetDate &&
+      (result.mark6NumberProbabilities?.length ?? 0) > 0;
+
+    if (useGenerated) {
+      return;
+    }
+
+    let active = true;
+    const loadOverviewLean = async () => {
+      try {
+        const response = await fetch(
+          `/api/mark6-overview?locale=${locale}&targetDate=${encodeURIComponent(targetDate)}`,
+        );
+        if (!active || !response.ok) {
+          return;
+        }
+        const payload = (await response.json()) as {
+          probabilities?: Array<{ number: number; probability: number }>;
+        };
+        if (payload.probabilities?.length) {
+          setMark6OverviewLeanProbabilities(payload.probabilities);
+        } else if (active) {
+          setMark6OverviewLeanProbabilities(null);
+        }
+      } catch {
+        if (active) {
+          setMark6OverviewLeanProbabilities(null);
+        }
+      }
+    };
+
+    void loadOverviewLean();
+    return () => {
+      active = false;
+    };
+  }, [locale, mode, targetDate, result]);
 
   useEffect(() => {
     if (mode !== "horse") {
@@ -491,10 +658,12 @@ export default function Home() {
     }
     let active = true;
     const loadSelectedDateHistory = async () => {
+      setSelectedDateHorseRows([]);
       setIsSelectedDateHorseRowsLoading(true);
       try {
         const response = await fetch(
           `/api/history/horse-date?date=${targetDate}&locale=${locale}`,
+          { cache: "no-store" },
         );
         if (!response.ok) {
           throw new Error("Selected date horse history fetch failed.");
@@ -636,18 +805,22 @@ export default function Home() {
         }),
       });
       if (!response.ok) {
-        throw new Error("Unable to generate suggestions.");
+        setError(t.errorGenerateSuggestionsFailed);
+        return;
       }
 
       const payload = (await response.json()) as SuggestionPayload;
       setResult(payload);
+      if (payload.mode === "mark6" && payload.mark6PreviousDraw) {
+        setMark6PreviousDraw(payload.mark6PreviousDraw);
+      }
       setProgressValue(100);
       setProgressText(t.progressSteps[3]);
       window.requestAnimationFrame(() => {
         predictionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     } catch {
-      setError(t.staleDataFallback);
+      setError(t.errorGenerateSuggestionsFailed);
     } finally {
       window.clearInterval(timer);
       setIsLoading(false);
@@ -714,15 +887,20 @@ export default function Home() {
       <Card>
         <CardContent>
           <Stack spacing={2}>
-            <Typography variant="h6" sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+            <Typography
+              id="home-game-mode-heading"
+              variant="h6"
+              sx={{ display: "flex", alignItems: "center", gap: 0.8 }}
+            >
               <CalendarLtrRegular fontSize={20} />
               {modeLabel}
             </Typography>
             <Select
               value={mode}
-              onChange={(event) => setMode(event.target.value as Mode)}
+              onChange={(event) => handleModeChange(event.target.value as Mode)}
               fullWidth
               sx={{ borderRadius: 2 }}
+              inputProps={{ "aria-labelledby": "home-game-mode-heading" }}
             >
               <MenuItem value="mark6">{t.mark6}</MenuItem>
               <MenuItem value="horse">{t.horse}</MenuItem>
@@ -917,6 +1095,8 @@ export default function Home() {
                             label={number}
                             size="small"
                             clickable
+                            aria-pressed={selected}
+                            aria-label={t.mark6ManualChipAriaLabel.replace("{number}", String(number))}
                             onClick={() => {
                               setMark6ManualNumbers((current) =>
                                 current.includes(number)
@@ -1011,21 +1191,49 @@ export default function Home() {
       {error ? <Alert severity="warning">{error}</Alert> : null}
 
       {mode === "mark6" ? (
+        <Mark6PreviousDrawSection
+          previousDraw={displayedMark6PreviousDraw}
+          isLoading={isMark6PreviousDrawLoading}
+          bestImpact={mark6BestPreviousImpact}
+          t={t}
+        />
+      ) : null}
+
+      {mode === "mark6" ? (
+        <Mark6NextDrawLeanSection
+          key={getMark6LeanProbabilitiesKey(mark6LeanProbabilitySource ?? undefined)}
+          probabilities={mark6LeanProbabilitySource}
+          previousDrawDate={displayedMark6PreviousDraw?.date}
+          t={t}
+        />
+      ) : null}
+
+      {mode === "mark6" ? (
       <Box ref={predictionsRef}>
         <Card>
         <CardContent>
           <Stack spacing={2}>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
               <Typography variant="h6">{t.suggestionsTitle}</Typography>
-              {canCopyMark6Prediction ? (
+              <Stack direction="row" spacing={0.8}>
                 <Button
+                  component={Link}
+                  href="/mark6-overview"
                   variant="outlined"
                   size="small"
-                  onClick={handleCopyMark6Prediction}
                 >
-                  {t.mark6CopyAction}
+                  {t.mark6OverviewAction}
                 </Button>
-              ) : null}
+                {canCopyMark6Prediction ? (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleCopyMark6Prediction}
+                  >
+                    {t.mark6CopyAction}
+                  </Button>
+                ) : null}
+              </Stack>
             </Box>
             {mark6CopyStatus !== "idle" ? (
               <Typography
@@ -1104,7 +1312,7 @@ export default function Home() {
                         <CardContent sx={{ p: 1.6, "&:last-child": { pb: 1.6 } }}>
                           <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 0.8 }}>
                             <Box sx={getRankRibbonStyle(index)}>
-                              Rank #{index + 1}
+                              {t.horseSuggestionRankLabel.replace("{rank}", String(index + 1))}
                             </Box>
                           </Box>
                           <Stack direction="row" spacing={1.2} sx={{ alignItems: "center" }}>
@@ -1128,7 +1336,10 @@ export default function Home() {
                             spacing={0.8}
                             sx={{ mt: 1, alignItems: "flex-start" }}
                           >
-                            <NoteRegular fontSize={16} style={{ marginTop: 2, color: "#616161" }} />
+                            <NoteRegular
+                              fontSize={16}
+                              style={{ marginTop: 2, color: theme.palette.text.secondary }}
+                            />
                             <Typography variant="body2" color="text.secondary">
                               {horse.horseProfile}
                             </Typography>
@@ -1136,13 +1347,13 @@ export default function Home() {
 
                           <Stack direction="row" spacing={1.5} sx={{ mt: 1.2 }}>
                             <Stack direction="row" spacing={0.6} sx={{ alignItems: "center" }}>
-                              <PersonRegular fontSize={16} style={{ color: "#616161" }} />
+                              <PersonRegular fontSize={16} style={{ color: theme.palette.text.secondary }} />
                               <Typography variant="caption" color="text.secondary">
                                 {horse.jockey}
                               </Typography>
                             </Stack>
                             <Stack direction="row" spacing={0.6} sx={{ alignItems: "center" }}>
-                              <PeopleTeamRegular fontSize={16} style={{ color: "#616161" }} />
+                              <PeopleTeamRegular fontSize={16} style={{ color: theme.palette.text.secondary }} />
                               <Typography variant="caption" color="text.secondary">
                                 {horse.trainer}
                               </Typography>
@@ -1156,6 +1367,11 @@ export default function Home() {
                   <Box>
                     {result.mode === "mark6" && result.mark6Prediction?.type === "multiple" ? (
                       <Stack spacing={2}>
+                        {(result.mark6NumberProbabilities?.length ?? 0) > 0 ? (
+                          <Typography variant="caption" color="text.secondary">
+                            {t.mark6NumberProbabilityLabel}
+                          </Typography>
+                        ) : null}
                         {(result.mark6Prediction.multiple ?? []).map((set, index) => (
                           <Box key={`set-${index}`}>
                             <Typography variant="caption" sx={{ display: "block", mb: 0.8 }}>
@@ -1165,7 +1381,7 @@ export default function Home() {
                               {set.map((item) => (
                                 <Chip
                                   key={`set-${index}-${item}`}
-                                  label={item}
+                                  label={formatMark6NumberLabel(item, mark6ProbabilityByNumber)}
                                   color="primary"
                                   icon={<TrophyFilled />}
                                   sx={{ fontWeight: 600 }}
@@ -1184,7 +1400,14 @@ export default function Home() {
                         </Typography>
                         <Stack direction="row" spacing={1}>
                           <Chip
-                            label={result.mark6Prediction.banker?.banker ?? "-"}
+                            label={
+                              typeof result.mark6Prediction.banker?.banker === "number"
+                                ? formatMark6NumberLabel(
+                                    result.mark6Prediction.banker.banker,
+                                    mark6ProbabilityByNumber,
+                                  )
+                                : "-"
+                            }
                             color="warning"
                             sx={{ fontWeight: 700 }}
                           />
@@ -1196,7 +1419,7 @@ export default function Home() {
                           {(result.mark6Prediction.banker?.selections ?? []).map((item) => (
                             <Chip
                               key={`banker-${item}`}
-                              label={item}
+                              label={formatMark6NumberLabel(item, mark6ProbabilityByNumber)}
                               color="primary"
                               icon={<TrophyFilled />}
                               sx={{ fontWeight: 600 }}
@@ -1220,6 +1443,11 @@ export default function Home() {
                           <Typography variant="caption" color="text.secondary">
                             {t.mark6GeneratedSetsLabel}
                           </Typography>
+                          {(result.mark6NumberProbabilities?.length ?? 0) > 0 ? (
+                            <Typography variant="caption" color="text.secondary">
+                              {t.mark6NumberProbabilityLabel}
+                            </Typography>
+                          ) : null}
                           {result.mark6BatchSets?.map((set, index) => (
                             <Box key={`mark6-batch-${index}`}>
                               <Typography variant="caption" sx={{ display: "block", mb: 0.8 }}>
@@ -1229,7 +1457,7 @@ export default function Home() {
                                 {set.map((item) => (
                                   <Chip
                                     key={`mark6-batch-${index}-${item}`}
-                                    label={item}
+                                    label={formatMark6NumberLabel(item, mark6ProbabilityByNumber)}
                                     color="primary"
                                     icon={<TrophyFilled />}
                                     sx={{ fontWeight: 600 }}
@@ -1244,7 +1472,7 @@ export default function Home() {
                           {result.suggestions.map((item) => (
                             <Chip
                               key={item}
-                              label={item}
+                              label={formatMark6NumberLabel(item, mark6ProbabilityByNumber)}
                               color="primary"
                               icon={<TrophyFilled />}
                               sx={{ fontWeight: 600 }}
@@ -1298,7 +1526,7 @@ export default function Home() {
                   </Box>
                 )}
                 <Typography variant="subtitle2">
-                  {t.confidenceTitle}: {result.confidenceBand}
+                  {t.confidenceTitle}: {formatConfidenceBandLabel(result.confidenceBand, locale)}
                 </Typography>
                 <Typography variant="body2">
                   {t.explanationTitle}: {result.explanation}
@@ -1621,7 +1849,7 @@ export default function Home() {
                                 ? "primary"
                                 : "warning"
                           }
-                          label={`${t.confidenceTitle}: ${horseRacePredictions[raceId].confidenceBand}`}
+                          label={`${t.confidenceTitle}: ${formatConfidenceBandLabel(horseRacePredictions[raceId].confidenceBand, locale)}`}
                         />
                         <Chip
                           size="small"
@@ -1807,7 +2035,7 @@ export default function Home() {
                               <InputAdornment position="end">
                                 <IconButton
                                   size="small"
-                                  aria-label="Clear stake amount"
+                                  aria-label={t.horseStakeClearAriaLabel}
                                   onClick={() => setHorseStakeInput("")}
                                   edge="end"
                                 >
@@ -1863,7 +2091,8 @@ export default function Home() {
                               {horseBetTypeLabels[estimate.betType]}: {t.horseEstimatedReturnLabel}{" "}
                               {formatHkdRange(estimate.returnLow, estimate.returnHigh, locale)} |{" "}
                               {t.horseEstimatedProfitLabel}{" "}
-                              {formatHkdRange(estimate.profitLow, estimate.profitHigh, locale)}
+                              {formatHkdRange(estimate.profitLow, estimate.profitHigh, locale)} |{" "}
+                              {t.horseEstimatedRoiLabel} {formatPercentRange(estimate.roiLow, estimate.roiHigh)}
                             </Typography>
                           ))}
                         </Stack>
@@ -1871,6 +2100,13 @@ export default function Home() {
                           variant="caption"
                           color="text.secondary"
                           sx={{ display: "block", mt: 0.45 }}
+                        >
+                          {t.horseEstimatedRoiDisclaimer}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "block", mt: 0.25 }}
                         >
                           {t.horseEstimatedPayoutDisclaimer}
                         </Typography>
@@ -2010,6 +2246,8 @@ function getEstimatedPayoutRows(
   returnHigh: number;
   profitLow: number;
   profitHigh: number;
+  roiLow: number;
+  roiHigh: number;
 }> {
   const safeStake = Number.isFinite(stakeAmount) ? Math.max(0, stakeAmount) : 0;
   const units = safeStake / 10;
@@ -2025,6 +2263,8 @@ function getEstimatedPayoutRows(
       returnHigh,
       profitLow: returnLow - totalStake,
       profitHigh: returnHigh - totalStake,
+      roiLow: totalStake > 0 ? (returnLow / totalStake) * 100 : 0,
+      roiHigh: totalStake > 0 ? (returnHigh / totalStake) * 100 : 0,
     };
   });
 }
@@ -2044,6 +2284,12 @@ function formatHkdRange(low: number, high: number, locale: string): string {
     maximumFractionDigits: 0,
   });
   return `${formatter.format(Math.round(low))} - ${formatter.format(Math.round(high))}`;
+}
+
+function formatPercentRange(low: number, high: number): string {
+  const roundedLow = Math.round(low);
+  const roundedHigh = Math.round(high);
+  return `${roundedLow}% - ${roundedHigh}%`;
 }
 
 function getRankRibbonStyle(index: number): SxProps<Theme> {
@@ -2130,6 +2376,102 @@ function nChooseK(n: number, k: number): number {
   return Math.round(result);
 }
 
+function Mark6PreviousDrawSection({
+  previousDraw,
+  isLoading,
+  bestImpact,
+  t,
+}: {
+  previousDraw: Mark6PreviousDraw | null;
+  isLoading: boolean;
+  bestImpact: Mark6PreviousImpactRow | null;
+  t: ReturnType<typeof useCopy>;
+}) {
+  return (
+    <Card
+      variant="outlined"
+      sx={{
+        borderColor: alpha("#0f6cbd", 0.24),
+        borderRadius: 2,
+        bgcolor: alpha("#0f6cbd", 0.04),
+      }}
+    >
+      <CardContent sx={{ p: 1.4, "&:last-child": { pb: 1.4 } }}>
+        <Stack spacing={1}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
+            <Box>
+              <Typography variant="subtitle2">{t.mark6PreviousDrawTitle}</Typography>
+              {previousDraw ? (
+                <Typography variant="caption" color="text.secondary">
+                  {t.mark6PreviousDrawDateLabel}: {previousDraw.date}
+                  {previousDraw.source === "hkjc" ? ` · ${t.mark6PreviousDrawLiveSource}` : ""}
+                </Typography>
+              ) : null}
+            </Box>
+            {bestImpact ? (
+              <Chip
+                size="small"
+                color={bestImpact.matchCount >= 3 ? "success" : "warning"}
+                label={`${bestImpact.percentage}%`}
+                sx={{ fontWeight: 700 }}
+              />
+            ) : null}
+          </Box>
+
+          {isLoading ? (
+            <Typography variant="body2" color="text.secondary">
+              {t.mark6PreviousDrawLoading}
+            </Typography>
+          ) : previousDraw ? (
+            <>
+              <Stack direction="row" spacing={0.8} useFlexGap sx={{ flexWrap: "wrap" }}>
+                {previousDraw.numbers.map((item) => (
+                  <Chip
+                    key={`mark6-previous-${item}`}
+                    label={item}
+                    size="small"
+                    color="secondary"
+                    sx={{ fontWeight: 600 }}
+                  />
+                ))}
+                {previousDraw.specialNumber ? (
+                  <Chip
+                    key={`mark6-previous-special-${previousDraw.specialNumber}`}
+                    label={`${t.mark6PreviousDrawSpecialLabel}: ${previousDraw.specialNumber}`}
+                    size="small"
+                    color="warning"
+                    sx={{ fontWeight: 700 }}
+                  />
+                ) : null}
+              </Stack>
+              {bestImpact ? (
+                <Stack spacing={0.4}>
+                  <Typography variant="body2">
+                    {t.mark6ImpactBestLabel}: {t.mark6SetLabel} {bestImpact.setIndex + 1} ·{" "}
+                    {bestImpact.matchCount}/6 ({bestImpact.percentage}%)
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {getMark6ImpactVerdict(bestImpact.matchCount, t)}
+                  </Typography>
+                  {bestImpact.matchedNumbers.length > 0 ? (
+                    <Typography variant="caption" color="text.secondary">
+                      {t.mark6MatchedNumbersLabel}: {bestImpact.matchedNumbers.join(", ")}
+                    </Typography>
+                  ) : null}
+                </Stack>
+              ) : null}
+            </>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              {t.mark6PreviousDrawUnavailable}
+            </Typography>
+          )}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
 function getBaseMark6Sets(result: SuggestionPayload | null): number[][] {
   if (!result || result.mode !== "mark6") {
     return [];
@@ -2150,6 +2492,51 @@ function getBaseMark6Sets(result: SuggestionPayload | null): number[][] {
     return [parsed.slice(0, 6).sort((a, b) => a - b)];
   }
   return [];
+}
+
+function buildMark6PreviousImpactRows(
+  sets: number[][],
+  previousDrawNumbers: number[],
+): Mark6PreviousImpactRow[] {
+  const previousDrawSet = new Set(previousDrawNumbers);
+  return sets
+    .filter((set) => set.length > 0)
+    .map((set, setIndex) => {
+      const matchedNumbers = [...new Set(set)]
+        .filter((number) => previousDrawSet.has(number))
+        .sort((a, b) => a - b);
+      return {
+        setIndex,
+        matchedNumbers,
+        matchCount: matchedNumbers.length,
+        percentage: Math.round((matchedNumbers.length / 6) * 100),
+      };
+    });
+}
+
+function formatMark6NumberLabel(
+  value: string | number,
+  probabilityByNumber: Map<number, number>,
+): string {
+  const number = typeof value === "number" ? value : Number.parseInt(value, 10);
+  const probability = probabilityByNumber.get(number);
+  if (!Number.isFinite(number) || typeof probability !== "number") {
+    return value.toString();
+  }
+  return `${number} (${probability}%)`;
+}
+
+function getMark6ImpactVerdict(
+  matchCount: number,
+  t: ReturnType<typeof useCopy>,
+): string {
+  if (matchCount >= 3) {
+    return t.mark6ImpactNearWinning;
+  }
+  if (matchCount >= 2) {
+    return t.mark6ImpactSomeImpact;
+  }
+  return t.mark6ImpactOffMark;
 }
 
 function weightedPickDistinctNumbers(

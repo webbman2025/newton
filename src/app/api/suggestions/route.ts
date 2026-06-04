@@ -18,6 +18,10 @@ const bodySchema = z.object({
   horseAnalystProfile: z
     .enum(["paulJones", "andyGibson", "topHandicapper"])
     .optional(),
+  mark6ExpertStrategy: z.enum(["consensus", "single"]).optional(),
+  mark6ExpertProfile: z
+    .enum(["frequencyHistorian", "momentumTracker", "drawPatternSpecialist"])
+    .optional(),
   selectedRace: z
     .object({
       venueCode: z.enum(["ST", "HV"]),

@@ -29,7 +29,8 @@ import {
   ChevronDownRegular,
   DataTrendingRegular,
 } from "@fluentui/react-icons";
-import { useCopy } from "@/components/locale-provider";
+import { useCopy, useLocale } from "@/components/locale-provider";
+import { formatConfidenceBandLabel } from "@/lib/translations";
 
 type AnalyticsPayload = {
   confidenceDistribution: { band: string; value: number }[];
@@ -47,6 +48,7 @@ type AnalyticsPayload = {
 
 export default function AnalyticsPage() {
   const t = useCopy();
+  const { locale } = useLocale();
   const [data, setData] = useState<AnalyticsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,7 +109,7 @@ export default function AnalyticsPage() {
                   {t.analyticsMetricConfidenceNow}
                 </Typography>
                 <Typography variant="h5" sx={{ lineHeight: 1.2 }}>
-                  {dominantConfidence}
+                  {formatConfidenceBandLabel(dominantConfidence, locale)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {t.analyticsMetricConfidenceNowHint} ({totalConfidenceEvents})
@@ -155,7 +157,9 @@ export default function AnalyticsPage() {
                     xAxis={[
                       {
                         id: "confidence",
-                        data: data.confidenceDistribution.map((item) => item.band),
+                        data: data.confidenceDistribution.map((item) =>
+                          formatConfidenceBandLabel(item.band, locale),
+                        ),
                         scaleType: "band",
                         label: t.analyticsConfidence,
                       },
@@ -226,7 +230,7 @@ export default function AnalyticsPage() {
                   <TableBody>
                     {(data?.horseBacktest?.byBand ?? []).map((item) => (
                       <TableRow key={`calib-${item.band}`}>
-                        <TableCell>{item.band}</TableCell>
+                        <TableCell>{formatConfidenceBandLabel(item.band, locale)}</TableCell>
                         <TableCell>{item.hitRatePct}%</TableCell>
                         <TableCell>{item.sampleSize}</TableCell>
                       </TableRow>
