@@ -11,15 +11,18 @@ import {
   Dialog,
   DialogContent,
   Divider,
+  Fab,
   MenuItem,
   Select,
   Stack,
   Toolbar,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import {
   DataTrendingFilled,
   DataTrendingRegular,
+  HeartFilled,
   HistoryFilled,
   HistoryRegular,
   HomeFilled,
@@ -41,8 +44,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hasDonationSupport = Boolean(donationUrl || donationQrImageUrl);
   const [isDonationQrFullscreenOpen, setIsDonationQrFullscreenOpen] = useState(false);
 
+  const donationFabSx = {
+    position: "fixed" as const,
+    right: "calc(16px + env(safe-area-inset-right, 0px))",
+    bottom: "calc(72px + env(safe-area-inset-bottom, 0px))",
+    zIndex: (theme: { zIndex: { appBar: number } }) => theme.zIndex.appBar + 2,
+    width: 52,
+    height: 52,
+    minHeight: 52,
+    boxShadow: "0 4px 14px rgba(15,108,189,0.35)",
+    "&:hover": {
+      boxShadow: "0 6px 18px rgba(15,108,189,0.42)",
+    },
+  };
+
+  const donationFab = hasDonationSupport ? (
+    <Tooltip title={t.donationHint} placement="left" enterTouchDelay={0}>
+      <Fab
+        color="primary"
+        aria-label={t.donationButton}
+        sx={donationFabSx}
+        {...(donationQrImageUrl
+          ? {
+              type: "button" as const,
+              onClick: () => setIsDonationQrFullscreenOpen(true),
+            }
+          : {
+              component: "a" as const,
+              href: donationUrl,
+              target: "_blank",
+              rel: "noopener noreferrer",
+            })}
+      >
+        <HeartFilled fontSize={22} />
+      </Fab>
+    </Tooltip>
+  ) : null;
+
   return (
-    <Box sx={{ minHeight: "100vh", pb: hasDonationSupport ? 17 : 8 }}>
+    <Box sx={{ minHeight: "100vh", pb: 9 }}>
       <AppBar position="sticky" color="primary">
         <Toolbar sx={{ gap: 1.5, justifyContent: "space-between", minHeight: 64 }}>
           <Typography variant="h6" sx={{ fontSize: "1rem", display: "flex", alignItems: "center", gap: 0.8 }}>
@@ -98,56 +138,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Container maxWidth="sm">
           <Divider sx={{ mb: 1 }} />
           <Stack spacing={0.8}>
-            {hasDonationSupport ? (
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={1}
-                sx={{
-                  alignItems: { xs: "stretch", sm: "center" },
-                  justifyContent: "space-between",
-                  gap: 1,
-                }}
-              >
-                <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
-                  {t.donationHint}
-                </Typography>
-                {donationQrImageUrl ? (
-                  <Button
-                    type="button"
-                    variant="contained"
-                    size="small"
-                    onClick={() => setIsDonationQrFullscreenOpen(true)}
-                    sx={{
-                      borderRadius: 999,
-                      minHeight: 40,
-                      minWidth: { xs: "100%", sm: 180 },
-                      px: 2.5,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {t.donationButton}
-                  </Button>
-                ) : (
-                  <Button
-                    component="a"
-                    href={donationUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    variant="contained"
-                    size="small"
-                    sx={{
-                      borderRadius: 999,
-                      minHeight: 40,
-                      minWidth: { xs: "100%", sm: 180 },
-                      px: 2.5,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {t.donationButton}
-                  </Button>
-                )}
-              </Stack>
-            ) : null}
             <Typography variant="caption" sx={{ display: "flex", color: "text.secondary", gap: 0.8, alignItems: "center" }}>
               <InfoRegular fontSize={14} />
               {t.footerDisclaimer}
@@ -155,6 +145,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Stack>
         </Container>
       </Box>
+
+      {donationFab}
 
       {donationQrImageUrl ? (
         <Dialog
