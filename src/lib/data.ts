@@ -485,6 +485,51 @@ function filterHorseHistoryByPastDays(rows: HistoryEntry[], pastDays: number, hk
   return rows.filter((row) => row.date >= cutoff);
 }
 
+function calendarDaysBetween(earlierYmd: string, laterYmd: string): number {
+  const [ey, em, ed] = earlierYmd.split("-").map((part) => Number.parseInt(part, 10));
+  const [ly, lm, ld] = laterYmd.split("-").map((part) => Number.parseInt(part, 10));
+  if (![ey, em, ed, ly, lm, ld].every(Number.isFinite)) {
+    return 0;
+  }
+  const earlier = Date.UTC(ey, em - 1, ed);
+  const later = Date.UTC(ly, lm - 1, ld);
+  return Math.max(0, Math.round((later - earlier) / MS_PER_DAY));
+}
+
+async function getLatestHorseRaceDateYmd(): Promise<string | null> {
+  if (!canUseDatabase()) {
+    return null;
+  }
+  try {
+    const { rows } = await dbQuery<{ ymd: string | null }>(
+      `
+      SELECT TO_CHAR(MAX(race_date), 'YYYY-MM-DD') AS ymd
+      FROM race_results
+      WHERE race_id ~ '^([0-9]{4}-[0-9]{2}-[0-9]{2}-)?(ST|HV)-R[0-9]+$'
+      `,
+    );
+    const ymd = rows[0]?.ymd;
+    return ymd && /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getLatestMark6DrawDateYmd(): Promise<string | null> {
+  if (!canUseDatabase()) {
+    return null;
+  }
+  try {
+    const { rows } = await dbQuery<{ ymd: string | null }>(
+      `SELECT TO_CHAR(MAX(draw_date), 'YYYY-MM-DD') AS ymd FROM mark6_results`,
+    );
+    const ymd = rows[0]?.ymd;
+    return ymd && /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : null;
+  } catch {
+    return null;
+  }
+}
+
 async function finalizeHorseFallbackRows(locale: Locale, options?: GetHistoryOptions): Promise<HistoryEntry[]> {
   const rows = getHistoryFallback("horse", locale);
   const pd = normalizeHorsePastDays(options?.horsePastDays);
@@ -565,7 +610,7 @@ async function horseHistoryCorpusWarmEnoughForSkipIngest(): Promise<boolean> {
   }
 }
 
-async function refreshHorseRaceResultsNearTerm(): Promise<void> {
+async function refreshHorseRaceResultsNearTerm(options?: { forHistory?: boolean }): Promise<void> {
   const now = Date.now();
 
   const inFlight = horseRaceIngestNearTermInFlight;
@@ -574,11 +619,29 @@ async function refreshHorseRaceResultsNearTerm(): Promise<void> {
     return;
   }
 
-  if (await horseHistoryCorpusWarmEnoughForSkipIngest()) {
+  const hkToday = await hkTodayYmdForHistory();
+  const latestRaceDate = await getLatestHorseRaceDateYmd();
+  const dayGap = latestRaceDate ? calendarDaysBetween(latestRaceDate, hkToday) : 999;
+  const needsRefresh = dayGap > 4 || !latestRaceDate;
+  const corpusWarm = await horseHistoryCorpusWarmEnoughForSkipIngest();
+
+  if (!needsRefresh && corpusWarm && !options?.forHistory) {
     return;
   }
 
-  if (now - horseRaceNearTermLastAttemptMs < HORSE_RACE_NEAR_TERM_COOLDOWN_MS) {
+  if (
+    !needsRefresh &&
+    !options?.forHistory &&
+    now - horseRaceNearTermLastAttemptMs < HORSE_RACE_NEAR_TERM_COOLDOWN_MS
+  ) {
+    return;
+  }
+
+  if (
+    options?.forHistory &&
+    !needsRefresh &&
+    now - horseRaceNearTermLastAttemptMs < HORSE_RACE_NEAR_TERM_COOLDOWN_MS
+  ) {
     return;
   }
 
@@ -589,17 +652,18 @@ async function refreshHorseRaceResultsNearTerm(): Promise<void> {
     10,
   );
   const effectiveMeetingsCap = Number.isFinite(meetingCap)
-    ? Math.max(2, Math.min(12, meetingCap))
-    : 4;
+    ? Math.max(2, Math.min(options?.forHistory ? 8 : 12, meetingCap))
+    : options?.forHistory
+      ? 6
+      : 4;
 
   const runIngest = (async (): Promise<void> => {
     const start = new Date();
     const from = new Date(start);
-    from.setDate(start.getDate() - 18);
+    from.setDate(start.getDate() - (options?.forHistory ? 28 : 18));
     const fromDate = from.toISOString().slice(0, 10);
     await ingestHorseRacingFromHkjc({
       fromDate,
-      /** Keep read-path ingestion small so `/api/history` stays under invocation limits even with cold DB. Cron can widen coverage. */
       maxMeetingDates: effectiveMeetingsCap,
     }).catch(() => undefined);
   })();
@@ -615,7 +679,17 @@ let mark6IngestNearTermInFlight: Promise<void> | undefined;
 let mark6NearTermLastAttemptMs = 0;
 const MARK6_NEAR_TERM_COOLDOWN_MS = 90_000;
 
-/** Best-effort Mark Six history ingest when DB is thin — mirrors History read-path for Vercel generate. */
+async function runMark6RecentIngest(maxDraws = 48, daysBack = 60): Promise<void> {
+  const hkToday = await hkTodayYmdForHistory();
+  const fromDate = subtractCalendarDaysIso(hkToday, daysBack);
+  await ingestMarkSixFromWeb({ fromDate, maxDraws }).catch(() => undefined);
+  const liveDraw = await getLatestHkjcMark6PreviousDraw().catch(() => null);
+  if (liveDraw) {
+    await upsertMark6PreviousDraw(liveDraw).catch(() => undefined);
+  }
+}
+
+/** Best-effort Mark Six ingest for suggestions when DB is thin or stale. */
 async function refreshMark6ResultsNearTerm(): Promise<void> {
   if (!canUseDatabase()) {
     return;
@@ -627,27 +701,64 @@ async function refreshMark6ResultsNearTerm(): Promise<void> {
     return;
   }
 
-  try {
-    const { rows } = await dbQuery<{ draws: number }>(
-      `SELECT COUNT(*)::int AS draws FROM mark6_results`,
-    );
-    if ((rows[0]?.draws ?? 0) >= 25) {
+  const hkToday = await hkTodayYmdForHistory();
+  const latestDraw = await getLatestMark6DrawDateYmd();
+  const dayGap = latestDraw ? calendarDaysBetween(latestDraw, hkToday) : 999;
+  const needsRefresh = dayGap > 3 || !latestDraw;
+
+  if (!needsRefresh) {
+    try {
+      const { rows } = await dbQuery<{ draws: number }>(
+        `SELECT COUNT(*)::int AS draws FROM mark6_results`,
+      );
+      if ((rows[0]?.draws ?? 0) >= 25) {
+        return;
+      }
+    } catch {
       return;
     }
-  } catch {
-    return;
   }
 
   const now = Date.now();
-  if (now - mark6NearTermLastAttemptMs < MARK6_NEAR_TERM_COOLDOWN_MS) {
+  if (!needsRefresh && now - mark6NearTermLastAttemptMs < MARK6_NEAR_TERM_COOLDOWN_MS) {
     return;
   }
   mark6NearTermLastAttemptMs = now;
 
-  const runIngest = (async (): Promise<void> => {
-    const { startDate } = getHistoryWindow(new Date().toISOString().slice(0, 10));
-    await ingestMarkSixFromWeb({ fromDate: startDate }).catch(() => undefined);
-  })();
+  const runIngest = runMark6RecentIngest(48, 60);
+
+  mark6IngestNearTermInFlight = runIngest.then(() => undefined).finally(() => {
+    mark6IngestNearTermInFlight = undefined;
+  });
+
+  await mark6IngestNearTermInFlight;
+}
+
+/** History page: always refresh recent draws (bounded) instead of a 5-year backfill. */
+async function refreshMark6ResultsForHistory(): Promise<void> {
+  if (!canUseDatabase()) {
+    return;
+  }
+
+  const inFlight = mark6IngestNearTermInFlight;
+  if (inFlight) {
+    await inFlight;
+    return;
+  }
+
+  const hkToday = await hkTodayYmdForHistory();
+  const latestDraw = await getLatestMark6DrawDateYmd();
+  const dayGap = latestDraw ? calendarDaysBetween(latestDraw, hkToday) : 999;
+  const needsRefresh = dayGap > 2 || !latestDraw;
+  const now = Date.now();
+
+  if (!needsRefresh && now - mark6NearTermLastAttemptMs < MARK6_NEAR_TERM_COOLDOWN_MS) {
+    return;
+  }
+
+  mark6NearTermLastAttemptMs = now;
+
+  const runIngest = runMark6RecentIngest(56, 75);
 
   mark6IngestNearTermInFlight = runIngest.then(() => undefined).finally(() => {
     mark6IngestNearTermInFlight = undefined;
@@ -2655,8 +2766,7 @@ export async function getHistory(mode: Mode, locale: Locale, options?: GetHistor
 
   if (mode === "mark6") {
     try {
-      const { startDate } = getHistoryWindow(new Date().toISOString().slice(0, 10));
-      await ingestMarkSixFromWeb({ fromDate: startDate }).catch(() => null);
+      await refreshMark6ResultsForHistory();
 
       const rows = await dbQuery<{
         draw_date: string;
@@ -2667,7 +2777,7 @@ export async function getHistory(mode: Mode, locale: Locale, options?: GetHistor
         SELECT TO_CHAR(draw_date, 'YYYY-MM-DD') AS draw_date, numbers, special_number
         FROM mark6_results
         ORDER BY draw_date DESC
-        LIMIT 20
+        LIMIT 40
         `,
       );
 
@@ -2690,7 +2800,7 @@ export async function getHistory(mode: Mode, locale: Locale, options?: GetHistor
   }
 
   try {
-    await refreshHorseRaceResultsNearTerm();
+    await refreshHorseRaceResultsNearTerm({ forHistory: true });
 
     const pd = normalizeHorsePastDays(options?.horsePastDays);
     const dateFilterClause =
@@ -2773,7 +2883,7 @@ export async function getHorseHistoryByDate(
   }
 
   try {
-    await refreshHorseRaceResultsNearTerm();
+    await refreshHorseRaceResultsNearTerm({ forHistory: true });
 
     const raceRows = await dbQuery<{ race_date: string; race_id: string; result: string }>(
       `

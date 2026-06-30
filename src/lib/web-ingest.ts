@@ -293,14 +293,21 @@ async function fetchMarkSixRowsFromHkjc(fromDate: string, lastNDraw = 220) {
 
 export async function ingestMarkSixFromWeb({
   fromDate,
+  maxDraws,
 }: {
   fromDate: string;
+  /** Cap HKJC/Lottolyzer fetch size — use on History read-path to avoid serverless timeouts. */
+  maxDraws?: number;
 }) {
   const fromTime = new Date(fromDate).getTime();
   const ageDays = Number.isFinite(fromTime)
     ? Math.max(1, Math.ceil((Date.now() - fromTime) / (24 * 60 * 60 * 1000)))
     : 365;
-  const lastNDraw = Math.max(80, Math.min(1200, Math.ceil((ageDays / 7) * 4)));
+  const computedDraws = Math.max(80, Math.min(1200, Math.ceil((ageDays / 7) * 4)));
+  const lastNDraw =
+    maxDraws != null && Number.isFinite(maxDraws)
+      ? Math.max(12, Math.min(1200, Math.floor(maxDraws)))
+      : computedDraws;
   let source = "hkjc-live";
   let rows = await fetchMarkSixRowsFromHkjc(fromDate, lastNDraw).catch(() => []);
   if (rows.length === 0) {

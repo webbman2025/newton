@@ -220,7 +220,7 @@ export default function HistoryPage() {
       setIsLoading(true);
       try {
         const horseQuery =
-          requestedMode === "horse" && horseDateRange === "week" ? "&pastDays=7" : "";
+          requestedMode === "horse" && horseDateRange === "week" ? "&pastDays=14" : "";
         const response = await fetch(
           `/api/history?mode=${requestedMode}&locale=${locale}${horseQuery}`,
           {
