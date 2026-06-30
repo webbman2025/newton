@@ -652,15 +652,15 @@ async function refreshHorseRaceResultsNearTerm(options?: { forHistory?: boolean 
     10,
   );
   const effectiveMeetingsCap = Number.isFinite(meetingCap)
-    ? Math.max(2, Math.min(options?.forHistory ? 8 : 12, meetingCap))
+    ? Math.max(2, Math.min(options?.forHistory ? 4 : 12, meetingCap))
     : options?.forHistory
-      ? 6
+      ? 3
       : 4;
 
   const runIngest = (async (): Promise<void> => {
     const start = new Date();
     const from = new Date(start);
-    from.setDate(start.getDate() - (options?.forHistory ? 28 : 18));
+    from.setDate(start.getDate() - (options?.forHistory ? 21 : 18));
     const fromDate = from.toISOString().slice(0, 10);
     await ingestHorseRacingFromHkjc({
       fromDate,
@@ -2800,7 +2800,10 @@ export async function getHistory(mode: Mode, locale: Locale, options?: GetHistor
   }
 
   try {
-    await refreshHorseRaceResultsNearTerm({ forHistory: true });
+    const hkToday = await hkTodayYmdForHistory();
+    const latestRaceDate = await getLatestHorseRaceDateYmd();
+    const dayGap = latestRaceDate ? calendarDaysBetween(latestRaceDate, hkToday) : 999;
+    const needsHorseRefresh = dayGap > 4 || !latestRaceDate;
 
     const pd = normalizeHorsePastDays(options?.horsePastDays);
     const dateFilterClause =
@@ -2808,8 +2811,9 @@ export async function getHistory(mode: Mode, locale: Locale, options?: GetHistor
         ? `AND race_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Hong_Kong')::date - ($1::integer - 1)`
         : "";
 
-    const raceRows = await dbQuery<{ race_date: string; race_id: string; result: string }>(
-      `
+    const queryHorseRows = () =>
+      dbQuery<{ race_date: string; race_id: string; result: string }>(
+        `
       SELECT
         TO_CHAR(race_date, 'YYYY-MM-DD') AS race_date,
         race_id,
@@ -2832,8 +2836,19 @@ export async function getHistory(mode: Mode, locale: Locale, options?: GetHistor
         race_id ASC
       LIMIT 200
       `,
-      pd != null ? [pd] : [],
-    );
+        pd != null ? [pd] : [],
+      );
+
+    let raceRows = await queryHorseRows();
+
+    if (needsHorseRefresh) {
+      if (raceRows.rows.length === 0) {
+        await refreshHorseRaceResultsNearTerm({ forHistory: true });
+        raceRows = await queryHorseRows();
+      } else {
+        void refreshHorseRaceResultsNearTerm({ forHistory: true });
+      }
+    }
 
     if (raceRows.rows.length > 0) {
       const shaped = dedupeMirroredHorseHistoryRows(
