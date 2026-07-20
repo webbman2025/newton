@@ -22,6 +22,9 @@ const bodySchema = z.object({
   mark6ExpertProfile: z
     .enum(["frequencyHistorian", "momentumTracker", "drawPatternSpecialist"])
     .optional(),
+  mark6Persona: z
+    .enum(["lotteryAnalyst", "gameTheorist", "patternFinder"])
+    .optional(),
   selectedRace: z
     .object({
       venueCode: z.enum(["ST", "HV"]),

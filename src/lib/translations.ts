@@ -28,6 +28,8 @@ type CopyShape = {
   noSuggestionYet: string;
   disclaimer: string;
   footerDisclaimer: string;
+  footerCompliance: string;
+  footerHkjcLink: string;
   donationButton: string;
   donationHint: string;
   donationQrTitle: string;
@@ -89,9 +91,19 @@ type CopyShape = {
   horseUpcomingRacesLabel: string;
   horseRaceStatusResult: string;
   horseRaceStatusUpcoming: string;
+  horseRaceStatusAwaiting: string;
+  horseRaceDayListLabel: string;
+  horseRaceDayRefreshHint: string;
+  horsePredictionHitLabel: string;
+  horsePredictionMissLabel: string;
   horsePastDateResultsMode: string;
   horseOfficialWinnerLabel: string;
   horseOfficialTopFinishersLabel: string;
+  horseResultComparisonTitle: string;
+  horseResultComparisonPosition: string;
+  horseResultComparisonPredicted: string;
+  horseResultComparisonActual: string;
+  horseResultComparisonNoData: string;
   selectedRaceLabel: string;
   mark6PredictionTypeLabel: string;
   mark6PredictionSingle: string;
@@ -155,6 +167,47 @@ type CopyShape = {
   mark6NextDrawLeanMoreSetsAction: string;
   mark6NextDrawLeanResetSetsAction: string;
   mark6NextDrawLeanRankBandLabel: string;
+  mark6PersonaSectionTitle: string;
+  mark6PersonaSectionSubtitle: string;
+  mark6PersonaLotteryAnalyst: string;
+  mark6PersonaLotteryAnalystDescription: string;
+  mark6PersonaGameTheorist: string;
+  mark6PersonaGameTheoristDescription: string;
+  mark6PersonaPatternFinder: string;
+  mark6PersonaPatternFinderDescription: string;
+  mark6QueryHotCold: string;
+  mark6QueryOddEven: string;
+  mark6QueryRepeatingPatterns: string;
+  mark6QueryRecentTrends: string;
+  mark6AnalysisTitle: string;
+  mark6AnalysisLoading: string;
+  mark6AnalysisError: string;
+  mark6AnalysisDrawWindow: string;
+  mark6AnalysisDraws: string;
+  mark6AnalysisHeatmap: string;
+  mark6AnalysisFrequency: string;
+  mark6AnalysisOddEven: string;
+  mark6AnalysisHighLow: string;
+  mark6AnalysisOdd: string;
+  mark6AnalysisEven: string;
+  mark6AnalysisLow: string;
+  mark6AnalysisHigh: string;
+  mark6AnalysisInsights: string;
+  mark6AnalysisSuggested: string;
+  mark6AnalysisSourceLive: string;
+  mark6AnalysisSourceFallback: string;
+  mark6AnalysisProxyNote: string;
+  mark6AnalysisFeedTitle: string;
+  mark6AnalysisFeedSubtitle: string;
+  mark6InsightHot: string;
+  mark6InsightCold: string;
+  mark6InsightOddEven: string;
+  mark6InsightHighLow: string;
+  mark6InsightPair: string;
+  mark6InsightTriple: string;
+  mark6InsightMomentum: string;
+  mark6InsightProxy: string;
+  mark6ActivePersonaLabel: string;
   horseWinningHorseLabel: string;
   horsePreviousWinnerLabel: string;
   horsePreviousWinnerDateLabel: string;
@@ -244,6 +297,8 @@ export const copy: Record<Locale, CopyShape> = {
       "For entertainment only. No guaranteed winnings. No financial advice.",
     footerDisclaimer:
       "Entertainment only. No guaranteed winnings. This app does not process bets.",
+    footerCompliance: "Analysis only. Visit HKJC for official betting.",
+    footerHkjcLink: "Open HKJC",
     donationButton: "Support this site",
     donationHint: "Like the service? A small AlipayHK donation helps keep it running.",
     donationQrTitle: "Support with AlipayHK",
@@ -310,9 +365,19 @@ export const copy: Record<Locale, CopyShape> = {
     horseUpcomingRacesLabel: "Upcoming races",
     horseRaceStatusResult: "Result",
     horseRaceStatusUpcoming: "Upcoming",
+    horseRaceStatusAwaiting: "Awaiting official result",
+    horseRaceDayListLabel: "Races on",
+    horseRaceDayRefreshHint: "Official results refresh automatically on race day.",
+    horsePredictionHitLabel: "Prediction matched the winner",
+    horsePredictionMissLabel: "Prediction did not match the winner",
     horsePastDateResultsMode: "Past date selected: showing official race results only.",
     horseOfficialWinnerLabel: "Official Winner",
     horseOfficialTopFinishersLabel: "Top Finishers",
+    horseResultComparisonTitle: "Prediction vs official result",
+    horseResultComparisonPosition: "Pos",
+    horseResultComparisonPredicted: "Your prediction",
+    horseResultComparisonActual: "Official result",
+    horseResultComparisonNoData: "—",
     selectedRaceLabel: "Selected Race",
     mark6PredictionTypeLabel: "Prediction Type",
     mark6PredictionSingle: "Single",
@@ -381,6 +446,47 @@ export const copy: Record<Locale, CopyShape> = {
     mark6NextDrawLeanMoreSetsAction: "More high-score picks",
     mark6NextDrawLeanResetSetsAction: "Restore top six",
     mark6NextDrawLeanRankBandLabel: "Model ranks {start}–{end}",
+    mark6PersonaSectionTitle: "Analysis persona",
+    mark6PersonaSectionSubtitle: "Choose the analytical lens used for insights and generated sets.",
+    mark6PersonaLotteryAnalyst: "Lottery Analyst",
+    mark6PersonaLotteryAnalystDescription: "Professional frequency, balance, and hot/cold analysis.",
+    mark6PersonaGameTheorist: "Game Theorist",
+    mark6PersonaGameTheoristDescription: "Diversification using common-selection pattern proxies.",
+    mark6PersonaPatternFinder: "Pattern Finder",
+    mark6PersonaPatternFinderDescription: "Investigates repeating pairs, triples, clusters, and streaks.",
+    mark6QueryHotCold: "Hot & Cold Numbers",
+    mark6QueryOddEven: "Odd/Even Analysis",
+    mark6QueryRepeatingPatterns: "Repeating Patterns",
+    mark6QueryRecentTrends: "Recent Trends",
+    mark6AnalysisTitle: "Persona analysis",
+    mark6AnalysisLoading: "Analyzing historical draws...",
+    mark6AnalysisError: "Unable to load Mark Six analysis right now.",
+    mark6AnalysisDrawWindow: "Draw window",
+    mark6AnalysisDraws: "draws analyzed",
+    mark6AnalysisHeatmap: "1–49 frequency heatmap",
+    mark6AnalysisFrequency: "Most frequent numbers",
+    mark6AnalysisOddEven: "Odd / even distribution",
+    mark6AnalysisHighLow: "Low / high distribution",
+    mark6AnalysisOdd: "Odd",
+    mark6AnalysisEven: "Even",
+    mark6AnalysisLow: "Low 1–24",
+    mark6AnalysisHigh: "High 25–49",
+    mark6AnalysisInsights: "Analytical read",
+    mark6AnalysisSuggested: "Explore next",
+    mark6AnalysisSourceLive: "Historical database",
+    mark6AnalysisSourceFallback: "Limited sample data",
+    mark6AnalysisProxyNote: "Common-selection scores are statistical proxies, not actual ticket-sales data.",
+    mark6AnalysisFeedTitle: "Analysis feed",
+    mark6AnalysisFeedSubtitle: "Generated from the selected historical window; not community posts.",
+    mark6InsightHot: "Most active numbers: {numbers}.",
+    mark6InsightCold: "Least active numbers: {numbers}.",
+    mark6InsightOddEven: "Historical split: {value}% odd and {secondary}% even.",
+    mark6InsightHighLow: "Historical split: {value}% low and {secondary}% high.",
+    mark6InsightPair: "Leading repeated pair: {numbers}, seen {value} times.",
+    mark6InsightTriple: "Leading repeated triple: {numbers}, seen {value} times.",
+    mark6InsightMomentum: "Positive recent frequency movement: {numbers}.",
+    mark6InsightProxy: "{value}% of drawn numbers were 1–31; {secondary}% of draws contained consecutive numbers.",
+    mark6ActivePersonaLabel: "Active approach",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
     horsePreviousWinnerDateLabel: "Last result date",
@@ -466,6 +572,8 @@ export const copy: Record<Locale, CopyShape> = {
     noSuggestionYet: "請先選擇遊戲與日期，然後生成推薦。",
     disclaimer: "僅供娛樂用途，不保證中獎，並非財務建議。",
     footerDisclaimer: "僅供娛樂用途，不保證中獎。本應用不處理任何投注。",
+    footerCompliance: "只供分析。正式投注請前往香港賽馬會。",
+    footerHkjcLink: "前往香港賽馬會",
     donationButton: "支持本站",
     donationHint: "喜歡這個服務？可透過 AlipayHK 小額支持網站營運。",
     donationQrTitle: "透過 AlipayHK 支持",
@@ -528,9 +636,19 @@ export const copy: Record<Locale, CopyShape> = {
     horseUpcomingRacesLabel: "即將開跑賽事",
     horseRaceStatusResult: "賽果",
     horseRaceStatusUpcoming: "即將開跑",
+    horseRaceStatusAwaiting: "等候官方賽果",
+    horseRaceDayListLabel: "賽日賽事",
+    horseRaceDayRefreshHint: "賽馬日會自動更新官方賽果。",
+    horsePredictionHitLabel: "預測命中冠軍",
+    horsePredictionMissLabel: "預測未中冠軍",
     horsePastDateResultsMode: "已選過往日期：只顯示該日官方賽果。",
     horseOfficialWinnerLabel: "官方冠軍",
     horseOfficialTopFinishersLabel: "前列名次",
+    horseResultComparisonTitle: "預測對照官方賽果",
+    horseResultComparisonPosition: "名次",
+    horseResultComparisonPredicted: "你的預測",
+    horseResultComparisonActual: "官方賽果",
+    horseResultComparisonNoData: "—",
     selectedRaceLabel: "已選賽事",
     mark6PredictionTypeLabel: "預測模式",
     mark6PredictionSingle: "單式",
@@ -595,6 +713,47 @@ export const copy: Record<Locale, CopyShape> = {
     mark6NextDrawLeanMoreSetsAction: "更多高分組合",
     mark6NextDrawLeanResetSetsAction: "還原本期首選六個號碼",
     mark6NextDrawLeanRankBandLabel: "模型排名第 {start}–{end} 位",
+    mark6PersonaSectionTitle: "分析角色",
+    mark6PersonaSectionSubtitle: "選擇用於分析及生成組合的角度。",
+    mark6PersonaLotteryAnalyst: "六合彩分析師",
+    mark6PersonaLotteryAnalystDescription: "以專業方式分析頻率、比例及冷熱門號碼。",
+    mark6PersonaGameTheorist: "博弈理論家",
+    mark6PersonaGameTheoristDescription: "利用常見選號模式代理指標分散組合。",
+    mark6PersonaPatternFinder: "模式調查員",
+    mark6PersonaPatternFinderDescription: "調查重複配對、三連組合、群組及連續走勢。",
+    mark6QueryHotCold: "冷熱門號碼",
+    mark6QueryOddEven: "單雙分析",
+    mark6QueryRepeatingPatterns: "重複模式",
+    mark6QueryRecentTrends: "近期走勢",
+    mark6AnalysisTitle: "角色分析",
+    mark6AnalysisLoading: "正在分析歷史開彩...",
+    mark6AnalysisError: "暫時未能載入六合彩分析。",
+    mark6AnalysisDrawWindow: "分析期數",
+    mark6AnalysisDraws: "期已分析",
+    mark6AnalysisHeatmap: "1–49 頻率熱圖",
+    mark6AnalysisFrequency: "最常出現號碼",
+    mark6AnalysisOddEven: "單雙分佈",
+    mark6AnalysisHighLow: "細大號分佈",
+    mark6AnalysisOdd: "單數",
+    mark6AnalysisEven: "雙數",
+    mark6AnalysisLow: "細號 1–24",
+    mark6AnalysisHigh: "大號 25–49",
+    mark6AnalysisInsights: "分析解讀",
+    mark6AnalysisSuggested: "繼續探索",
+    mark6AnalysisSourceLive: "歷史資料庫",
+    mark6AnalysisSourceFallback: "有限示例資料",
+    mark6AnalysisProxyNote: "常見選號分數只屬統計代理指標，並非實際投注銷售資料。",
+    mark6AnalysisFeedTitle: "分析動態",
+    mark6AnalysisFeedSubtitle: "按所選歷史範圍生成，並非社群貼文。",
+    mark6InsightHot: "近期最活躍號碼：{numbers}。",
+    mark6InsightCold: "近期最少出現號碼：{numbers}。",
+    mark6InsightOddEven: "歷史分佈：單數 {value}%，雙數 {secondary}%。",
+    mark6InsightHighLow: "歷史分佈：細號 {value}%，大號 {secondary}%。",
+    mark6InsightPair: "最高重複配對：{numbers}，共出現 {value} 次。",
+    mark6InsightTriple: "最高重複三連組合：{numbers}，共出現 {value} 次。",
+    mark6InsightMomentum: "近期頻率上升號碼：{numbers}。",
+    mark6InsightProxy: "開出號碼中 {value}% 為 1–31；{secondary}% 期數包含連號。",
+    mark6ActivePersonaLabel: "目前分析方式",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",
     horsePreviousWinnerDateLabel: "最近結果日期",

@@ -15,7 +15,7 @@ export type UpcomingRaceRunner = {
 export type UpcomingRace = {
   venueCode: "ST" | "HV";
   venueName: string;
-  venueNameZh: string;
+  venueNameZh?: string;
   raceNo: number;
   raceName: string;
   raceNameZh?: string;

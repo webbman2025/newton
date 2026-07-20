@@ -4,6 +4,11 @@ import {
   isHorseHistoryEntryShape,
 } from "@/lib/horse-history-shape";
 import { ingestHorseRacingFromHkjc, ingestMarkSixFromWeb } from "@/lib/web-ingest";
+import {
+  getMark6PersonaGenerationConfig,
+  scoreMark6CommonSelectionProxy,
+  type Mark6Persona,
+} from "@/lib/mark6-analysis";
 
 type Mark6PredictionType = "single" | "multiple" | "banker";
 type Mark6NumberMix = "mixed" | "smallOnly" | "bigOnly";
@@ -74,6 +79,8 @@ export type SuggestionResponse = {
   mark6Analysis?: {
     strategy: Mark6ExpertStrategy;
     activeProfiles: Mark6ExpertProfile[];
+    persona?: Mark6Persona;
+    commonSelectionProxy?: boolean;
   };
   confidenceBand: ConfidenceBand;
   explanation: string;
@@ -1427,7 +1434,22 @@ function buildRankedMark6Entries(
 function pickMark6SetWithMix(
   entries: Array<{ number: number; score: number }>,
   numberMix: Mark6NumberMix,
+  diversifyCommonSelectionPatterns = false,
 ): number[] {
+  if (diversifyCommonSelectionPatterns) {
+    let best: number[] = [];
+    let bestPenalty = Number.POSITIVE_INFINITY;
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      const candidate = pickMark6SetWithMix(entries, numberMix, false);
+      const penalty = scoreMark6CommonSelectionProxy(candidate);
+      if (penalty < bestPenalty) {
+        best = candidate;
+        bestPenalty = penalty;
+      }
+    }
+    return best.length === 6 ? best : pickMark6SetWithMix(entries, numberMix, false);
+  }
+
   if (numberMix === "mixed") {
     const smallPool = entries.filter((item) => item.number <= 24);
     const bigPool = entries.filter((item) => item.number >= 25);
@@ -1449,6 +1471,7 @@ function buildMark6BatchSets(
   entries: Array<{ number: number; score: number }>,
   batchCount: number,
   numberMix: Mark6NumberMix,
+  diversifyCommonSelectionPatterns = false,
 ): number[][] {
   const normalizedCount = Math.max(1, Math.min(batchCount, 12));
   const sets: number[][] = [];
@@ -1456,7 +1479,7 @@ function buildMark6BatchSets(
   let attempts = 0;
   while (sets.length < normalizedCount && attempts < normalizedCount * 8) {
     attempts += 1;
-    const set = pickMark6SetWithMix(entries, numberMix);
+    const set = pickMark6SetWithMix(entries, numberMix, diversifyCommonSelectionPatterns);
     const key = set.join("-");
     if (!seen.has(key)) {
       seen.add(key);
@@ -1464,7 +1487,7 @@ function buildMark6BatchSets(
     }
   }
   if (sets.length === 0) {
-    sets.push(pickMark6SetWithMix(entries, numberMix));
+    sets.push(pickMark6SetWithMix(entries, numberMix, diversifyCommonSelectionPatterns));
   }
   return sets;
 }
@@ -1824,6 +1847,7 @@ async function getMark6Suggestion(
   expertOverrides?: {
     strategy?: Mark6ExpertStrategy;
     primaryProfile?: Mark6ExpertProfile;
+    persona?: Mark6Persona;
   },
 ): Promise<SuggestionBase> {
   const expertConfig = getMark6ExpertConfig(expertOverrides);
@@ -1849,6 +1873,7 @@ async function getMark6Suggestion(
       activeExpertProfiles,
       expertWeights,
       expertSnippet,
+      expertOverrides?.persona,
     );
   }
 
@@ -1868,6 +1893,7 @@ async function getMark6Suggestion(
       activeExpertProfiles,
       expertWeights,
       expertSnippet,
+      expertOverrides?.persona,
     );
   }
 
@@ -1903,6 +1929,7 @@ async function getMark6Suggestion(
         activeExpertProfiles,
         expertWeights,
         expertSnippet,
+        expertOverrides?.persona,
       );
     }
 
@@ -1947,9 +1974,23 @@ async function getMark6Suggestion(
       drawCount: draws.rows.length,
       rankedScores: ranked.map((item) => item.score),
     });
-    const batchSets = buildMark6BatchSets(ranked, batchCount, numberMix);
-    const topSix = batchSets[0] ?? pickMark6SetWithMix(ranked, numberMix);
-    const mark6Prediction = buildMark6Prediction(predictionType, ranked, numberMix, batchCount);
+    const diversifyCommonSelectionPatterns = expertOverrides?.persona === "gameTheorist";
+    const batchSets = buildMark6BatchSets(
+      ranked,
+      batchCount,
+      numberMix,
+      diversifyCommonSelectionPatterns,
+    );
+    const topSix =
+      batchSets[0] ??
+      pickMark6SetWithMix(ranked, numberMix, diversifyCommonSelectionPatterns);
+    const mark6Prediction = buildMark6Prediction(
+      predictionType,
+      ranked,
+      numberMix,
+      batchCount,
+      diversifyCommonSelectionPatterns,
+    );
     const mark6NumberProbabilities = buildMark6NumberProbabilities(
       candidateEntries.map(([number, score]) => ({ number, score })),
     );
@@ -1975,6 +2016,8 @@ async function getMark6Suggestion(
       mark6Analysis: {
         strategy: expertConfig.strategy,
         activeProfiles: activeExpertProfiles,
+        persona: expertOverrides?.persona,
+        commonSelectionProxy: diversifyCommonSelectionPatterns,
       },
       confidenceBand,
       explanation:
@@ -2000,6 +2043,7 @@ async function getMark6Suggestion(
       activeExpertProfiles,
       expertWeights,
       expertSnippet,
+      expertOverrides?.persona,
     );
   }
 }
@@ -2419,6 +2463,7 @@ function getMark6SuggestionFallback(
     activeExpertProfiles,
     expertConfig.strategy,
   ),
+  persona?: Mark6Persona,
 ): SuggestionBase {
   const frequencies = new Map<number, number>();
   for (let number = 1; number <= 49; number += 1) {
@@ -2460,9 +2505,23 @@ function getMark6SuggestionFallback(
     drawCount: mark6FallbackRows.length,
     rankedScores: ranked.map((item) => item.score),
   });
-  const batchSets = buildMark6BatchSets(ranked, batchCount, numberMix);
-  const topSix = batchSets[0] ?? pickMark6SetWithMix(ranked, numberMix);
-  const mark6Prediction = buildMark6Prediction(predictionType, ranked, numberMix, batchCount);
+  const diversifyCommonSelectionPatterns = persona === "gameTheorist";
+  const batchSets = buildMark6BatchSets(
+    ranked,
+    batchCount,
+    numberMix,
+    diversifyCommonSelectionPatterns,
+  );
+  const topSix =
+    batchSets[0] ??
+    pickMark6SetWithMix(ranked, numberMix, diversifyCommonSelectionPatterns);
+  const mark6Prediction = buildMark6Prediction(
+    predictionType,
+    ranked,
+    numberMix,
+    batchCount,
+    diversifyCommonSelectionPatterns,
+  );
   const mark6NumberProbabilities = buildMark6NumberProbabilities(ranked);
 
   return {
@@ -2479,6 +2538,8 @@ function getMark6SuggestionFallback(
     mark6Analysis: {
       strategy: expertConfig.strategy,
       activeProfiles: activeExpertProfiles,
+      persona,
+      commonSelectionProxy: diversifyCommonSelectionPatterns,
     },
     confidenceBand,
     explanation:
@@ -2642,6 +2703,7 @@ export async function getSuggestion({
   horseAnalystProfile,
   mark6ExpertStrategy,
   mark6ExpertProfile,
+  mark6Persona,
 }: {
   mode: Mode;
   targetDate: string;
@@ -2656,6 +2718,7 @@ export async function getSuggestion({
   horseAnalystProfile?: HorseAnalystProfile;
   mark6ExpertStrategy?: Mark6ExpertStrategy;
   mark6ExpertProfile?: Mark6ExpertProfile;
+  mark6Persona?: Mark6Persona;
 }): Promise<SuggestionResponse> {
   if (canUseDatabase()) {
     try {
@@ -2671,6 +2734,7 @@ export async function getSuggestion({
     await upsertMark6PreviousDraw(liveMark6PreviousDraw);
   }
 
+  const personaConfig = getMark6PersonaGenerationConfig(mark6Persona);
   const base =
     mode === "mark6"
       ? await getMark6Suggestion(
@@ -2683,8 +2747,13 @@ export async function getSuggestion({
           mark6ManualNumbers,
           liveMark6PreviousDraw,
           {
-            strategy: mark6ExpertStrategy,
-            primaryProfile: mark6ExpertProfile,
+            strategy:
+              mark6ExpertStrategy ??
+              personaConfig.strategy,
+            primaryProfile:
+              mark6ExpertProfile ??
+              personaConfig.primaryProfile,
+            persona: mark6Persona,
           },
         )
       : await getHorseSuggestion(locale, targetDate, selectedRace, {
@@ -2717,6 +2786,7 @@ export async function getSuggestion({
               horseAnalystProfile,
               mark6ExpertStrategy,
               mark6ExpertProfile,
+              mark6Persona,
             }),
             JSON.stringify(base.suggestions),
             base.confidenceBand,
@@ -3207,13 +3277,18 @@ function buildMark6Prediction(
   ranked: Array<{ number: number; score: number }>,
   numberMix: Mark6NumberMix,
   batchCount: number,
+  diversifyCommonSelectionPatterns = false,
 ) {
   if (predictionType === "multiple") {
     const sets: number[][] = [];
     const seen = new Set<string>();
     const targetSetCount = Math.max(2, Math.min(batchCount, 8));
     while (sets.length < targetSetCount) {
-      const set = pickMark6SetWithMix(ranked, numberMix);
+      const set = pickMark6SetWithMix(
+        ranked,
+        numberMix,
+        diversifyCommonSelectionPatterns,
+      );
       const key = set.join("-");
       if (!seen.has(key)) {
         seen.add(key);
@@ -3245,7 +3320,11 @@ function buildMark6Prediction(
     };
   }
 
-  const single = pickMark6SetWithMix(ranked, numberMix);
+  const single = pickMark6SetWithMix(
+    ranked,
+    numberMix,
+    diversifyCommonSelectionPatterns,
+  );
   return { type: "single" as const, single };
 }
 

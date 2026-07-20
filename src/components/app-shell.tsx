@@ -82,7 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   ) : null;
 
   return (
-    <Box sx={{ minHeight: "100vh", pb: 9 }}>
+    <Box sx={{ minHeight: "100vh", pb: 12 }}>
       <AppBar position="sticky" color="primary">
         <Toolbar sx={{ gap: 1.5, justifyContent: "space-between", minHeight: 64 }}>
           <Typography variant="h6" sx={{ fontSize: "1rem", display: "flex", alignItems: "center", gap: 0.8 }}>
@@ -132,16 +132,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           width: "100%",
           bgcolor: "background.paper",
           borderTop: "1px solid #e1dfdd",
-          p: 1,
+          px: 1,
+          pt: 1,
+          pb: "calc(8px + env(safe-area-inset-bottom, 0px))",
         }}
       >
         <Container maxWidth="sm">
           <Divider sx={{ mb: 1 }} />
-          <Stack spacing={0.8}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: "center", justifyContent: "space-between" }}
+          >
             <Typography variant="caption" sx={{ display: "flex", color: "text.secondary", gap: 0.8, alignItems: "center" }}>
               <InfoRegular fontSize={14} />
-              {t.footerDisclaimer}
+              {t.footerCompliance}
             </Typography>
+            <Button
+              component="a"
+              href="https://bet.hkjc.com/en/marksix/index"
+              target="_blank"
+              rel="noopener noreferrer"
+              size="small"
+              variant="text"
+              sx={{ flexShrink: 0, minWidth: "auto", textTransform: "none" }}
+            >
+              {t.footerHkjcLink}
+            </Button>
           </Stack>
         </Container>
       </Box>

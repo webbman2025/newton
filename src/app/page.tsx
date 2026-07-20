@@ -50,6 +50,22 @@ import {
 } from "@fluentui/react-icons";
 import { useCopy, useLocale } from "@/components/locale-provider";
 import { getMark6LeanProbabilitiesKey, Mark6NextDrawLeanSection } from "@/components/mark6-next-draw-lean";
+import { Mark6PersonaAnalysis } from "@/components/mark6-persona-analysis";
+import type { Mark6Persona } from "@/lib/mark6-analysis";
+import {
+  buildHorseDayRaceSlots,
+  buildLegacyRaceId,
+  buildStableRaceKey,
+  findPredictionForSlot,
+  loadStoredHorsePredictions,
+  loadStoredHorseSeenRaces,
+  mergeHorseSeenRacesFromUpcoming,
+  normalizeHorsePredictions,
+  saveStoredHorsePredictions,
+  saveStoredHorseSeenRaces,
+  type HorseRacePrediction,
+  type HorseSeenRace,
+} from "@/lib/horse-race-day";
 import { formatConfidenceBandLabel, type Mode } from "@/lib/translations";
 
 type SuggestionPayload = {
@@ -177,6 +193,49 @@ type ParsedHistoryRunner = {
   horseName: string;
 };
 
+type HorseComparisonRow = {
+  position: number;
+  predicted?: { horseNumber: number; horseName: string };
+  actual?: { horseNumber: number; horseName: string };
+  positionMatch: boolean;
+};
+
+function buildHorseComparisonRows(
+  picks: HorseRacePrediction["picks"] | undefined,
+  officialEntries: ParsedHistoryRunner[],
+  maxRows = 3,
+): HorseComparisonRow[] {
+  const rows: HorseComparisonRow[] = [];
+  for (let position = 1; position <= maxRows; position += 1) {
+    const predicted = picks?.[position - 1];
+    const actual = officialEntries.find((entry) => entry.position === position);
+    rows.push({
+      position,
+      predicted: predicted
+        ? { horseNumber: predicted.horseNumber, horseName: predicted.horseName }
+        : undefined,
+      actual: actual
+        ? { horseNumber: actual.horseNumber, horseName: actual.horseName }
+        : undefined,
+      positionMatch:
+        predicted != null &&
+        actual != null &&
+        predicted.horseNumber === actual.horseNumber,
+    });
+  }
+  return rows;
+}
+
+function formatComparisonHorse(
+  horse: { horseNumber: number; horseName: string } | undefined,
+  emptyLabel: string,
+): string {
+  if (!horse) {
+    return emptyLabel;
+  }
+  return `#${horse.horseNumber} ${horse.horseName}`;
+}
+
 type ParsedHorseWinner = {
   date: string;
   horseNumber: number;
@@ -188,28 +247,6 @@ type Mark6PreviousImpactRow = {
   matchedNumbers: number[];
   matchCount: number;
   percentage: number;
-};
-
-type HorseRacePrediction = {
-  raceId: string;
-  picks: {
-    horseNumber: number;
-    horseName: string;
-    speedIndex?: number;
-    modelProbability?: number;
-    impliedProbability?: number;
-    edgeScore?: number;
-    marketOdds?: string;
-    marketSignal?: "value" | "neutral" | "overbet";
-    topFactors?: Array<{
-      label: string;
-      impactScore: number;
-    }>;
-  }[];
-  confidenceBand: "Low" | "Medium" | "High";
-  generatedAt: string;
-  predictionMargin?: number;
-  dataFreshnessSource?: "database" | "fallback";
 };
 
 type HorseBetType =
@@ -260,6 +297,7 @@ export default function Home() {
   const { locale } = useLocale();
   const t = useCopy();
   const [mode, setMode] = useState<Mode>("mark6");
+  const [mark6Persona, setMark6Persona] = useState<Mark6Persona>("lotteryAnalyst");
   const [mark6PredictionType, setMark6PredictionType] = useState<
     "single" | "multiple" | "banker"
   >("single");
@@ -294,6 +332,7 @@ export default function Home() {
   const [isSelectedDateHorseRowsLoading, setIsSelectedDateHorseRowsLoading] = useState(false);
   const [isHorseWinnerLoading, setIsHorseWinnerLoading] = useState(false);
   const [horseRacePredictions, setHorseRacePredictions] = useState<Record<string, HorseRacePrediction>>({});
+  const [horseSeenRaces, setHorseSeenRaces] = useState<Record<string, HorseSeenRace>>({});
   const [isBetTypeInfoOpen, setIsBetTypeInfoOpen] = useState(false);
   const [horseStakeInput, setHorseStakeInput] = useState<string>("0");
   const predictionsRef = useRef<HTMLDivElement | null>(null);
@@ -339,27 +378,45 @@ export default function Home() {
     }
     return selectedDay.isBefore(dayjs().startOf("day"), "day");
   }, [mode, targetDate]);
+  const isHorseRaceDay = useMemo(() => {
+    if (mode !== "horse") {
+      return false;
+    }
+    const selectedDay = dayjs(targetDate);
+    return selectedDay.isValid() && selectedDay.isSame(dayjs(), "day");
+  }, [mode, targetDate]);
   const horseRaceCardsForDate = useMemo(
     () => (isHorsePastDate ? [] : filteredUpcomingRaces),
     [filteredUpcomingRaces, isHorsePastDate],
   );
+  const horseDayRaceSlots = useMemo(
+    () =>
+      mode !== "horse"
+        ? []
+        : buildHorseDayRaceSlots({
+            targetDate,
+            upcomingRaces: horseRaceCardsForDate,
+            historyRows: selectedDateHorseRows,
+            predictions: horseRacePredictions,
+            seenRaces: horseSeenRaces,
+          }),
+    [horseRaceCardsForDate, horseRacePredictions, horseSeenRaces, mode, selectedDateHorseRows, targetDate],
+  );
   const selectedRaceIdForDate = useMemo(() => {
-    const isSelectedRaceInDate = horseRaceCardsForDate.some(
-      (race) => `${race.venueCode}-${race.raceNo}-${race.postTime}` === selectedRaceId,
+    const upcomingSlots = horseDayRaceSlots.filter((slot) => slot.upcoming);
+    const isSelectedRaceInDate = upcomingSlots.some(
+      (slot) => slot.legacyRaceId === selectedRaceId,
     );
     if (isSelectedRaceInDate) {
       return selectedRaceId;
     }
-    const firstRace = horseRaceCardsForDate[0];
-    return firstRace ? `${firstRace.venueCode}-${firstRace.raceNo}-${firstRace.postTime}` : null;
-  }, [horseRaceCardsForDate, selectedRaceId]);
+    const firstRace = upcomingSlots[0];
+    return firstRace ? firstRace.legacyRaceId : null;
+  }, [horseDayRaceSlots, selectedRaceId]);
   const selectedRace = useMemo(
     () =>
-      horseRaceCardsForDate.find(
-        (race) =>
-          `${race.venueCode}-${race.raceNo}-${race.postTime}` === selectedRaceIdForDate,
-      ),
-    [horseRaceCardsForDate, selectedRaceIdForDate],
+      horseDayRaceSlots.find((slot) => slot.legacyRaceId === selectedRaceIdForDate)?.upcoming,
+    [horseDayRaceSlots, selectedRaceIdForDate],
   );
   const isManualMark6 = mode === "mark6" && mark6GenerateMode === "manual";
   const baseMark6Sets = useMemo(() => getBaseMark6Sets(result), [result]);
@@ -600,7 +657,7 @@ export default function Home() {
           const firstRace = payload.races?.[0];
           if (firstRace) {
             setSelectedRaceId(
-              `${firstRace.venueCode}-${firstRace.raceNo}-${firstRace.postTime}`,
+              buildLegacyRaceId(firstRace.venueCode, firstRace.raceNo, firstRace.postTime),
             );
           } else {
             setSelectedRaceId(null);
@@ -656,38 +713,102 @@ export default function Home() {
     if (mode !== "horse") {
       return;
     }
+    const timer = window.setTimeout(() => {
+      setHorseRacePredictions(
+        normalizeHorsePredictions(loadStoredHorsePredictions(targetDate), targetDate),
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [mode, targetDate]);
+
+  useEffect(() => {
+    if (mode !== "horse") {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      const stored = loadStoredHorseSeenRaces(targetDate);
+      const merged = mergeHorseSeenRacesFromUpcoming(stored, targetDate, upcomingRaces);
+      setHorseSeenRaces(merged);
+      saveStoredHorseSeenRaces(targetDate, merged);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [mode, targetDate, upcomingRaces]);
+
+  useEffect(() => {
+    if (mode !== "horse" || Object.keys(horseRacePredictions).length === 0) {
+      return;
+    }
+    saveStoredHorsePredictions(targetDate, horseRacePredictions);
+  }, [horseRacePredictions, mode, targetDate]);
+
+  const refreshSelectedDateHorseHistory = useCallback(async () => {
+    setIsSelectedDateHorseRowsLoading(true);
+    try {
+      const response = await fetch(
+        `/api/history/horse-date?date=${targetDate}&locale=${locale}`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) {
+        throw new Error("Selected date horse history fetch failed.");
+      }
+      const payload = (await response.json()) as { rows: HorseHistoryRow[] };
+      setSelectedDateHorseRows(payload.rows ?? []);
+    } catch {
+      setSelectedDateHorseRows([]);
+    } finally {
+      setIsSelectedDateHorseRowsLoading(false);
+    }
+  }, [locale, targetDate]);
+
+  useEffect(() => {
+    if (mode !== "horse") {
+      return;
+    }
     let active = true;
     const loadSelectedDateHistory = async () => {
-      setSelectedDateHorseRows([]);
-      setIsSelectedDateHorseRowsLoading(true);
-      try {
-        const response = await fetch(
-          `/api/history/horse-date?date=${targetDate}&locale=${locale}`,
-          { cache: "no-store" },
-        );
-        if (!response.ok) {
-          throw new Error("Selected date horse history fetch failed.");
-        }
-        const payload = (await response.json()) as { rows: HorseHistoryRow[] };
-        if (active) {
-          setSelectedDateHorseRows(payload.rows ?? []);
-        }
-      } catch {
-        if (active) {
-          setSelectedDateHorseRows([]);
-        }
-      } finally {
-        if (active) {
-          setIsSelectedDateHorseRowsLoading(false);
-        }
+      if (!active) {
+        return;
       }
+      await refreshSelectedDateHorseHistory();
     };
 
     void loadSelectedDateHistory();
     return () => {
       active = false;
     };
-  }, [locale, mode, targetDate]);
+  }, [mode, refreshSelectedDateHorseHistory]);
+
+  useEffect(() => {
+    if (mode !== "horse" || !isHorseRaceDay) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      void refreshSelectedDateHorseHistory();
+      void fetch("/api/upcoming-races?limit=40")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((payload: UpcomingRacePayload | null) => {
+          if (payload?.races) {
+            setUpcomingRaces(payload.races);
+          }
+        })
+        .catch(() => undefined);
+    }, 90_000);
+    return () => window.clearInterval(interval);
+  }, [isHorseRaceDay, mode, refreshSelectedDateHorseHistory]);
+
+  const previousUpcomingCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (mode !== "horse" || !isHorseRaceDay) {
+      previousUpcomingCountRef.current = null;
+      return;
+    }
+    const currentCount = horseRaceCardsForDate.length;
+    const previousCount = previousUpcomingCountRef.current;
+    if (previousCount != null && currentCount < previousCount) {
+      void refreshSelectedDateHorseHistory();
+    }
+    previousUpcomingCountRef.current = currentCount;
+  }, [horseRaceCardsForDate.length, isHorseRaceDay, mode, refreshSelectedDateHorseHistory]);
 
   const generateSuggestions = async () => {
     if (mode === "horse" && isHorsePastDate) {
@@ -703,9 +824,6 @@ export default function Home() {
     setMark6CopyStatus("idle");
     setMixedMark6Sets([]);
     setProgressValue(0);
-    if (mode === "horse") {
-      setHorseRacePredictions({});
-    }
 
     let step = 0;
     setProgressText(t.progressSteps[step]);
@@ -719,7 +837,8 @@ export default function Home() {
       if (mode === "horse") {
         const nextPredictions: Record<string, HorseRacePrediction> = {};
         for (const race of horseRaceCardsForDate) {
-          const raceId = `${race.venueCode}-${race.raceNo}-${race.postTime}`;
+          const raceId = buildLegacyRaceId(race.venueCode, race.raceNo, race.postTime);
+          const stableKey = buildStableRaceKey(targetDate, race.venueCode, race.raceNo);
           try {
             const response = await fetch("/api/suggestions", {
               method: "POST",
@@ -749,6 +868,10 @@ export default function Home() {
             if (!response.ok) {
               nextPredictions[raceId] = {
                 raceId,
+                stableKey,
+                venueCode: race.venueCode,
+                raceNo: race.raceNo,
+                postTime: race.postTime,
                 picks: [],
                 confidenceBand: "Low",
                 generatedAt: new Date().toISOString(),
@@ -758,6 +881,10 @@ export default function Home() {
             const payload = (await response.json()) as SuggestionPayload;
             nextPredictions[raceId] = {
               raceId,
+              stableKey,
+              venueCode: race.venueCode,
+              raceNo: race.raceNo,
+              postTime: race.postTime,
               picks: (payload.horseSuggestions ?? []).slice(0, 3).map((horse) => ({
                 horseNumber: horse.horseNumber,
                 horseName: horse.horseName,
@@ -777,6 +904,10 @@ export default function Home() {
           } catch {
             nextPredictions[raceId] = {
               raceId,
+              stableKey,
+              venueCode: race.venueCode,
+              raceNo: race.raceNo,
+              postTime: race.postTime,
               picks: [],
               confidenceBand: "Low",
               generatedAt: new Date().toISOString(),
@@ -784,7 +915,8 @@ export default function Home() {
             };
           }
         }
-        setHorseRacePredictions(nextPredictions);
+        setHorseRacePredictions((previous) => ({ ...previous, ...nextPredictions }));
+        void refreshSelectedDateHorseHistory();
         setProgressValue(100);
         setProgressText(t.progressSteps[3]);
         return;
@@ -802,6 +934,7 @@ export default function Home() {
           mark6NumberMix,
           mark6GenerateMode,
           mark6ManualNumbers,
+          mark6Persona,
         }),
       });
       if (!response.ok) {
@@ -905,6 +1038,13 @@ export default function Home() {
               <MenuItem value="mark6">{t.mark6}</MenuItem>
               <MenuItem value="horse">{t.horse}</MenuItem>
             </Select>
+            {mode === "mark6" ? (
+              <Mark6PersonaAnalysis
+                targetDate={targetDate}
+                persona={mark6Persona}
+                onPersonaChange={setMark6Persona}
+              />
+            ) : null}
             {mode === "mark6" ? (
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1 }}>
@@ -1235,6 +1375,19 @@ export default function Home() {
                 ) : null}
               </Stack>
             </Box>
+            <Chip
+              size="small"
+              color="primary"
+              variant="outlined"
+              label={`${t.mark6ActivePersonaLabel}: ${
+                mark6Persona === "lotteryAnalyst"
+                  ? t.mark6PersonaLotteryAnalyst
+                  : mark6Persona === "gameTheorist"
+                    ? t.mark6PersonaGameTheorist
+                    : t.mark6PersonaPatternFinder
+              }`}
+              sx={{ alignSelf: "flex-start" }}
+            />
             {mark6CopyStatus !== "idle" ? (
               <Typography
                 variant="caption"
@@ -1626,131 +1779,177 @@ export default function Home() {
                   {t.selectedRaceLabel}: {selectedRace.venueName} - Race {selectedRace.raceNo}
                 </Typography>
               ) : null}
-              {!isHorsePastDate &&
-              horseRaceCardsForDate.length === 0 &&
-              selectedDateHorseRows.length === 0 ? (
+              {horseDayRaceSlots.length === 0 &&
+              !isHorseWinnerLoading &&
+              !isSelectedDateHorseRowsLoading ? (
                 <Typography variant="body2" color="text.secondary">
-                  {t.horseCalendarNoRacesForDate}
+                  {isHorsePastDate ? t.horseResultsOnDateEmpty : t.horseCalendarNoRacesForDate}
                 </Typography>
               ) : null}
-              {(isHorsePastDate || selectedDateHorseRows.length > 0 || isSelectedDateHorseRowsLoading) ? (
-                <>
-                  <Typography variant="body2" color="text.secondary">
-                    {t.horseCompletedRacesLabel}: {targetDate}
-                  </Typography>
-                  {isHorseWinnerLoading || isSelectedDateHorseRowsLoading ? (
-                    <Typography variant="body2" color="text.secondary">
-                      {t.horsePreviousWinnerLoading}
-                    </Typography>
-                  ) : selectedDateHorseRows.length === 0 ? (
-                    isHorsePastDate ? (
-                      <Typography variant="body2" color="text.secondary">
-                        {t.horseResultsOnDateEmpty}
-                      </Typography>
-                    ) : null
-                  ) : (
-                    selectedDateHorseRows.map((row) => (
-                      (() => {
-                        const parsedEntries = parseHistoryResultEntries(row.result);
-                        const winner = parsedEntries.find((entry) => entry.position === 1);
-                        const topFinishers = parsedEntries.filter((entry) => entry.position <= 3);
-                        return (
-                      <Card
-                        key={`${row.date}-${row.raceId ?? row.result}`}
-                        variant="outlined"
-                        sx={{
-                          borderColor: "primary.main",
-                          boxShadow: "0 0 0 1px rgba(15,108,189,0.38)",
-                          transition:
-                            "background-color 120ms cubic-bezier(0.1, 0.9, 0.2, 1), box-shadow 160ms cubic-bezier(0.1, 0.9, 0.2, 1), border-color 120ms cubic-bezier(0.1, 0.9, 0.2, 1)",
-                          "&:hover": {
-                            borderColor: "primary.main",
-                            backgroundColor: alpha("#0f6cbd", 0.04),
-                            boxShadow: "0 4px 14px rgba(0,0,0,0.09)",
-                          },
-                        }}
-                      >
-                        <CardContent sx={{ p: 1.4, "&:last-child": { pb: 1.4 } }}>
-                          <Stack direction="row" spacing={0.8} sx={{ alignItems: "center", mb: 0.4 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                              {formatRaceLabel(row.raceId, locale)}
-                            </Typography>
-                            <Chip
-                              size="small"
-                              variant="outlined"
-                              color="primary"
-                              label={t.horseRaceStatusResult}
-                            />
-                          </Stack>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.8 }}>
-                            {t.horseResultsOnDateLabel}: {row.date}
+              {isHorseRaceDay ? (
+                <Typography variant="caption" color="text.secondary">
+                  {t.horseRaceDayRefreshHint}
+                </Typography>
+              ) : null}
+              {isHorseWinnerLoading || isSelectedDateHorseRowsLoading ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t.horsePreviousWinnerLoading}
+                </Typography>
+              ) : null}
+              {horseDayRaceSlots.length > 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t.horseRaceDayListLabel}: {targetDate}
+                </Typography>
+              ) : null}
+              {horseDayRaceSlots.map((slot) => {
+                const prediction = findPredictionForSlot(slot, horseRacePredictions);
+                const race = slot.upcoming;
+                const raceId = slot.legacyRaceId;
+                const isFinished = slot.status !== "upcoming" || !race;
+
+                if (isFinished) {
+                  const parsedEntries = slot.resultRow
+                    ? parseHistoryResultEntries(slot.resultRow.result)
+                    : [];
+                  const officialWinner = parsedEntries.find((entry) => entry.position === 1);
+                  const predictedTop = prediction?.picks?.[0];
+                  const predictionHit =
+                    officialWinner != null &&
+                    predictedTop != null &&
+                    predictedTop.horseNumber === officialWinner.horseNumber;
+                  const comparisonRows = buildHorseComparisonRows(
+                    prediction?.picks,
+                    parsedEntries,
+                    Math.max(3, prediction?.picks?.length ?? 0),
+                  );
+                  const hasComparison = comparisonRows.some(
+                    (row) => row.predicted != null || row.actual != null,
+                  );
+                  return (
+                    <Card
+                      key={slot.stableKey}
+                      variant="outlined"
+                      sx={{
+                        borderColor: "primary.main",
+                        boxShadow: "0 0 0 1px rgba(15,108,189,0.38)",
+                      }}
+                    >
+                      <CardContent sx={{ p: 1.4, "&:last-child": { pb: 1.4 } }}>
+                        <Stack direction="row" spacing={0.8} sx={{ alignItems: "center", mb: 0.6, flexWrap: "wrap", rowGap: 0.6 }} useFlexGap>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                            {formatRaceLabel(
+                              slot.resultRow?.raceId ?? `${slot.venueCode}-R${slot.raceNo}`,
+                              locale,
+                            )}
                           </Typography>
                           <Chip
                             size="small"
-                            color="success"
                             variant="outlined"
-                            icon={<TrophyFilled />}
+                            color={officialWinner ? "primary" : "default"}
                             label={
-                              winner
-                                ? `${t.horseOfficialWinnerLabel}: #${winner.horseNumber} ${winner.horseName}`
-                                : t.horsePreviousWinnerUnavailable
+                              officialWinner ? t.horseRaceStatusResult : t.horseRaceStatusAwaiting
                             }
-                            sx={{ mb: 0.8 }}
                           />
-                          {topFinishers.length > 0 ? (
-                            <Stack
-                              direction="row"
-                              spacing={0.8}
-                              sx={{ mb: 0.8, flexWrap: "wrap", rowGap: 0.8 }}
-                              useFlexGap
-                            >
-                              <Chip size="small" variant="outlined" label={t.horseOfficialTopFinishersLabel} />
-                              {topFinishers.map((entry) => (
-                                <Chip
-                                  key={`${row.raceId ?? "race"}-top-${entry.position}-${entry.horseNumber}`}
-                                  size="small"
-                                  variant="outlined"
-                                  color={
-                                    entry.position === 1
-                                      ? "success"
-                                      : entry.position === 2
-                                        ? "primary"
-                                        : "warning"
-                                  }
-                                  label={`${entry.position}. #${entry.horseNumber} ${entry.horseName}`}
-                                />
-                              ))}
-                            </Stack>
+                          {officialWinner && predictedTop ? (
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              color={predictionHit ? "success" : "warning"}
+                              label={predictionHit ? t.horsePredictionHitLabel : t.horsePredictionMissLabel}
+                            />
                           ) : null}
-                          <Stack spacing={0.5}>
-                            {parsedEntries.map((entry) => (
+                        </Stack>
+                        {hasComparison ? (
+                          <Box sx={{ overflowX: "auto" }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.6 }}>
+                              {t.horseResultComparisonTitle}
+                            </Typography>
+                            <Table
+                              size="small"
+                              sx={{
+                                minWidth: 320,
+                                "& .MuiTableCell-root": {
+                                  py: 0.75,
+                                  px: 1,
+                                  verticalAlign: "top",
+                                },
+                              }}
+                            >
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell sx={{ width: 44, fontWeight: 700 }}>
+                                    {t.horseResultComparisonPosition}
+                                  </TableCell>
+                                  <TableCell sx={{ fontWeight: 700, bgcolor: alpha("#0f6cbd", 0.06) }}>
+                                    {t.horseResultComparisonPredicted}
+                                  </TableCell>
+                                  <TableCell sx={{ fontWeight: 700, bgcolor: alpha("#107c10", 0.08) }}>
+                                    {t.horseResultComparisonActual}
+                                  </TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {comparisonRows.map((row) => (
+                                  <TableRow
+                                    key={`${slot.stableKey}-compare-${row.position}`}
+                                    sx={{
+                                      bgcolor: row.positionMatch
+                                        ? alpha("#107c10", 0.1)
+                                        : undefined,
+                                    }}
+                                  >
+                                    <TableCell sx={{ fontWeight: 700 }}>{row.position}</TableCell>
+                                    <TableCell
+                                      sx={{
+                                        color: row.predicted ? "text.primary" : "text.secondary",
+                                        fontWeight: row.position === 1 && row.predicted ? 700 : 400,
+                                      }}
+                                    >
+                                      {formatComparisonHorse(row.predicted, t.horseResultComparisonNoData)}
+                                    </TableCell>
+                                    <TableCell
+                                      sx={{
+                                        color: row.actual ? "text.primary" : "text.secondary",
+                                        fontWeight: row.position === 1 && row.actual ? 700 : 400,
+                                      }}
+                                    >
+                                      {row.actual
+                                        ? formatComparisonHorse(row.actual, t.horseResultComparisonNoData)
+                                        : t.horseRaceStatusAwaiting}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            {prediction?.picks?.length
+                              ? t.horseRaceStatusAwaiting
+                              : t.horsePredictionHint}
+                          </Typography>
+                        )}
+                        {parsedEntries.length > 3 ? (
+                          <Stack spacing={0.35} sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {t.horseOfficialTopFinishersLabel}
+                            </Typography>
+                            {parsedEntries.slice(3).map((entry) => (
                               <Typography
-                                key={`${row.raceId ?? "race"}-${entry.position}-${entry.horseNumber}`}
+                                key={`${slot.stableKey}-result-${entry.position}-${entry.horseNumber}`}
                                 variant="caption"
-                                color={entry.position <= 3 ? "primary" : "text.secondary"}
-                                sx={{
-                                  fontWeight: entry.position <= 3 ? 700 : 400,
-                                }}
+                                color="text.secondary"
                               >
                                 {entry.position}. #{entry.horseNumber} {entry.horseName}
                               </Typography>
                             ))}
                           </Stack>
-                        </CardContent>
-                      </Card>
-                        );
-                      })()
-                    ))
-                  )}
-                </>
-              ) : null}
-              {!isHorsePastDate && horseRaceCardsForDate.length > 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  {t.horseUpcomingRacesLabel}: {targetDate}
-                </Typography>
-              ) : null}
-              {horseRaceCardsForDate.map((race) => {
-                const raceId = `${race.venueCode}-${race.raceNo}-${race.postTime}`;
+                        ) : null}
+                      </CardContent>
+                    </Card>
+                  );
+                }
+
                 const isSelected = raceId === selectedRaceIdForDate;
                 return (
                 <Card
@@ -1809,13 +2008,12 @@ export default function Home() {
                       variant="outlined"
                       icon={<TrophyFilled />}
                       label={
-                        horseRacePredictions[raceId]?.picks?.[0]
-                          ? `${t.horsePredictedWinnerLabel}: #${horseRacePredictions[raceId].picks[0].horseNumber} ${toDisplayName(
-                              horseRacePredictions[raceId].picks[0].horseName,
+                        prediction?.picks?.[0]
+                          ? `${t.horsePredictedWinnerLabel}: #${prediction.picks[0].horseNumber} ${toDisplayName(
+                              prediction.picks[0].horseName,
                               race.runners.find(
                                 (runner) =>
-                                  Number(runner.horseNumber) ===
-                                  horseRacePredictions[raceId].picks[0].horseNumber,
+                                  Number(runner.horseNumber) === prediction.picks[0].horseNumber,
                               )?.horseNameZh,
                             )}`
                           : t.horsePredictedWinnerUnavailable
@@ -1832,7 +2030,7 @@ export default function Home() {
                         },
                       }}
                     />
-                    {horseRacePredictions[raceId] ? (
+                    {prediction ? (
                       <Stack
                         direction="row"
                         spacing={0.8}
@@ -1843,19 +2041,19 @@ export default function Home() {
                           size="small"
                           variant="outlined"
                           color={
-                            horseRacePredictions[raceId].confidenceBand === "High"
+                            prediction.confidenceBand === "High"
                               ? "success"
-                              : horseRacePredictions[raceId].confidenceBand === "Medium"
+                              : prediction.confidenceBand === "Medium"
                                 ? "primary"
                                 : "warning"
                           }
-                          label={`${t.confidenceTitle}: ${formatConfidenceBandLabel(horseRacePredictions[raceId].confidenceBand, locale)}`}
+                          label={`${t.confidenceTitle}: ${formatConfidenceBandLabel(prediction.confidenceBand, locale)}`}
                         />
                         <Chip
                           size="small"
                           variant="outlined"
                           label={`${t.horseGeneratedAtLabel}: ${new Date(
-                            horseRacePredictions[raceId].generatedAt,
+                            prediction.generatedAt,
                           ).toLocaleTimeString(locale === "zh-HK" ? "zh-HK" : "en-US", {
                             hour: "2-digit",
                             minute: "2-digit",
@@ -1865,14 +2063,14 @@ export default function Home() {
                           size="small"
                           variant="outlined"
                           label={`${t.horsePredictionMarginLabel}: ${
-                            horseRacePredictions[raceId].predictionMargin?.toFixed(1) ?? "-"
+                            prediction.predictionMargin?.toFixed(1) ?? "-"
                           }`}
                         />
                         <Chip
                           size="small"
                           variant="outlined"
                           label={`${t.horseDataFreshnessLabel}: ${
-                            horseRacePredictions[raceId].dataFreshnessSource === "database"
+                            prediction.dataFreshnessSource === "database"
                               ? t.horseDataFreshnessLive
                               : t.horseDataFreshnessFallback
                           }`}
@@ -1903,7 +2101,7 @@ export default function Home() {
                       <Typography variant="caption" color="text.secondary">
                         {t.horsePredictedPositionsLabel}
                       </Typography>
-                      {horseRacePredictions[raceId]?.picks?.length ? (
+                      {prediction?.picks?.length ? (
                         <>
                           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.6 }}>
                             {t.horseTop3PredictionsLabel}
@@ -1936,7 +2134,7 @@ export default function Home() {
                               </TableRow>
                             </TableHead>
                             <TableBody>
-                              {horseRacePredictions[raceId].picks.map((pick, idx) => (
+                              {prediction.picks.map((pick, idx) => (
                                 <TableRow key={`${raceId}-top-${pick.horseNumber}-${pick.horseName}`}>
                                   <TableCell sx={{ py: 0.5, px: 0.8 }}>#{pick.horseNumber}</TableCell>
                                   <TableCell sx={{ py: 0.5, px: 0.8, whiteSpace: "normal", wordBreak: "break-word" }}>
@@ -1978,7 +2176,7 @@ export default function Home() {
                             <Typography variant="caption" color="text.secondary">
                               {t.horseTopDriversLabel}
                             </Typography>
-                            {horseRacePredictions[raceId].picks.map((pick) => (
+                            {prediction.picks.map((pick) => (
                               <Typography
                                 key={`${raceId}-drivers-${pick.horseNumber}`}
                                 variant="caption"
@@ -2048,7 +2246,7 @@ export default function Home() {
                       />
                       <Stack direction="row" spacing={0.8} useFlexGap sx={{ mt: 0.6, flexWrap: "wrap" }}>
                         {HORSE_BET_TYPES.map((betType) => {
-                          const recommended = getRecommendedHorseBetTypes(horseRacePredictions[raceId]);
+                          const recommended = getRecommendedHorseBetTypes(prediction);
                           const isRecommended = recommended.includes(betType);
                           return (
                             <Chip
@@ -2066,8 +2264,8 @@ export default function Home() {
                         color="text.secondary"
                         sx={{ display: "block", mt: 0.55 }}
                       >
-                        {horseRacePredictions[raceId]
-                          ? `${t.horseRecommendedBetLabel}: ${getRecommendedHorseBetTypes(horseRacePredictions[raceId])
+                        {prediction
+                          ? `${t.horseRecommendedBetLabel}: ${getRecommendedHorseBetTypes(prediction)
                               .map((betType) => horseBetTypeLabels[betType])
                               .join(" / ")}`
                           : t.horseRecommendedBetHintNoPrediction}
@@ -2078,8 +2276,8 @@ export default function Home() {
                         </Typography>
                         <Stack spacing={0.45} sx={{ mt: 0.35 }}>
                           {getEstimatedPayoutRows(
-                            getRecommendedHorseBetTypes(horseRacePredictions[raceId]),
-                            horseRacePredictions[raceId],
+                            getRecommendedHorseBetTypes(prediction),
+                            prediction,
                             parseStakeAmount(horseStakeInput),
                           ).map((estimate) => (
                             <Typography
