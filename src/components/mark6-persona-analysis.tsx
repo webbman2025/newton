@@ -139,6 +139,7 @@ export function Mark6PersonaAnalysis({
       </Box>
 
       <Box
+        data-tutorial="persona-selector"
         sx={{
           display: "flex",
           gap: 0.8,
@@ -170,6 +171,7 @@ export function Mark6PersonaAnalysis({
       ) : null}
 
       <Box
+        data-tutorial="quick-analysis"
         sx={{
           display: "grid",
           gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
@@ -202,7 +204,7 @@ export function Mark6PersonaAnalysis({
         ))}
       </TextField>
 
-      <Card variant="outlined">
+      <Card variant="outlined" data-tutorial="results-card">
         <CardContent sx={{ p: 1.4, "&:last-child": { pb: 1.4 } }}>
           <Stack spacing={1.2}>
             <Button
@@ -342,6 +344,7 @@ export function Mark6PersonaAnalysis({
                   ) : null}
 
                   <Stack
+                    data-tutorial="probability-carousel"
                     direction="row"
                     spacing={1}
                     sx={{
@@ -401,7 +404,7 @@ export function Mark6PersonaAnalysis({
       </Card>
 
       {result && !isLoading ? (
-        <Card variant="outlined">
+        <Card variant="outlined" data-tutorial="analysis-feed">
           <CardContent sx={{ p: 1.4, "&:last-child": { pb: 1.4 } }}>
             <Stack spacing={1}>
               <Typography variant="subtitle2" sx={{ display: "flex", gap: 0.7, alignItems: "center" }}>

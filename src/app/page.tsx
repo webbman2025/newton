@@ -51,6 +51,7 @@ import {
 import { useCopy, useLocale } from "@/components/locale-provider";
 import { getMark6LeanProbabilitiesKey, Mark6NextDrawLeanSection } from "@/components/mark6-next-draw-lean";
 import { Mark6PersonaAnalysis } from "@/components/mark6-persona-analysis";
+import { Mark6TutorialOverlay } from "@/components/mark6-tutorial-overlay";
 import type { Mark6Persona } from "@/lib/mark6-analysis";
 import {
   buildHorseDayRaceSlots,
@@ -1017,6 +1018,7 @@ export default function Home() {
 
   return (
     <Stack spacing={2.2}>
+      <Mark6TutorialOverlay enabled={mode === "mark6"} />
       <Card>
         <CardContent>
           <Stack spacing={2}>

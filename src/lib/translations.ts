@@ -38,6 +38,36 @@ type CopyShape = {
   donationQrOpenImage: string;
   donationQrBack: string;
   donationQrClose: string;
+  tutorialFooterLink: string;
+  tutorialTitle: string;
+  tutorialSubtitle: string;
+  tutorialStart: string;
+  tutorialSkip: string;
+  tutorialBack: string;
+  tutorialNext: string;
+  tutorialDone: string;
+  tutorialPersonaTitle: string;
+  tutorialPersonaBody: string;
+  tutorialQuickAnalysisTitle: string;
+  tutorialQuickAnalysisBody: string;
+  tutorialResultsTitle: string;
+  tutorialResultsBody: string;
+  tutorialCarouselTitle: string;
+  tutorialCarouselBody: string;
+  tutorialFeedTitle: string;
+  tutorialFeedBody: string;
+  tutorialComplianceTitle: string;
+  tutorialComplianceBody: string;
+  tutorialFaqOpen: string;
+  tutorialFaqTitle: string;
+  tutorialFaqAnalysisQuestion: string;
+  tutorialFaqAnalysisAnswer: string;
+  tutorialFaqProbabilityQuestion: string;
+  tutorialFaqProbabilityAnswer: string;
+  tutorialFaqGameTheoryQuestion: string;
+  tutorialFaqGameTheoryAnswer: string;
+  tutorialFaqComplianceQuestion: string;
+  tutorialFaqComplianceAnswer: string;
   historyTitle: string;
   analyticsTitle: string;
   historyDate: string;
@@ -308,6 +338,36 @@ export const copy: Record<Locale, CopyShape> = {
     donationQrOpenImage: "Open QR image",
     donationQrBack: "Back to previous page",
     donationQrClose: "Close",
+    tutorialFooterLink: "Tutorial",
+    tutorialTitle: "Mark Six Analysis Tutorial",
+    tutorialSubtitle: "Learn how to choose an analyst, run quick analysis, read charts, and use the results responsibly.",
+    tutorialStart: "Start interactive walkthrough",
+    tutorialSkip: "Skip",
+    tutorialBack: "Back",
+    tutorialNext: "Next",
+    tutorialDone: "Done",
+    tutorialPersonaTitle: "Persona Selector",
+    tutorialPersonaBody: "Lottery Analyst focuses on frequency and balance, Game Theorist on diversification proxies, and Pattern Finder on repeated structures.",
+    tutorialQuickAnalysisTitle: "Quick Analysis Buttons",
+    tutorialQuickAnalysisBody: "Run hot/cold, odd/even, repeating-pattern, or recent-trend analysis instantly.",
+    tutorialResultsTitle: "Results Card",
+    tutorialResultsBody: "Expand this card to read the 1–49 heatmap, frequency chart, patterns, and analytical summary.",
+    tutorialCarouselTitle: "Probability Carousel",
+    tutorialCarouselBody: "Swipe horizontally to compare historical odd/even and low/high ratios. These are observed distributions, not future odds.",
+    tutorialFeedTitle: "Analysis Feed",
+    tutorialFeedBody: "This feed summarizes the selected historical window. It is generated analysis, not social or community posts.",
+    tutorialComplianceTitle: "Compliance Footer",
+    tutorialComplianceBody: "The reminder separates data analysis from betting. Use HKJC only for official information and betting.",
+    tutorialFaqOpen: "Open FAQ",
+    tutorialFaqTitle: "Analysis FAQ",
+    tutorialFaqAnalysisQuestion: "What do the analysis types mean?",
+    tutorialFaqAnalysisAnswer: "Hot/cold ranks frequency, odd/even measures balance, repeating patterns finds recurring pairs or triples, and recent trends compares newer draws with an earlier window.",
+    tutorialFaqProbabilityQuestion: "Are the percentages winning probabilities?",
+    tutorialFaqProbabilityAnswer: "No. They are historical ratios or relative model scores. Every valid Mark Six combination remains random.",
+    tutorialFaqGameTheoryQuestion: "Does Game Theorist know which numbers people bet?",
+    tutorialFaqGameTheoryAnswer: "No. It uses clearly labelled common-selection proxies such as birthday-heavy sets, consecutive numbers, repeated endings, and narrow spread—not ticket-sales data.",
+    tutorialFaqComplianceQuestion: "Can I place bets in this app?",
+    tutorialFaqComplianceAnswer: "No. This app provides entertainment-only analysis and does not process bets. Visit HKJC for official channels.",
     historyTitle: "Past Winners",
     analyticsTitle: "Performance & Trust",
     historyDate: "Date",
@@ -583,6 +643,36 @@ export const copy: Record<Locale, CopyShape> = {
     donationQrOpenImage: "打開 QR 圖片",
     donationQrBack: "返回上一頁",
     donationQrClose: "關閉",
+    tutorialFooterLink: "教學",
+    tutorialTitle: "六合彩分析教學",
+    tutorialSubtitle: "了解如何選擇分析角色、使用快速分析、閱讀圖表及負責任地理解結果。",
+    tutorialStart: "開始互動導覽",
+    tutorialSkip: "略過",
+    tutorialBack: "上一步",
+    tutorialNext: "下一步",
+    tutorialDone: "完成",
+    tutorialPersonaTitle: "角色選擇器",
+    tutorialPersonaBody: "六合彩分析師着重頻率與比例；博弈理論家使用分散組合代理指標；模式調查員尋找重複結構。",
+    tutorialQuickAnalysisTitle: "快速分析按鈕",
+    tutorialQuickAnalysisBody: "即時執行冷熱門、單雙、重複模式或近期走勢分析。",
+    tutorialResultsTitle: "結果卡",
+    tutorialResultsBody: "展開此卡查看 1–49 熱圖、頻率圖、重複模式及分析摘要。",
+    tutorialCarouselTitle: "比例輪播",
+    tutorialCarouselBody: "橫向滑動比較歷史單雙及細大號比例。這些是歷史分佈，並非未來中獎機率。",
+    tutorialFeedTitle: "分析動態",
+    tutorialFeedBody: "按所選歷史範圍生成摘要，並非社交或社群貼文。",
+    tutorialComplianceTitle: "合規頁尾",
+    tutorialComplianceBody: "提示把資料分析與投注分開。官方資訊及投注只應使用香港賽馬會渠道。",
+    tutorialFaqOpen: "開啟常見問題",
+    tutorialFaqTitle: "分析常見問題",
+    tutorialFaqAnalysisQuestion: "各種分析代表甚麼？",
+    tutorialFaqAnalysisAnswer: "冷熱門按出現頻率排序；單雙分析比例；重複模式尋找反覆出現的配對或三連組合；近期走勢比較新舊時段。",
+    tutorialFaqProbabilityQuestion: "百分比是中獎機率嗎？",
+    tutorialFaqProbabilityAnswer: "不是。它們是歷史比例或相對模型分數；每個有效六合彩組合仍屬隨機。",
+    tutorialFaqGameTheoryQuestion: "博弈理論家知道其他人投注甚麼嗎？",
+    tutorialFaqGameTheoryAnswer: "不知道。它只使用已清楚標示的常見選號代理指標，例如生日號碼、連號、相同尾數及過窄跨度，而非投注銷售資料。",
+    tutorialFaqComplianceQuestion: "可否在此應用投注？",
+    tutorialFaqComplianceAnswer: "不可以。本應用只提供娛樂分析，並不處理投注。正式渠道請前往香港賽馬會。",
     historyTitle: "過往結果",
     analyticsTitle: "表現與可信度",
     historyDate: "日期",

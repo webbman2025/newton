@@ -20,6 +20,7 @@ import {
   Typography,
 } from "@mui/material";
 import {
+  BookOpenRegular,
   DataTrendingFilled,
   DataTrendingRegular,
   HeartFilled,
@@ -123,6 +124,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </Container>
 
       <Box
+        data-tutorial="compliance-footer"
         sx={{
           position: "fixed",
           bottom: 0,
@@ -148,17 +150,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <InfoRegular fontSize={14} />
               {t.footerCompliance}
             </Typography>
-            <Button
-              component="a"
-              href="https://bet.hkjc.com/en/marksix/index"
-              target="_blank"
-              rel="noopener noreferrer"
-              size="small"
-              variant="text"
-              sx={{ flexShrink: 0, minWidth: "auto", textTransform: "none" }}
-            >
-              {t.footerHkjcLink}
-            </Button>
+            <Stack direction="row" spacing={0.4} sx={{ flexShrink: 0 }}>
+              <Button
+                component={Link}
+                href="/tutorial"
+                size="small"
+                variant="text"
+                startIcon={<BookOpenRegular />}
+                sx={{ minWidth: "auto", textTransform: "none" }}
+              >
+                {t.tutorialFooterLink}
+              </Button>
+              <Button
+                component="a"
+                href="https://bet.hkjc.com/en/marksix/index"
+                target="_blank"
+                rel="noopener noreferrer"
+                size="small"
+                variant="text"
+                sx={{ minWidth: "auto", textTransform: "none" }}
+              >
+                {t.footerHkjcLink}
+              </Button>
+            </Stack>
           </Stack>
         </Container>
       </Box>
