@@ -1180,8 +1180,8 @@ export default function Home() {
       </Card>
 
       {mark6OnHub ? (
-        <Card sx={{ position: "relative", zIndex: 1 }}>
-          <CardContent>
+        <Card sx={{ position: "relative", zIndex: 2, overflow: "visible" }}>
+          <CardContent sx={{ position: "relative", zIndex: 2 }}>
             <Mark6GameModeHub onSelect={selectMark6GameMode} />
           </CardContent>
         </Card>

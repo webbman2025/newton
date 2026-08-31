@@ -16,7 +16,6 @@ import {
   Select,
   Stack,
   Toolbar,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import {
@@ -63,26 +62,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   const donationFab = hasDonationSupport ? (
-    <Tooltip title={t.donationHint} placement="left" enterTouchDelay={0}>
-      <Fab
-        color="primary"
-        aria-label={t.donationButton}
-        sx={donationFabSx}
-        {...(donationQrImageUrl
-          ? {
-              type: "button" as const,
-              onClick: () => setIsDonationQrFullscreenOpen(true),
-            }
-          : {
-              component: "a" as const,
-              href: donationUrl,
-              target: "_blank",
-              rel: "noopener noreferrer",
-            })}
-      >
-        <HeartFilled fontSize={22} />
-      </Fab>
-    </Tooltip>
+    <Fab
+      color="primary"
+      aria-label={t.donationButton}
+      title={t.donationHint}
+      sx={donationFabSx}
+      {...(donationQrImageUrl
+        ? {
+            type: "button" as const,
+            onClick: () => setIsDonationQrFullscreenOpen(true),
+          }
+        : {
+            component: "a" as const,
+            href: donationUrl,
+            target: "_blank",
+            rel: "noopener noreferrer",
+          })}
+    >
+      <HeartFilled fontSize={22} />
+    </Fab>
   ) : null;
 
   return (
@@ -145,6 +143,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           px: 1,
           pt: 1,
           pb: "calc(8px + env(safe-area-inset-bottom, 0px))",
+          // Safari can expand fixed-layer hit testing; only children should receive taps.
+          pointerEvents: "none",
+          "& a, & button, & [role='button']": {
+            pointerEvents: "auto",
+          },
         }}
       >
         <Container maxWidth="sm">

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import {
   ArrowTrendingLinesRegular,
@@ -45,17 +44,6 @@ type Mark6GameModeHubProps = {
 
 export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
   const t = useCopy();
-  // iOS Safari can fire both touchend and a delayed click — debounce to one select.
-  const lastSelectAtRef = useRef(0);
-
-  const selectMode = (modeId: Mark6GameModeId) => {
-    const now = Date.now();
-    if (now - lastSelectAtRef.current < 450) {
-      return;
-    }
-    lastSelectAtRef.current = now;
-    onSelect(modeId);
-  };
 
   const modes: Array<{
     id: Mark6GameModeId;
@@ -118,7 +106,7 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
   );
 
   return (
-    <Stack spacing={1.2} sx={{ position: "relative", zIndex: 10 }}>
+    <Stack spacing={1.2}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.4 }}>
           {t.mark6ModeHubTitle}
@@ -137,89 +125,72 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
         {orderedModes.map((mode) => {
           const highlighted = mode.id === "drawPredictor";
           return (
-            <Box
+            <button
               key={mode.id}
-              component="button"
               type="button"
               aria-label={mode.title}
-              onClick={() => selectMode(mode.id)}
-              onTouchEnd={(event) => {
-                // iOS Safari browser often cancels click when :active moves the target.
-                // touchend is reliable in Mobile Safari; prevent ghost click afterward.
-                event.preventDefault();
-                selectMode(mode.id);
-              }}
-              sx={{
+              onClick={() => onSelect(mode.id)}
+              style={{
                 appearance: "none",
                 WebkitAppearance: "none",
-                border: "1px solid",
-                borderColor: highlighted ? "primary.main" : "divider",
-                bgcolor: highlighted ? "rgba(15,108,189,0.05)" : "background.paper",
-                borderRadius: 2,
-                p: 1.4,
-                m: 0,
-                minHeight: 120,
+                display: "block",
                 width: "100%",
+                margin: 0,
+                padding: 16,
+                minHeight: 120,
                 textAlign: "left",
                 cursor: "pointer",
                 font: "inherit",
                 color: "inherit",
+                borderRadius: 16,
+                border: highlighted ? "1px solid #0f6cbd" : "1px solid #e1dfdd",
+                backgroundColor: highlighted ? "rgba(15,108,189,0.05)" : "#ffffff",
                 touchAction: "manipulation",
-                WebkitTapHighlightColor: "transparent",
+                WebkitTapHighlightColor: "rgba(15,108,189,0.2)",
                 WebkitTouchCallout: "none",
                 userSelect: "none",
-                position: "relative",
-                zIndex: 1,
-                transition: "background-color 120ms ease",
-                // Avoid :active { transform } — iOS Safari cancels the click if the
-                // button moves under the finger. Standalone PWA WebKit is more lenient.
-                "&:active": {
-                  bgcolor: "rgba(15,108,189,0.14)",
-                },
-                "@media (hover: hover) and (pointer: fine)": {
-                  "&:hover": {
-                    bgcolor: "rgba(15,108,189,0.08)",
-                  },
-                },
+                WebkitUserSelect: "none",
               }}
             >
-              <Stack spacing={0.8} sx={{ pointerEvents: "none" }}>
-                <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
-                  <Box
-                    sx={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 2,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      bgcolor: "rgba(15,108,189,0.1)",
-                      color: "primary.main",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {MODE_ICONS[mode.id] ?? <GridRegular fontSize={28} />}
-                  </Box>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-                      <Typography
-                        variant="subtitle1"
-                        sx={{ fontWeight: 700, lineHeight: 1.25, flex: 1 }}
-                      >
-                        {mode.title}
+              <div style={{ pointerEvents: "none" }}>
+                <Stack spacing={0.8}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
+                    <Box
+                      sx={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 2,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        bgcolor: "rgba(15,108,189,0.1)",
+                        color: "primary.main",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {MODE_ICONS[mode.id] ?? <GridRegular fontSize={28} />}
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+                        <Typography
+                          variant="subtitle1"
+                          sx={{ fontWeight: 700, lineHeight: 1.25, flex: 1 }}
+                        >
+                          {mode.title}
+                        </Typography>
+                        <ChevronRightRegular fontSize={18} style={{ opacity: 0.55, flexShrink: 0 }} />
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary">
+                        {mode.description}
                       </Typography>
-                      <ChevronRightRegular fontSize={18} style={{ opacity: 0.55, flexShrink: 0 }} />
-                    </Stack>
-                    <Typography variant="body2" color="text.secondary">
-                      {mode.description}
-                    </Typography>
-                  </Box>
+                    </Box>
+                  </Stack>
+                  <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
+                    {t.mark6ModeHowToPlayLabel}: {mode.howToPlay}
+                  </Typography>
                 </Stack>
-                <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
-                  {t.mark6ModeHowToPlayLabel}: {mode.howToPlay}
-                </Typography>
-              </Stack>
-            </Box>
+              </div>
+            </button>
           );
         })}
       </Box>

@@ -138,6 +138,9 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
 
   useEffect(() => {
     if (!enabled) {
+      setIsOpen(false);
+      setHighlight(null);
+      setIsSkipConfirmOpen(false);
       return;
     }
     const forced = new URLSearchParams(window.location.search).get("tutorial") === "1";
@@ -152,7 +155,7 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
   }, [enabled]);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!enabled || !isOpen) {
       return;
     }
     const timer = window.setTimeout(() => positionStep(stepIndex), 0);
@@ -162,9 +165,9 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
       window.clearTimeout(timer);
       window.removeEventListener("resize", reposition);
     };
-  }, [isOpen, positionStep, stepIndex]);
+  }, [enabled, isOpen, positionStep, stepIndex]);
 
-  if (!isOpen) {
+  if (!enabled || !isOpen) {
     return null;
   }
 
@@ -184,7 +187,10 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
           inset: 0,
           zIndex: (theme) => theme.zIndex.modal + 20,
           bgcolor: highlight ? "transparent" : "rgba(0,0,0,0.68)",
+          // Dimmer must never steal taps from the page underneath the callout.
+          pointerEvents: highlight ? "none" : "auto",
         }}
+        onClick={highlight ? undefined : () => setIsSkipConfirmOpen(true)}
       />
       {highlight ? (
         <Box
