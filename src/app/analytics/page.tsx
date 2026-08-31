@@ -6,10 +6,12 @@ import {
   AccordionDetails,
   AccordionSummary,
   Alert,
+  Box,
   Card,
   CardContent,
   Chip,
   Divider,
+  LinearProgress,
   Stack,
   Table,
   TableBody,
@@ -51,15 +53,26 @@ export default function AnalyticsPage() {
   const { locale } = useLocale();
   const [data, setData] = useState<AnalyticsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const response = await fetch("/api/analytics");
-      if (!response.ok) {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch("/api/analytics");
+        if (!response.ok) {
+          setError(t.staleDataFallback);
+          setData(null);
+          return;
+        }
+        setData((await response.json()) as AnalyticsPayload);
+      } catch {
         setError(t.staleDataFallback);
-        return;
+        setData(null);
+      } finally {
+        setIsLoading(false);
       }
-      setData((await response.json()) as AnalyticsPayload);
     };
     void load();
   }, [t.staleDataFallback]);
@@ -72,6 +85,7 @@ export default function AnalyticsPage() {
       : "Low";
   const recentAccuracy = data?.horseBacktest?.top1AccuracyPct ?? 0;
   const isLiveData = (data?.horseBacktest?.sampleSize ?? 0) > 0;
+  const metricValue = (value: string | number) => (isLoading ? "—" : value);
 
   return (
     <Stack spacing={2}>
@@ -85,6 +99,14 @@ export default function AnalyticsPage() {
             {t.analyticsQuickReadSubtitle}
           </Typography>
           {error ? <Alert severity="warning">{error}</Alert> : null}
+          {isLoading ? (
+            <Box sx={{ mb: 1.6 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.6 }}>
+                {t.analyticsLoading}
+              </Typography>
+              <LinearProgress />
+            </Box>
+          ) : null}
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
             {t.analyticsQuickReadTitle}
           </Typography>
@@ -95,7 +117,7 @@ export default function AnalyticsPage() {
                   {t.analyticsMetricRecentAccuracy}
                 </Typography>
                 <Typography variant="h5" sx={{ lineHeight: 1.2 }}>
-                  {recentAccuracy}%
+                  {metricValue(`${recentAccuracy}%`)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {t.analyticsMetricRecentAccuracyHint}
@@ -109,10 +131,10 @@ export default function AnalyticsPage() {
                   {t.analyticsMetricConfidenceNow}
                 </Typography>
                 <Typography variant="h5" sx={{ lineHeight: 1.2 }}>
-                  {formatConfidenceBandLabel(dominantConfidence, locale)}
+                  {metricValue(formatConfidenceBandLabel(dominantConfidence, locale))}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {t.analyticsMetricConfidenceNowHint} ({totalConfidenceEvents})
+                  {t.analyticsMetricConfidenceNowHint} ({metricValue(totalConfidenceEvents)})
                 </Typography>
               </CardContent>
             </Card>
@@ -123,7 +145,7 @@ export default function AnalyticsPage() {
                   {t.analyticsMetricDataStatus}
                 </Typography>
                 <Typography variant="h5" sx={{ lineHeight: 1.2 }}>
-                  {isLiveData ? t.analyticsDataStatusLive : t.analyticsDataStatusLimited}
+                  {metricValue(isLiveData ? t.analyticsDataStatusLive : t.analyticsDataStatusLimited)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {t.analyticsMetricDataStatusHint}

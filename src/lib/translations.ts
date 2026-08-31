@@ -58,6 +58,12 @@ type CopyShape = {
   tutorialFeedBody: string;
   tutorialComplianceTitle: string;
   tutorialComplianceBody: string;
+  tutorialGenerateTitle: string;
+  tutorialGenerateBody: string;
+  tutorialSkipConfirmTitle: string;
+  tutorialSkipConfirmBody: string;
+  tutorialSkipConfirmAction: string;
+  tutorialSkipCancel: string;
   tutorialFaqOpen: string;
   tutorialFaqTitle: string;
   tutorialFaqAnalysisQuestion: string;
@@ -104,7 +110,14 @@ type CopyShape = {
   analyticsDataStatusLimited: string;
   analyticsAdvancedDetails: string;
   analyticsAdvancedDetailsHint: string;
+  analyticsLoading: string;
   staleDataFallback: string;
+  fetchMark6DatesError: string;
+  fetchMark6PreviousDrawError: string;
+  fetchHorseRacesError: string;
+  fetchHorseHistoryError: string;
+  horseBatchPartialFailure: string;
+  homeGameModeLabel: string;
   upcomingRacesTitle: string;
   upcomingRacesLoading: string;
   upcomingRacesEmpty: string;
@@ -358,6 +371,12 @@ export const copy: Record<Locale, CopyShape> = {
     tutorialFeedBody: "This feed summarizes the selected historical window. It is generated analysis, not social or community posts.",
     tutorialComplianceTitle: "Compliance Footer",
     tutorialComplianceBody: "The reminder separates data analysis from betting. Use HKJC only for official information and betting.",
+    tutorialGenerateTitle: "Generate Predictions",
+    tutorialGenerateBody: "Use this bar to generate Mark Six sets or horse-race predictions for your selected date.",
+    tutorialSkipConfirmTitle: "Skip tutorial?",
+    tutorialSkipConfirmBody: "You can restart it anytime from the Tutorial page in the footer.",
+    tutorialSkipConfirmAction: "Skip tutorial",
+    tutorialSkipCancel: "Keep going",
     tutorialFaqOpen: "Open FAQ",
     tutorialFaqTitle: "Analysis FAQ",
     tutorialFaqAnalysisQuestion: "What do the analysis types mean?",
@@ -406,8 +425,15 @@ export const copy: Record<Locale, CopyShape> = {
     analyticsAdvancedDetails: "Advanced Details",
     analyticsAdvancedDetailsHint:
       "Technical charts and calibration tables for internal model review.",
+    analyticsLoading: "Loading analytics…",
     staleDataFallback:
       "Data is currently unavailable or stale. Please try again later.",
+    fetchMark6DatesError: "Could not load upcoming Mark Six draw dates. You can still pick a date manually.",
+    fetchMark6PreviousDrawError: "Could not load the previous Mark Six draw for this date.",
+    fetchHorseRacesError: "Could not load upcoming races. Please try again later.",
+    fetchHorseHistoryError: "Could not load horse-racing history for this date.",
+    horseBatchPartialFailure: "{count} race prediction(s) could not be generated. Other races may still have results.",
+    homeGameModeLabel: "Game mode",
     upcomingRacesTitle: "Upcoming Sha Tin / Happy Valley Races",
     upcomingRacesLoading: "Loading upcoming race cards...",
     upcomingRacesEmpty: "No upcoming Sha Tin or Happy Valley races are available yet.",
@@ -663,6 +689,12 @@ export const copy: Record<Locale, CopyShape> = {
     tutorialFeedBody: "按所選歷史範圍生成摘要，並非社交或社群貼文。",
     tutorialComplianceTitle: "合規頁尾",
     tutorialComplianceBody: "提示把資料分析與投注分開。官方資訊及投注只應使用香港賽馬會渠道。",
+    tutorialGenerateTitle: "生成預測",
+    tutorialGenerateBody: "使用此固定列為所選日期生成六合彩組合或賽馬預測。",
+    tutorialSkipConfirmTitle: "略過教學？",
+    tutorialSkipConfirmBody: "你可隨時在頁尾的「教學」重新開始。",
+    tutorialSkipConfirmAction: "略過教學",
+    tutorialSkipCancel: "繼續",
     tutorialFaqOpen: "開啟常見問題",
     tutorialFaqTitle: "分析常見問題",
     tutorialFaqAnalysisQuestion: "各種分析代表甚麼？",
@@ -709,7 +741,14 @@ export const copy: Record<Locale, CopyShape> = {
     analyticsDataStatusLimited: "資料有限",
     analyticsAdvancedDetails: "進階細節",
     analyticsAdvancedDetailsHint: "提供技術圖表與校準表，供內部模型檢視。",
+    analyticsLoading: "正在載入分析…",
     staleDataFallback: "資料暫時未能提供或已過期，請稍後再試。",
+    fetchMark6DatesError: "未能載入六合彩開獎日期，你仍可手動選擇日期。",
+    fetchMark6PreviousDrawError: "未能載入此日期的上一期六合彩結果。",
+    fetchHorseRacesError: "未能載入賽馬日程，請稍後再試。",
+    fetchHorseHistoryError: "未能載入此日期的賽馬歷史資料。",
+    horseBatchPartialFailure: "有 {count} 場賽事未能生成預測，其他場次可能仍有結果。",
+    homeGameModeLabel: "遊戲模式",
     upcomingRacesTitle: "沙田 / 跑馬地 即將開跑賽事",
     upcomingRacesLoading: "正在載入即將開跑賽事...",
     upcomingRacesEmpty: "暫未有沙田或跑馬地的即將開跑賽事。",

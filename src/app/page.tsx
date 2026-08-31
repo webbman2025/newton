@@ -16,9 +16,7 @@ import {
   DialogTitle,
   IconButton,
   InputAdornment,
-  LinearProgress,
   MenuItem,
-  Select,
   Stack,
   Table,
   TableBody,
@@ -45,13 +43,14 @@ import {
   NoteRegular,
   PeopleTeamRegular,
   PersonRegular,
-  SparkleRegular,
   TrophyFilled,
 } from "@fluentui/react-icons";
 import { useCopy, useLocale } from "@/components/locale-provider";
 import { getMark6LeanProbabilitiesKey, Mark6NextDrawLeanSection } from "@/components/mark6-next-draw-lean";
 import { Mark6PersonaAnalysis } from "@/components/mark6-persona-analysis";
 import { Mark6TutorialOverlay } from "@/components/mark6-tutorial-overlay";
+import { HomeStickyActionBar } from "@/components/home-sticky-action-bar";
+import { HorsePredictionPicks } from "@/components/horse-prediction-picks";
 import type { Mark6Persona } from "@/lib/mark6-analysis";
 import {
   buildHorseDayRaceSlots,
@@ -335,7 +334,11 @@ export default function Home() {
   const [horseRacePredictions, setHorseRacePredictions] = useState<Record<string, HorseRacePrediction>>({});
   const [horseSeenRaces, setHorseSeenRaces] = useState<Record<string, HorseSeenRace>>({});
   const [isBetTypeInfoOpen, setIsBetTypeInfoOpen] = useState(false);
-  const [horseStakeInput, setHorseStakeInput] = useState<string>("0");
+  const [horseStakeByRace, setHorseStakeByRace] = useState<Record<string, string>>({});
+  const [mark6DatesError, setMark6DatesError] = useState<string | null>(null);
+  const [mark6PreviousDrawError, setMark6PreviousDrawError] = useState<string | null>(null);
+  const [horseRacesError, setHorseRacesError] = useState<string | null>(null);
+  const [horseHistoryError, setHorseHistoryError] = useState<string | null>(null);
   const predictionsRef = useRef<HTMLDivElement | null>(null);
 
   const handleModeChange = useCallback((next: Mode) => {
@@ -347,10 +350,6 @@ export default function Home() {
     }
   }, []);
 
-  const modeLabel = useMemo(
-    () => (mode === "mark6" ? t.mark6 : t.horse),
-    [mode, t.horse, t.mark6],
-  );
   const filteredUpcomingRaces = useMemo(
     () => upcomingRaces.filter((race) => toRaceDateKey(race.postTime) === targetDate),
     [targetDate, upcomingRaces],
@@ -517,6 +516,15 @@ export default function Home() {
     trio: t.horseBetTypeTrio,
     tierce: t.horseBetTypeTierce,
   };
+  const mark6PersonaLabels = {
+    lotteryAnalyst: t.mark6PersonaLotteryAnalyst,
+    gameTheorist: t.mark6PersonaGameTheorist,
+    patternFinder: t.mark6PersonaPatternFinder,
+  } as const;
+  const getHorseStakeInput = (raceId: string) => horseStakeByRace[raceId] ?? "0";
+  const setHorseStakeForRace = (raceId: string, value: string) => {
+    setHorseStakeByRace((previous) => ({ ...previous, [raceId]: value }));
+  };
 
   useEffect(() => {
     if (mode !== "mark6") {
@@ -526,6 +534,7 @@ export default function Home() {
     let active = true;
     const loadUpcomingDrawDates = async () => {
       setIsMark6DatesLoading(true);
+      setMark6DatesError(null);
       try {
         const response = await fetch("/api/upcoming-mark6-draws");
         if (!response.ok) {
@@ -545,6 +554,7 @@ export default function Home() {
         if (active) {
           setUpcomingMark6Dates([]);
           setMark6DateSource("fallback");
+          setMark6DatesError(t.fetchMark6DatesError);
         }
       } finally {
         if (active) {
@@ -557,7 +567,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, [mode]);
+  }, [mode, t.fetchMark6DatesError]);
 
   useEffect(() => {
     if (mode !== "mark6") {
@@ -567,6 +577,7 @@ export default function Home() {
     let active = true;
     const loadPreviousDraw = async () => {
       setIsMark6PreviousDrawLoading(true);
+      setMark6PreviousDrawError(null);
       try {
         const response = await fetch(`/api/latest-mark6-result?targetDate=${targetDate}`);
         if (!response.ok) {
@@ -579,6 +590,7 @@ export default function Home() {
       } catch {
         if (active) {
           setMark6PreviousDraw(null);
+          setMark6PreviousDrawError(t.fetchMark6PreviousDrawError);
         }
       } finally {
         if (active) {
@@ -591,7 +603,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, [mode, targetDate]);
+  }, [mode, targetDate, t.fetchMark6PreviousDrawError]);
 
   useEffect(() => {
     if (mode !== "mark6") {
@@ -646,6 +658,7 @@ export default function Home() {
     const loadUpcoming = async () => {
       if (active) {
         setIsHorseWinnerLoading(true);
+        setHorseRacesError(null);
       }
       try {
         const upcomingResponse = await fetch("/api/upcoming-races?limit=40");
@@ -668,6 +681,7 @@ export default function Home() {
         if (active) {
           setUpcomingRaces([]);
           setSelectedRaceId(null);
+          setHorseRacesError(t.fetchHorseRacesError);
         }
       } finally {
         if (active) {
@@ -677,6 +691,7 @@ export default function Home() {
     };
 
     const loadHistoryAndDates = async () => {
+      setHorseHistoryError(null);
       try {
         const [historyResponse, raceDatesResponse] = await Promise.all([
           fetch(`/api/history?mode=horse&locale=${locale}`),
@@ -699,6 +714,7 @@ export default function Home() {
         if (active) {
           setHorseHistoryRows([]);
           setUpcomingHorseRaceDates([]);
+          setHorseHistoryError(t.fetchHorseHistoryError);
         }
       }
     };
@@ -708,7 +724,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, [locale, mode]);
+  }, [locale, mode, t.fetchHorseHistoryError, t.fetchHorseRacesError]);
 
   useEffect(() => {
     if (mode !== "horse") {
@@ -744,6 +760,7 @@ export default function Home() {
 
   const refreshSelectedDateHorseHistory = useCallback(async () => {
     setIsSelectedDateHorseRowsLoading(true);
+    setHorseHistoryError(null);
     try {
       const response = await fetch(
         `/api/history/horse-date?date=${targetDate}&locale=${locale}`,
@@ -756,10 +773,11 @@ export default function Home() {
       setSelectedDateHorseRows(payload.rows ?? []);
     } catch {
       setSelectedDateHorseRows([]);
+      setHorseHistoryError(t.fetchHorseHistoryError);
     } finally {
       setIsSelectedDateHorseRowsLoading(false);
     }
-  }, [locale, targetDate]);
+  }, [locale, targetDate, t.fetchHorseHistoryError]);
 
   useEffect(() => {
     if (mode !== "horse") {
@@ -837,6 +855,7 @@ export default function Home() {
     try {
       if (mode === "horse") {
         const nextPredictions: Record<string, HorseRacePrediction> = {};
+        let failureCount = 0;
         for (const race of horseRaceCardsForDate) {
           const raceId = buildLegacyRaceId(race.venueCode, race.raceNo, race.postTime);
           const stableKey = buildStableRaceKey(targetDate, race.venueCode, race.raceNo);
@@ -867,6 +886,7 @@ export default function Home() {
               }),
             });
             if (!response.ok) {
+              failureCount += 1;
               nextPredictions[raceId] = {
                 raceId,
                 stableKey,
@@ -903,6 +923,7 @@ export default function Home() {
               dataFreshnessSource: payload.dataFreshness?.source,
             };
           } catch {
+            failureCount += 1;
             nextPredictions[raceId] = {
               raceId,
               stableKey,
@@ -917,6 +938,9 @@ export default function Home() {
           }
         }
         setHorseRacePredictions((previous) => ({ ...previous, ...nextPredictions }));
+        if (failureCount > 0) {
+          setError(t.horseBatchPartialFailure.replace("{count}", String(failureCount)));
+        }
         void refreshSelectedDateHorseHistory();
         setProgressValue(100);
         setProgressText(t.progressSteps[3]);
@@ -1028,24 +1052,52 @@ export default function Home() {
               sx={{ display: "flex", alignItems: "center", gap: 0.8 }}
             >
               <CalendarLtrRegular fontSize={20} />
-              {modeLabel}
+              {t.homeGameModeLabel}
             </Typography>
-            <Select
+            <ToggleButtonGroup
               value={mode}
-              onChange={(event) => handleModeChange(event.target.value as Mode)}
+              exclusive
               fullWidth
-              sx={{ borderRadius: 2 }}
-              inputProps={{ "aria-labelledby": "home-game-mode-heading" }}
+              onChange={(_event, nextMode: Mode | null) => {
+                if (nextMode) {
+                  handleModeChange(nextMode);
+                }
+              }}
+              aria-labelledby="home-game-mode-heading"
+              sx={{
+                "& .MuiToggleButton-root": {
+                  minHeight: 44,
+                  textTransform: "none",
+                  fontWeight: 600,
+                },
+              }}
             >
-              <MenuItem value="mark6">{t.mark6}</MenuItem>
-              <MenuItem value="horse">{t.horse}</MenuItem>
-            </Select>
+              <ToggleButton value="mark6">{t.mark6}</ToggleButton>
+              <ToggleButton value="horse">{t.horse}</ToggleButton>
+            </ToggleButtonGroup>
             {mode === "mark6" ? (
-              <Mark6PersonaAnalysis
-                targetDate={targetDate}
-                persona={mark6Persona}
-                onPersonaChange={setMark6Persona}
-              />
+              <Stack spacing={0.8}>
+                <Typography variant="body2" color="text.secondary">
+                  {t.mark6PersonaSectionSubtitle}
+                </Typography>
+                <Box
+                  data-tutorial="persona-selector"
+                  sx={{ display: "flex", gap: 0.8, overflowX: "auto", pb: 0.5 }}
+                >
+                  {(Object.keys(mark6PersonaLabels) as Mark6Persona[]).map((item) => (
+                    <Chip
+                      key={item}
+                      clickable
+                      color={mark6Persona === item ? "primary" : "default"}
+                      variant={mark6Persona === item ? "filled" : "outlined"}
+                      label={mark6PersonaLabels[item]}
+                      onClick={() => setMark6Persona(item)}
+                      aria-pressed={mark6Persona === item}
+                      sx={{ flexShrink: 0, minHeight: 40 }}
+                    />
+                  ))}
+                </Box>
+              </Stack>
             ) : null}
             {mode === "mark6" ? (
               <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -1078,6 +1130,11 @@ export default function Home() {
                       {mark6DateSource === "fallback" ? ` (${t.mark6UpcomingDrawDatesFallback})` : ""}
                     </Typography>
                   )}
+                  {mark6DatesError ? (
+                    <Alert severity="warning" sx={{ mt: 1, py: 0.2 }}>
+                      {mark6DatesError}
+                    </Alert>
+                  ) : null}
                 </Box>
               </LocalizationProvider>
             ) : (
@@ -1103,6 +1160,16 @@ export default function Home() {
                   <Typography variant="caption" color="text.secondary">
                     {t.horseCalendarDatesLabel}: {[...highlightedHorseRaceDays].slice(0, 6).join(", ") || "-"}
                   </Typography>
+                  {horseRacesError ? (
+                    <Alert severity="warning" sx={{ mt: 1, py: 0.2 }}>
+                      {horseRacesError}
+                    </Alert>
+                  ) : null}
+                  {horseHistoryError ? (
+                    <Alert severity="warning" sx={{ mt: 1, py: 0.2 }}>
+                      {horseHistoryError}
+                    </Alert>
+                  ) : null}
                 </Box>
               </LocalizationProvider>
             )}
@@ -1285,52 +1352,27 @@ export default function Home() {
             ) : null}
             {mode !== "horse" || !isHorsePastDate ? (
               isManualMark6 ? (
-                <Stack spacing={0.8}>
-                  <Button
-                    onClick={handleAddManualMark6Set}
-                    variant="contained"
-                    disabled={isLoading || !canAddManualMark6Set}
-                  >
-                    <SparkleRegular fontSize={18} style={{ marginRight: 6 }} />
-                    {isLoading ? t.generating : t.mark6AddAction}
-                  </Button>
-                  <Button
-                    variant="text"
-                    size="small"
-                    onClick={() => setMark6ManualNumbers([])}
-                    disabled={mark6ManualNumbers.length === 0}
-                  >
-                    {t.mark6ManualClearAction}
-                  </Button>
-                </Stack>
-              ) : (
                 <Button
-                  onClick={generateSuggestions}
-                  variant="contained"
-                  disabled={isLoading || (mode === "mark6" && !canGenerateMark6Manual)}
+                  variant="text"
+                  size="small"
+                  onClick={() => setMark6ManualNumbers([])}
+                  disabled={mark6ManualNumbers.length === 0}
+                  sx={{ alignSelf: "flex-start" }}
                 >
-                  <SparkleRegular fontSize={18} style={{ marginRight: 6 }} />
-                  {isLoading ? t.generating : t.generate}
+                  {t.mark6ManualClearAction}
                 </Button>
-              )
+              ) : null
             ) : (
               <Alert severity="info" sx={{ py: 0.2 }}>
                 {t.horsePastDateResultsMode}
               </Alert>
             )}
-            {isLoading ? (
-              <Box>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                  {progressText}
-                </Typography>
-                <LinearProgress variant="determinate" value={progressValue} />
-              </Box>
-            ) : null}
           </Stack>
         </CardContent>
       </Card>
 
       {error ? <Alert severity="warning">{error}</Alert> : null}
+      {mark6PreviousDrawError ? <Alert severity="warning">{mark6PreviousDrawError}</Alert> : null}
 
       {mode === "mark6" ? (
         <Mark6PreviousDrawSection
@@ -1765,6 +1807,15 @@ export default function Home() {
       </Box>
       ) : null}
 
+      {mode === "mark6" ? (
+        <Mark6PersonaAnalysis
+          targetDate={targetDate}
+          persona={mark6Persona}
+          onPersonaChange={setMark6Persona}
+          showPersonaSelector={false}
+        />
+      ) : null}
+
       {mode === "horse" ? (
         <Card>
           <CardContent>
@@ -2108,72 +2159,20 @@ export default function Home() {
                           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.6 }}>
                             {t.horseTop3PredictionsLabel}
                           </Typography>
-                          <Box sx={{ mt: 0.2, overflowX: "auto" }}>
-                            <Table size="small" sx={{ minWidth: 620 }}>
-                            <TableHead>
-                              <TableRow>
-                                <TableCell sx={{ py: 0.6, px: 0.8 }}>
-                                  {t.horsePredictionColumnNumber}
-                                </TableCell>
-                                <TableCell sx={{ py: 0.6, px: 0.8 }}>
-                                  {t.horsePredictionColumnHorse}
-                                </TableCell>
-                                <TableCell sx={{ py: 0.6, px: 0.8 }}>
-                                  {t.horsePredictionColumnPosition}
-                                </TableCell>
-                                <TableCell sx={{ py: 0.6, px: 0.8 }}>
-                                  {t.horsePredictionColumnSpeed}
-                                </TableCell>
-                                <TableCell sx={{ py: 0.6, px: 0.8 }}>
-                                  {t.horsePredictionColumnModelProb}
-                                </TableCell>
-                                <TableCell sx={{ py: 0.6, px: 0.8 }}>
-                                  {t.horsePredictionColumnOdds}
-                                </TableCell>
-                                <TableCell sx={{ py: 0.6, px: 0.8 }}>
-                                  {t.horsePredictionColumnEdge}
-                                </TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {prediction.picks.map((pick, idx) => (
-                                <TableRow key={`${raceId}-top-${pick.horseNumber}-${pick.horseName}`}>
-                                  <TableCell sx={{ py: 0.5, px: 0.8 }}>#{pick.horseNumber}</TableCell>
-                                  <TableCell sx={{ py: 0.5, px: 0.8, whiteSpace: "normal", wordBreak: "break-word" }}>
-                                    {(() => {
-                                      const localizedRunner = race.runners.find(
-                                        (runner) =>
-                                          Number(runner.horseNumber) === pick.horseNumber ||
-                                          runner.horseName === pick.horseName,
-                                      );
-                                      return toDisplayName(
-                                        pick.horseName,
-                                        localizedRunner?.horseNameZh,
-                                      );
-                                    })()}
-                                  </TableCell>
-                                  <TableCell sx={{ py: 0.5, px: 0.8 }}>{idx + 1}</TableCell>
-                                  <TableCell sx={{ py: 0.5, px: 0.8 }}>
-                                    {pick.speedIndex?.toFixed(1) ?? "-"}
-                                  </TableCell>
-                                  <TableCell sx={{ py: 0.5, px: 0.8 }}>
-                                    {typeof pick.modelProbability === "number"
-                                      ? `${pick.modelProbability.toFixed(1)}%`
-                                      : "-"}
-                                  </TableCell>
-                                  <TableCell sx={{ py: 0.5, px: 0.8 }}>
-                                    {pick.marketOdds ?? "-"}
-                                  </TableCell>
-                                  <TableCell sx={{ py: 0.5, px: 0.8 }}>
-                                    {typeof pick.edgeScore === "number"
-                                      ? `${pick.edgeScore > 0 ? "+" : ""}${pick.edgeScore.toFixed(1)}%`
-                                      : "-"}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                            </Table>
-                          </Box>
+                          <HorsePredictionPicks
+                            picks={prediction.picks.map((pick) => {
+                              const localizedRunner = race.runners.find(
+                                (runner) =>
+                                  Number(runner.horseNumber) === pick.horseNumber ||
+                                  runner.horseName === pick.horseName,
+                              );
+                              return {
+                                ...pick,
+                                horseNameZh: localizedRunner?.horseNameZh,
+                              };
+                            })}
+                            toDisplayName={toDisplayName}
+                          />
                           <Stack spacing={0.6} sx={{ mt: 0.8 }}>
                             <Typography variant="caption" color="text.secondary">
                               {t.horseTopDriversLabel}
@@ -2219,9 +2218,9 @@ export default function Home() {
                         size="small"
                         type="number"
                         label={t.horseStakeLabel}
-                        value={horseStakeInput}
+                        value={getHorseStakeInput(raceId)}
                         onChange={(event) => {
-                          setHorseStakeInput(event.target.value);
+                          setHorseStakeForRace(raceId, event.target.value);
                         }}
                         sx={{ mt: 0.8, maxWidth: 180 }}
                         slotProps={{
@@ -2231,12 +2230,12 @@ export default function Home() {
                             inputMode: "numeric",
                           },
                           input: {
-                            endAdornment: horseStakeInput.length > 0 ? (
+                            endAdornment: getHorseStakeInput(raceId).length > 0 ? (
                               <InputAdornment position="end">
                                 <IconButton
                                   size="small"
                                   aria-label={t.horseStakeClearAriaLabel}
-                                  onClick={() => setHorseStakeInput("")}
+                                  onClick={() => setHorseStakeForRace(raceId, "")}
                                   edge="end"
                                 >
                                   <DismissRegular fontSize={14} />
@@ -2280,7 +2279,7 @@ export default function Home() {
                           {getEstimatedPayoutRows(
                             getRecommendedHorseBetTypes(prediction),
                             prediction,
-                            parseStakeAmount(horseStakeInput),
+                            parseStakeAmount(getHorseStakeInput(raceId)),
                           ).map((estimate) => (
                             <Typography
                               key={`${raceId}-estimate-${estimate.betType}`}
@@ -2320,6 +2319,26 @@ export default function Home() {
           </CardContent>
         </Card>
       ) : null}
+      <HomeStickyActionBar
+        visible={mode !== "horse" || !isHorsePastDate}
+        primaryLabel={isManualMark6 ? t.mark6AddAction : t.generate}
+        loadingLabel={t.generating}
+        isLoading={isLoading}
+        disabled={
+          isLoading ||
+          (mode === "mark6" && !isManualMark6 && !canGenerateMark6Manual) ||
+          (isManualMark6 && !canAddManualMark6Set)
+        }
+        progressText={progressText}
+        progressValue={progressValue}
+        onPrimaryClick={() => {
+          if (isManualMark6) {
+            handleAddManualMark6Set();
+            return;
+          }
+          void generateSuggestions();
+        }}
+      />
       <Dialog
         open={isBetTypeInfoOpen}
         onClose={() => setIsBetTypeInfoOpen(false)}

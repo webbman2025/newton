@@ -5,6 +5,27 @@
   --font-mono: var(--font-geist-mono);
 }
 
+:root {
+  --app-footer-height: 72px;
+  --app-sticky-action-height: 76px;
+  --app-content-bottom-inset: calc(
+    var(--app-footer-height) + var(--app-sticky-action-height) + env(safe-area-inset-bottom, 0px)
+  );
+  --app-donation-fab-bottom: calc(
+    var(--app-footer-height) + var(--app-sticky-action-height) + 12px +
+      env(safe-area-inset-bottom, 0px)
+  );
+}
+
 * {
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+[data-tutorial] {
+  scroll-margin-top: 88px;
+  scroll-margin-bottom: calc(var(--app-content-bottom-inset) + 24px);
 }

@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Box, Button, Card, CardContent, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { useCopy } from "@/components/locale-provider";
 
 const SEEN_KEY = "mba-mark6-tutorial-seen-v1";
@@ -13,14 +24,27 @@ type HighlightRect = {
   height: number;
 };
 
+type TutorialStep = {
+  target: string;
+  title: string;
+  body: string;
+  optional?: boolean;
+};
+
 export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
   const t = useCopy();
   const [isOpen, setIsOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [highlight, setHighlight] = useState<HighlightRect | null>(null);
+  const [isSkipConfirmOpen, setIsSkipConfirmOpen] = useState(false);
 
-  const steps = useMemo(
+  const steps = useMemo<TutorialStep[]>(
     () => [
+      {
+        target: "generate-action",
+        title: t.tutorialGenerateTitle,
+        body: t.tutorialGenerateBody,
+      },
       {
         target: "persona-selector",
         title: t.tutorialPersonaTitle,
@@ -45,6 +69,7 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
         target: "analysis-feed",
         title: t.tutorialFeedTitle,
         body: t.tutorialFeedBody,
+        optional: true,
       },
       {
         target: "compliance-footer",
@@ -59,8 +84,31 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
     window.localStorage.setItem(SEEN_KEY, "1");
     setIsOpen(false);
     setHighlight(null);
+    setIsSkipConfirmOpen(false);
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
+
+  const findNextStepIndex = useCallback(
+    (fromIndex: number, direction: 1 | -1) => {
+      let index = fromIndex + direction;
+      while (index >= 0 && index < steps.length) {
+        const step = steps[index];
+        if (!step) {
+          break;
+        }
+        if (step.optional) {
+          const target = document.querySelector<HTMLElement>(`[data-tutorial="${step.target}"]`);
+          if (!target) {
+            index += direction;
+            continue;
+          }
+        }
+        return index;
+      }
+      return direction === 1 ? steps.length : -1;
+    },
+    [steps],
+  );
 
   const positionStep = useCallback(
     (index: number) => {
@@ -68,9 +116,7 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
       if (!step) {
         return;
       }
-      const target = document.querySelector<HTMLElement>(
-        `[data-tutorial="${step.target}"]`,
-      );
+      const target = document.querySelector<HTMLElement>(`[data-tutorial="${step.target}"]`);
       if (!target) {
         setHighlight(null);
         return;
@@ -94,13 +140,14 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
     if (!enabled) {
       return;
     }
+    const forced = new URLSearchParams(window.location.search).get("tutorial") === "1";
+    if (!forced) {
+      return;
+    }
     const timer = window.setTimeout(() => {
-      const forced = new URLSearchParams(window.location.search).get("tutorial") === "1";
-      if (forced || window.localStorage.getItem(SEEN_KEY) !== "1") {
-        setStepIndex(0);
-        setIsOpen(true);
-      }
-    }, 700);
+      setStepIndex(0);
+      setIsOpen(true);
+    }, 400);
     return () => window.clearTimeout(timer);
   }, [enabled]);
 
@@ -125,14 +172,13 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
   if (!step) {
     return null;
   }
-  const isLast = stepIndex === steps.length - 1;
+  const isLast = findNextStepIndex(stepIndex, 1) >= steps.length;
   const calloutAtTop =
     highlight != null && highlight.top + highlight.height > window.innerHeight * 0.58;
 
   return (
     <>
       <Box
-        onClick={close}
         sx={{
           position: "fixed",
           inset: 0,
@@ -168,7 +214,7 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
           right: 16,
           maxWidth: 520,
           mx: "auto",
-          ...(calloutAtTop ? { top: 16 } : { bottom: 16 }),
+          ...(calloutAtTop ? { top: 16 } : { bottom: "calc(var(--app-content-bottom-inset) + 8px)" }),
           boxShadow: "0 12px 36px rgba(0,0,0,0.35)",
         }}
       >
@@ -182,12 +228,19 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
               {step.body}
             </Typography>
             <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between" }}>
-              <Button onClick={close} color="inherit">
+              <Button onClick={() => setIsSkipConfirmOpen(true)} color="inherit">
                 {t.tutorialSkip}
               </Button>
               <Stack direction="row" spacing={1}>
                 {stepIndex > 0 ? (
-                  <Button onClick={() => setStepIndex((value) => value - 1)}>
+                  <Button
+                    onClick={() => {
+                      const previous = findNextStepIndex(stepIndex, -1);
+                      if (previous >= 0) {
+                        setStepIndex(previous);
+                      }
+                    }}
+                  >
                     {t.tutorialBack}
                   </Button>
                 ) : null}
@@ -196,9 +249,14 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
                   onClick={() => {
                     if (isLast) {
                       close();
-                    } else {
-                      setStepIndex((value) => value + 1);
+                      return;
                     }
+                    const next = findNextStepIndex(stepIndex, 1);
+                    if (next >= steps.length || next < 0) {
+                      close();
+                      return;
+                    }
+                    setStepIndex(next);
                   }}
                 >
                   {isLast ? t.tutorialDone : t.tutorialNext}
@@ -208,6 +266,21 @@ export function Mark6TutorialOverlay({ enabled }: { enabled: boolean }) {
           </Stack>
         </CardContent>
       </Card>
+
+      <Dialog open={isSkipConfirmOpen} onClose={() => setIsSkipConfirmOpen(false)}>
+        <DialogTitle>{t.tutorialSkipConfirmTitle}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            {t.tutorialSkipConfirmBody}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsSkipConfirmOpen(false)}>{t.tutorialSkipCancel}</Button>
+          <Button color="inherit" onClick={close}>
+            {t.tutorialSkipConfirmAction}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

@@ -44,11 +44,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const alipayHkQrLandingUrl = donationQrImageUrl ? getAlipayHkQrLandingUrl() : "";
   const hasDonationSupport = Boolean(donationUrl || donationQrImageUrl);
   const [isDonationQrFullscreenOpen, setIsDonationQrFullscreenOpen] = useState(false);
+  const isHome = pathname === "/";
 
   const donationFabSx = {
     position: "fixed" as const,
     right: "calc(16px + env(safe-area-inset-right, 0px))",
-    bottom: "calc(72px + env(safe-area-inset-bottom, 0px))",
+    bottom: isHome
+      ? "var(--app-donation-fab-bottom)"
+      : "calc(var(--app-footer-height) + 12px + env(safe-area-inset-bottom, 0px))",
     zIndex: (theme: { zIndex: { appBar: number } }) => theme.zIndex.appBar + 2,
     width: 52,
     height: 52,
@@ -83,7 +86,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   ) : null;
 
   return (
-    <Box sx={{ minHeight: "100vh", pb: 12 }}>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        pb: isHome ? "var(--app-content-bottom-inset)" : "var(--app-footer-height)",
+      }}
+    >
       <AppBar position="sticky" color="primary">
         <Toolbar sx={{ gap: 1.5, justifyContent: "space-between", minHeight: 64 }}>
           <Typography variant="h6" sx={{ fontSize: "1rem", display: "flex", alignItems: "center", gap: 0.8 }}>
@@ -298,6 +306,7 @@ function NavButton({
       startIcon={active ? icon.active : icon.inactive}
       sx={{
         flex: 1,
+        minHeight: 44,
         borderRadius: 2,
         color: active ? "primary.contrastText" : "text.primary",
         bgcolor: active ? "primary.main" : "transparent",

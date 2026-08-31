@@ -10,9 +10,7 @@ import {
   Chip,
   Collapse,
   LinearProgress,
-  MenuItem,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import { BarChart, LineChart } from "@mui/x-charts";
@@ -34,6 +32,7 @@ type PersonaAnalysisProps = {
   targetDate: string;
   persona: Mark6Persona;
   onPersonaChange: (persona: Mark6Persona) => void;
+  showPersonaSelector?: boolean;
 };
 
 const PERSONAS: Mark6Persona[] = ["lotteryAnalyst", "gameTheorist", "patternFinder"];
@@ -43,6 +42,7 @@ export function Mark6PersonaAnalysis({
   targetDate,
   persona,
   onPersonaChange,
+  showPersonaSelector = true,
 }: PersonaAnalysisProps) {
   const t = useCopy();
   const [query, setQuery] = useState<Mark6AnalysisQuery>("hotCold");
@@ -50,7 +50,7 @@ export function Mark6PersonaAnalysis({
   const [result, setResult] = useState<Mark6AnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -73,7 +73,6 @@ export function Mark6PersonaAnalysis({
         const payload = (await response.json()) as Mark6AnalysisResult;
         if (active) {
           setResult(payload);
-          setIsExpanded(true);
         }
       } catch {
         if (active) {
@@ -129,45 +128,49 @@ export function Mark6PersonaAnalysis({
 
   return (
     <Stack spacing={1.5}>
-      <Box>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-          {t.mark6PersonaSectionTitle}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t.mark6PersonaSectionSubtitle}
-        </Typography>
-      </Box>
+      {showPersonaSelector ? (
+        <>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              {t.mark6PersonaSectionTitle}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t.mark6PersonaSectionSubtitle}
+            </Typography>
+          </Box>
 
-      <Box
-        data-tutorial="persona-selector"
-        sx={{
-          display: "flex",
-          gap: 0.8,
-          overflowX: "auto",
-          pb: 0.5,
-          scrollbarWidth: "thin",
-        }}
-      >
-        {PERSONAS.map((item) => (
-          <Chip
-            key={item}
-            clickable
-            color={persona === item ? "primary" : "default"}
-            variant={persona === item ? "filled" : "outlined"}
-            label={personaCopy[item].name}
-            onClick={() => onPersonaChange(item)}
-            aria-pressed={persona === item}
-            sx={{ flexShrink: 0, minHeight: 40 }}
-          />
-        ))}
-      </Box>
-      <Typography variant="caption" color="text.secondary">
-        {personaCopy[persona].description}
-      </Typography>
-      {persona === "gameTheorist" ? (
-        <Alert severity="info" sx={{ py: 0.2 }}>
-          {t.mark6AnalysisProxyNote}
-        </Alert>
+          <Box
+            data-tutorial="persona-selector"
+            sx={{
+              display: "flex",
+              gap: 0.8,
+              overflowX: "auto",
+              pb: 0.5,
+              scrollbarWidth: "thin",
+            }}
+          >
+            {PERSONAS.map((item) => (
+              <Chip
+                key={item}
+                clickable
+                color={persona === item ? "primary" : "default"}
+                variant={persona === item ? "filled" : "outlined"}
+                label={personaCopy[item].name}
+                onClick={() => onPersonaChange(item)}
+                aria-pressed={persona === item}
+                sx={{ flexShrink: 0, minHeight: 40 }}
+              />
+            ))}
+          </Box>
+          <Typography variant="caption" color="text.secondary">
+            {personaCopy[persona].description}
+          </Typography>
+          {persona === "gameTheorist" ? (
+            <Alert severity="info" sx={{ py: 0.2 }}>
+              {t.mark6AnalysisProxyNote}
+            </Alert>
+          ) : null}
+        </>
       ) : null}
 
       <Box
@@ -190,19 +193,22 @@ export function Mark6PersonaAnalysis({
         ))}
       </Box>
 
-      <TextField
-        select
-        size="small"
-        label={t.mark6AnalysisDrawWindow}
-        value={windowSize}
-        onChange={(event) => setWindowSize(Number(event.target.value))}
-      >
+      <Stack direction="row" spacing={0.8} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
+        <Typography variant="caption" color="text.secondary">
+          {t.mark6AnalysisDrawWindow}:
+        </Typography>
         {[20, 50, 100].map((value) => (
-          <MenuItem key={value} value={value}>
-            {value} {t.mark6AnalysisDraws}
-          </MenuItem>
+          <Chip
+            key={value}
+            label={`${value} ${t.mark6AnalysisDraws}`}
+            size="small"
+            clickable
+            color={windowSize === value ? "primary" : "default"}
+            variant={windowSize === value ? "filled" : "outlined"}
+            onClick={() => setWindowSize(value)}
+          />
         ))}
-      </TextField>
+      </Stack>
 
       <Card variant="outlined" data-tutorial="results-card">
         <CardContent sx={{ p: 1.4, "&:last-child": { pb: 1.4 } }}>
