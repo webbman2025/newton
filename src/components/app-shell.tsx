@@ -31,6 +31,7 @@ import {
 } from "@fluentui/react-icons";
 import { useCopy, useLocale } from "@/components/locale-provider";
 import { getAlipayHkQrLandingUrl } from "@/lib/alipayhk-donation";
+import { dispatchNavigateHome } from "@/lib/app-navigation";
 import type { Locale } from "@/lib/translations";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -44,6 +45,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hasDonationSupport = Boolean(donationUrl || donationQrImageUrl);
   const [isDonationQrFullscreenOpen, setIsDonationQrFullscreenOpen] = useState(false);
   const isHome = pathname === "/";
+
+  const handleHomeNavigate = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (pathname !== "/") {
+      return;
+    }
+    event.preventDefault();
+    dispatchNavigateHome();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const donationFabSx = {
     position: "fixed" as const,
@@ -92,10 +102,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     >
       <AppBar position="sticky" color="primary">
         <Toolbar sx={{ gap: 1.5, justifyContent: "space-between", minHeight: 64 }}>
-          <Typography variant="h6" sx={{ fontSize: "1rem", display: "flex", alignItems: "center", gap: 0.8 }}>
-            <HomeFilled fontSize={20} />
-            {t.appTitle}
-          </Typography>
+          <Button
+            component={Link}
+            href="/"
+            onClick={handleHomeNavigate}
+            aria-label={t.navHome}
+            sx={{
+              color: "inherit",
+              textTransform: "none",
+              minHeight: 44,
+              px: 0.75,
+              py: 0.5,
+              borderRadius: 2,
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "rgba(255,255,255,0.2)",
+              "&:hover": {
+                bgcolor: "rgba(255,255,255,0.08)",
+              },
+              "&:active": {
+                bgcolor: "rgba(255,255,255,0.16)",
+              },
+            }}
+          >
+            <Stack direction="row" spacing={0.8} sx={{ alignItems: "center", textAlign: "left" }}>
+              <HomeFilled fontSize={20} />
+              <Box>
+                <Typography variant="h6" sx={{ fontSize: "1rem", lineHeight: 1.2, fontWeight: 700 }}>
+                  {t.navHome}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ display: "block", lineHeight: 1.1, opacity: 0.88, fontWeight: 500 }}
+                >
+                  {t.appTitle}
+                </Typography>
+              </Box>
+            </Stack>
+          </Button>
           <Select
             size="small"
             value={locale}

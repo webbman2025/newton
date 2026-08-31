@@ -63,6 +63,7 @@ import {
   MARK6_GAME_MODE_PRESETS,
   type Mark6GameModeId,
 } from "@/lib/mark6-game-modes";
+import { APP_NAVIGATE_HOME_EVENT } from "@/lib/app-navigation";
 import {
   buildHorseDayRaceSlots,
   buildLegacyRaceId,
@@ -403,6 +404,14 @@ export default function Home() {
     setMark6ManualNumbers([]);
     setError(null);
   }, []);
+
+  useEffect(() => {
+    const handleNavigateHome = () => {
+      clearMark6GameMode();
+    };
+    window.addEventListener(APP_NAVIGATE_HOME_EVENT, handleNavigateHome);
+    return () => window.removeEventListener(APP_NAVIGATE_HOME_EVENT, handleNavigateHome);
+  }, [clearMark6GameMode]);
 
   const filteredUpcomingRaces = useMemo(
     () => upcomingRaces.filter((race) => toRaceDateKey(race.postTime) === targetDate),
