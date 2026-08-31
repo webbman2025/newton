@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   alpha,
@@ -61,7 +60,6 @@ import { HorsePredictionPicks } from "@/components/horse-prediction-picks";
 import type { Mark6Persona } from "@/lib/mark6-analysis";
 import {
   applyMark6GameModePreset,
-  isMark6GameModeId,
   MARK6_GAME_MODE_PRESETS,
   type Mark6GameModeId,
 } from "@/lib/mark6-game-modes";
@@ -306,16 +304,6 @@ function formatRaceLabel(raceId: string | undefined, locale: string): string {
 }
 
 export default function Home() {
-  return (
-    <Suspense fallback={null}>
-      <HomePageContent />
-    </Suspense>
-  );
-}
-
-function HomePageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const theme = useTheme();
   const { locale } = useLocale();
   const t = useCopy();
@@ -371,7 +359,25 @@ function HomePageContent() {
   const predictionsRef = useRef<HTMLDivElement | null>(null);
   const mark6PlayViewRef = useRef<HTMLDivElement | null>(null);
 
-  const applyMark6GameModeSelection = useCallback((modeId: Mark6GameModeId) => {
+  const handleModeChange = useCallback((next: Mode) => {
+    setMode(next);
+    setSelectedMark6GameMode(null);
+    if (next !== "horse") {
+      setHorseHistoryRows([]);
+      setSelectedDateHorseRows([]);
+      setIsSelectedDateHorseRowsLoading(false);
+    }
+  }, []);
+
+  const mark6GameModePreset = useMemo(
+    () => (selectedMark6GameMode ? MARK6_GAME_MODE_PRESETS[selectedMark6GameMode] : null),
+    [selectedMark6GameMode],
+  );
+  const mark6InPlayView = mode === "mark6" && selectedMark6GameMode !== null;
+  const mark6OnHub = mode === "mark6" && selectedMark6GameMode === null;
+  const mark6ShowStandardPlayUi = mark6InPlayView && !mark6GameModePreset?.showDrawSimulator;
+
+  const selectMark6GameMode = useCallback((modeId: Mark6GameModeId) => {
     const preset = applyMark6GameModePreset(modeId);
     setSelectedMark6GameMode(modeId);
     setMark6Persona(preset.persona);
@@ -384,42 +390,10 @@ function HomePageContent() {
     setMark6ManualSets([]);
     setMark6ManualNumbers([]);
     setError(null);
+    window.setTimeout(() => {
+      mark6PlayViewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   }, []);
-
-  const handleModeChange = useCallback(
-    (next: Mode) => {
-      setMode(next);
-      setSelectedMark6GameMode(null);
-      if (next !== "mark6") {
-        router.replace("/", { scroll: false });
-      }
-      if (next !== "horse") {
-        setHorseHistoryRows([]);
-        setSelectedDateHorseRows([]);
-        setIsSelectedDateHorseRowsLoading(false);
-      }
-    },
-    [router],
-  );
-
-  const mark6GameModePreset = useMemo(
-    () => (selectedMark6GameMode ? MARK6_GAME_MODE_PRESETS[selectedMark6GameMode] : null),
-    [selectedMark6GameMode],
-  );
-  const mark6InPlayView = mode === "mark6" && selectedMark6GameMode !== null;
-  const mark6OnHub = mode === "mark6" && selectedMark6GameMode === null;
-  const mark6ShowStandardPlayUi = mark6InPlayView && !mark6GameModePreset?.showDrawSimulator;
-
-  const selectMark6GameMode = useCallback(
-    (modeId: Mark6GameModeId) => {
-      applyMark6GameModeSelection(modeId);
-      router.replace(`/?mark6Mode=${modeId}`, { scroll: false });
-      window.setTimeout(() => {
-        mark6PlayViewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 60);
-    },
-    [applyMark6GameModeSelection, router],
-  );
 
   const clearMark6GameMode = useCallback(() => {
     setSelectedMark6GameMode(null);
@@ -428,22 +402,7 @@ function HomePageContent() {
     setMark6ManualSets([]);
     setMark6ManualNumbers([]);
     setError(null);
-    router.replace("/", { scroll: false });
-  }, [router]);
-
-  useEffect(() => {
-    if (mode !== "mark6") {
-      return;
-    }
-    const param = searchParams.get("mark6Mode");
-    if (!isMark6GameModeId(param)) {
-      return;
-    }
-    applyMark6GameModeSelection(param);
-    window.setTimeout(() => {
-      mark6PlayViewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 60);
-  }, [applyMark6GameModeSelection, mode, searchParams]);
+  }, []);
 
   const filteredUpcomingRaces = useMemo(
     () => upcomingRaces.filter((race) => toRaceDateKey(race.postTime) === targetDate),

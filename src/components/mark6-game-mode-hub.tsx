@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Card, Stack, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
 import {
   ArrowTrendingLinesRegular,
   BrainCircuitRegular,
@@ -106,7 +106,7 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
   );
 
   return (
-    <Stack spacing={1.2} sx={{ position: "relative", zIndex: 5, isolation: "isolate" }}>
+    <Stack spacing={1.2} sx={{ position: "relative", zIndex: 10 }}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.4 }}>
           {t.mark6ModeHubTitle}
@@ -120,40 +120,51 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
           display: "grid",
           gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
           gap: 1.2,
-          "& > *": { minWidth: 0 },
         }}
       >
-        {orderedModes.map((mode) => (
-          <Card
-            key={mode.id}
-            component="button"
-            type="button"
-            variant="outlined"
-            onClick={() => onSelect(mode.id)}
-            aria-label={mode.title}
-            sx={{
-              borderRadius: 2,
-              borderColor: mode.id === "drawPredictor" ? "primary.main" : "divider",
-              bgcolor: mode.id === "drawPredictor" ? "rgba(15,108,189,0.05)" : "background.paper",
-              cursor: "pointer",
-              minHeight: 120,
-              width: "100%",
-              textAlign: "left",
-              p: 0,
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-              transition: "transform 120ms ease, box-shadow 120ms ease",
-              "&:hover": {
-                bgcolor: "rgba(15,108,189,0.06)",
-              },
-              "&:active": {
-                transform: "scale(0.985)",
-                boxShadow: "0 4px 14px rgba(15,108,189,0.18)",
-              },
-            }}
-          >
-            <Box sx={{ p: 1.4, pointerEvents: "none" }}>
-              <Stack spacing={0.8}>
+        {orderedModes.map((mode) => {
+          const highlighted = mode.id === "drawPredictor";
+          return (
+            <Box
+              key={mode.id}
+              component="button"
+              type="button"
+              aria-label={mode.title}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onSelect(mode.id);
+              }}
+              sx={{
+                appearance: "none",
+                WebkitAppearance: "none",
+                border: "1px solid",
+                borderColor: highlighted ? "primary.main" : "divider",
+                bgcolor: highlighted ? "rgba(15,108,189,0.05)" : "background.paper",
+                borderRadius: 2,
+                p: 1.4,
+                m: 0,
+                minHeight: 120,
+                width: "100%",
+                textAlign: "left",
+                cursor: "pointer",
+                font: "inherit",
+                color: "inherit",
+                touchAction: "manipulation",
+                WebkitTapHighlightColor: "transparent",
+                position: "relative",
+                zIndex: 1,
+                transition: "transform 120ms ease, background-color 120ms ease",
+                "&:hover": {
+                  bgcolor: "rgba(15,108,189,0.08)",
+                },
+                "&:active": {
+                  transform: "scale(0.985)",
+                  bgcolor: "rgba(15,108,189,0.14)",
+                },
+              }}
+            >
+              <Stack spacing={0.8} sx={{ pointerEvents: "none" }}>
                 <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
                   <Box
                     sx={{
@@ -190,8 +201,8 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
                 </Typography>
               </Stack>
             </Box>
-          </Card>
-        ))}
+          );
+        })}
       </Box>
     </Stack>
   );

@@ -12,13 +12,10 @@ import {
 } from "@/lib/mark6-draw-simulator";
 
 const BALL_RADIUS = 14;
-const DRUM_WALL_SEGMENTS = 36;
 
 type BallEntry = {
   number: number;
-  dropSprite?: Phaser.GameObjects.Container;
-  circle?: Phaser.GameObjects.Arc;
-  label?: Phaser.GameObjects.Text;
+  sprite: Phaser.GameObjects.Container;
   drawn: boolean;
 };
 
@@ -48,10 +45,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
   private columnGraphic?: Phaser.GameObjects.Graphics;
   private running = false;
   private mixing = false;
-  private mixElapsed = 0;
-  private mixDurationMs = 0;
-  private mixComplete?: () => void;
-  private spinPhase = 0;
+  private mixTimer?: Phaser.Time.TimerEvent;
 
   constructor() {
     super({ key: "Mark6DrawSimulatorScene" });
@@ -78,69 +72,11 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
 
     this.drawBackdrop(width, height);
     this.drawDrum();
-    this.createDrumBoundary();
     this.drawRack();
     this.drawColumn();
 
     this.events.on("start-draw", this.handleStartDraw, this);
     this.events.on("reset-draw", this.handleReset, this);
-  }
-
-  update(_time: number, delta: number) {
-    for (const entry of this.balls) {
-      if (entry.circle && entry.label && !entry.drawn) {
-        entry.label.setPosition(entry.circle.x, entry.circle.y);
-        entry.label.setRotation(entry.circle.rotation);
-      }
-    }
-
-    if (!this.mixing) {
-      return;
-    }
-
-    this.mixElapsed += delta;
-    this.spinPhase += delta * 0.006;
-
-    const spinStrength = 0.008 + Math.sin(this.spinPhase) * 0.0025;
-    const spinDirection = Math.sin(this.spinPhase * 0.65) >= 0 ? 1 : -1;
-
-    for (const entry of this.balls) {
-      const matterBody = this.getBallMatterBody(entry);
-      if (entry.drawn || !matterBody) {
-        continue;
-      }
-      const dx = matterBody.position.x - this.drumX;
-      const dy = matterBody.position.y - this.drumY;
-      const dist = Math.max(Math.hypot(dx, dy), 1);
-      const nx = dx / dist;
-      const ny = dy / dist;
-
-      if (dist > this.drumRadius - BALL_RADIUS - 6) {
-        MatterJS.Body.setPosition(matterBody, {
-          x: this.drumX + nx * (this.drumRadius - BALL_RADIUS - 6),
-          y: this.drumY + ny * (this.drumRadius - BALL_RADIUS - 6),
-        });
-      }
-
-      const tangentX = -ny * spinDirection;
-      const tangentY = nx * spinDirection;
-      MatterJS.Body.applyForce(matterBody, matterBody.position, {
-        x: tangentX * spinStrength * matterBody.mass,
-        y: tangentY * spinStrength * matterBody.mass,
-      });
-      MatterJS.Body.applyForce(matterBody, matterBody.position, {
-        x: (Math.random() - 0.5) * 0.004 * matterBody.mass,
-        y: (Math.random() - 0.5) * 0.004 * matterBody.mass,
-      });
-    }
-
-    if (this.drumGraphic) {
-      this.drumGraphic.setAngle(Math.sin(this.spinPhase * 1.6) * 5);
-    }
-
-    if (this.mixElapsed >= this.mixDurationMs) {
-      this.finishMixing();
-    }
   }
 
   shutdown() {
@@ -173,22 +109,6 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     base.fillEllipse(this.drumX, this.drumY + this.drumRadius + 8, this.drumRadius * 1.35, 24);
   }
 
-  private createDrumBoundary() {
-    const wallSize = 10;
-    for (let index = 0; index < DRUM_WALL_SEGMENTS; index += 1) {
-      const angle = (index / DRUM_WALL_SEGMENTS) * Math.PI * 2;
-      const x = this.drumX + Math.cos(angle) * (this.drumRadius - 3);
-      const y = this.drumY + Math.sin(angle) * (this.drumRadius - 3);
-      this.matter.add.rectangle(x, y, wallSize, wallSize * 1.4, {
-        isStatic: true,
-        angle,
-        friction: 0.05,
-        restitution: 0.88,
-        label: "drum-wall",
-      });
-    }
-  }
-
   private drawColumn() {
     this.columnGraphic = this.add.graphics();
     this.columnGraphic.fillStyle(0xffffff, 0.12);
@@ -210,7 +130,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     rack.strokeCircle(this.bonusSlotX, this.rackY, 17);
   }
 
-  private createDropSprite(number: number, x: number, y: number): BallEntry {
+  private createBallSprite(number: number, x: number, y: number): BallEntry {
     const color = getMark6BallColor(number);
     const circle = this.add.circle(0, 0, BALL_RADIUS, color).setStrokeStyle(2, 0xffffff);
     const text = this.add
@@ -221,100 +141,28 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
         fontStyle: "bold",
       })
       .setOrigin(0.5);
-    const dropSprite = this.add.container(x, y, [circle, text]);
-    dropSprite.setDepth(10);
-    return { number, dropSprite, drawn: false };
+    const sprite = this.add.container(x, y, [circle, text]);
+    sprite.setDepth(10);
+    return { number, sprite, drawn: false };
   }
 
   private randomPointInDrum(): { x: number; y: number } {
     const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-    const distance = Phaser.Math.FloatBetween(10, this.drumRadius - BALL_RADIUS - 12);
+    const distance = Phaser.Math.FloatBetween(8, this.drumRadius - BALL_RADIUS - 10);
     return {
       x: this.drumX + Math.cos(angle) * distance,
       y: this.drumY + Math.sin(angle) * distance,
     };
   }
 
-  private getBallMatterBody(entry: BallEntry): MatterJS.BodyType | null {
-    const body = entry.circle?.body;
-    if (!body) {
-      return null;
-    }
-    return body as MatterJS.BodyType;
-  }
-
-  private convertDropSpritesToPhysics() {
-    const converted: BallEntry[] = [];
-
-    for (const entry of this.balls) {
-      if (!entry.dropSprite) {
-        continue;
-      }
-
-      this.tweens.killTweensOf(entry.dropSprite);
-      const x = entry.dropSprite.x;
-      const y = entry.dropSprite.y;
-      entry.dropSprite.destroy();
-
-      const color = getMark6BallColor(entry.number);
-      const circle = this.add
-        .circle(x, y, BALL_RADIUS, color)
-        .setStrokeStyle(2, 0xffffff)
-        .setDepth(10);
-      this.matter.add.gameObject(circle, {
-        shape: "circle",
-        restitution: 0.92,
-        friction: 0.03,
-        frictionAir: 0.004,
-        density: 0.006,
-        label: `ball-${entry.number}`,
-      });
-
-      const label = this.add
-        .text(x, y, String(entry.number), {
-          fontFamily: "Arial, sans-serif",
-          fontSize: "12px",
-          color: "#ffffff",
-          fontStyle: "bold",
-        })
-        .setOrigin(0.5)
-        .setDepth(11);
-
-      const matterBody = this.getBallMatterBody({ ...entry, circle });
-      if (matterBody) {
-        MatterJS.Body.setVelocity(matterBody, {
-          x: Phaser.Math.FloatBetween(-6, 6),
-          y: Phaser.Math.FloatBetween(-4, 6),
-        });
-      }
-
-      converted.push({
-        number: entry.number,
-        circle,
-        label,
-        drawn: entry.drawn,
-      });
-    }
-
-    this.balls = converted;
-  }
-
-  private destroyBallEntry(entry: BallEntry) {
-    entry.dropSprite?.destroy();
-    if (entry.circle) {
-      if (entry.circle.body) {
-        this.matter.world.remove(entry.circle.body);
-      }
-      entry.circle.destroy();
-    }
-    entry.label?.destroy();
-  }
-
   private handleReset = () => {
     this.stopMixing();
     this.running = false;
     this.payload = null;
-    this.balls.forEach((ball) => this.destroyBallEntry(ball));
+    this.balls.forEach((ball) => {
+      this.tweens.killTweensOf(ball.sprite);
+      ball.sprite.destroy();
+    });
     this.balls = [];
   };
 
@@ -357,11 +205,11 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     numbers.forEach((number, index) => {
       const startX = this.drumX + Phaser.Math.Between(-18, 18);
       const startY = 36;
-      const ball = this.createDropSprite(number, startX, startY);
+      const ball = this.createBallSprite(number, startX, startY);
       this.balls.push(ball);
       const target = this.randomPointInDrum();
       this.tweens.add({
-        targets: ball.dropSprite,
+        targets: ball.sprite,
         x: target.x,
         y: target.y,
         delay: index * 45,
@@ -379,55 +227,77 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
 
   private startMixing(durationMs: number, onComplete: () => void) {
     this.stopMixing();
-    this.convertDropSpritesToPhysics();
-
     this.mixing = true;
-    this.mixElapsed = 0;
-    this.mixDurationMs = durationMs;
-    this.spinPhase = 0;
-    this.mixComplete = onComplete;
+
+    // Kill any leftover drop tweens, then scramble every ball repeatedly.
+    for (const entry of this.balls) {
+      this.tweens.killTweensOf(entry.sprite);
+      this.scrambleBall(entry);
+    }
+
+    this.tweens.add({
+      targets: this.drumGraphic,
+      angle: 8,
+      duration: 280,
+      yoyo: true,
+      repeat: Math.floor(durationMs / 560),
+      ease: "Sine.InOut",
+    });
+
+    this.mixTimer = this.time.delayedCall(durationMs, () => {
+      this.finishMixing(onComplete);
+    });
   }
 
-  private finishMixing() {
-    if (!this.mixing) {
+  private scrambleBall(entry: BallEntry) {
+    if (!this.mixing || entry.drawn) {
       return;
     }
+    const target = this.randomPointInDrum();
+    const duration = Phaser.Math.Between(280, 480);
+    this.tweens.add({
+      targets: entry.sprite,
+      x: target.x,
+      y: target.y,
+      angle: Phaser.Math.Between(-180, 180),
+      duration,
+      ease: "Sine.InOut",
+      onComplete: () => {
+        if (this.mixing && !entry.drawn) {
+          this.scrambleBall(entry);
+        }
+      },
+    });
+  }
 
+  private finishMixing(onComplete: () => void) {
     this.mixing = false;
+    if (this.mixTimer) {
+      this.mixTimer.remove(false);
+      this.mixTimer = undefined;
+    }
 
     for (const entry of this.balls) {
-      const matterBody = this.getBallMatterBody(entry);
-      if (entry.drawn || !matterBody) {
-        continue;
-      }
-      MatterJS.Body.setVelocity(matterBody, { x: 0, y: 0 });
-      MatterJS.Body.setAngularVelocity(matterBody, 0);
+      this.tweens.killTweensOf(entry.sprite);
     }
-
     if (this.drumGraphic) {
+      this.tweens.killTweensOf(this.drumGraphic);
       this.drumGraphic.setAngle(0);
     }
-
-    const onComplete = this.mixComplete;
-    this.mixComplete = undefined;
-    onComplete?.();
+    onComplete();
   }
 
   private stopMixing() {
     this.mixing = false;
-    this.mixComplete = undefined;
-    this.mixElapsed = 0;
-
-    for (const entry of this.balls) {
-      const matterBody = this.getBallMatterBody(entry);
-      if (entry.drawn || !matterBody) {
-        continue;
-      }
-      MatterJS.Body.setVelocity(matterBody, { x: 0, y: 0 });
-      MatterJS.Body.setAngularVelocity(matterBody, 0);
+    if (this.mixTimer) {
+      this.mixTimer.remove(false);
+      this.mixTimer = undefined;
     }
-
+    for (const entry of this.balls) {
+      this.tweens.killTweensOf(entry.sprite);
+    }
     if (this.drumGraphic) {
+      this.tweens.killTweensOf(this.drumGraphic);
       this.drumGraphic.setAngle(0);
     }
   }
@@ -470,15 +340,13 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     onComplete: () => void,
   ) {
     const entry = this.balls.find((ball) => ball.number === number && !ball.drawn);
-    if (!entry?.circle || !entry.label) {
+    if (!entry) {
       onComplete();
       return;
     }
     entry.drawn = true;
-
-    if (entry.circle.body) {
-      this.matter.world.remove(entry.circle.body);
-    }
+    this.tweens.killTweensOf(entry.sprite);
+    entry.sprite.setDepth(20);
 
     if (this.columnGraphic) {
       this.tweens.add({
@@ -492,15 +360,16 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
 
     const liftY = this.drumY - this.drumRadius - 8;
     this.tweens.add({
-      targets: [entry.circle, entry.label],
+      targets: entry.sprite,
       x: this.drumX,
       y: liftY,
       scale: 1.25,
+      angle: 0,
       duration: 700,
       ease: "Cubic.Out",
       onComplete: () => {
         this.tweens.add({
-          targets: [entry.circle, entry.label],
+          targets: entry.sprite,
           x: slotX,
           y: this.rackY,
           scale: isBonus ? 1.15 : 1.05,
@@ -538,13 +407,6 @@ export function createMark6DrawSimulatorGame(
     width,
     height,
     backgroundColor: "#07101f",
-    physics: {
-      default: "matter",
-      matter: {
-        gravity: { x: 0, y: 0.85 },
-        enableSleeping: false,
-      },
-    },
     scene: Mark6DrawSimulatorScene,
     scale: {
       mode: Phaser.Scale.FIT,
