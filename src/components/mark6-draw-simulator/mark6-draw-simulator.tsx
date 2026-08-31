@@ -21,14 +21,43 @@ type SimulatorController = {
   destroy: () => void;
 };
 
+type DrawHistoryEntry = Mark6DrawSimulatorPayload & {
+  id: string;
+};
+
+function DrawResultChips({
+  payload,
+  bonusLabel,
+}: {
+  payload: Mark6DrawSimulatorPayload;
+  bonusLabel: string;
+}) {
+  return (
+    <>
+      {payload.mainNumbers.map((number) => (
+        <Chip key={`sim-main-${number}`} label={number} color="primary" sx={{ fontWeight: 700 }} />
+      ))}
+      <Typography variant="body2" sx={{ color: "warning.main", fontWeight: 700, px: 0.2 }}>
+        +
+      </Typography>
+      <Chip label={payload.bonusNumber} color="warning" sx={{ fontWeight: 700 }} />
+      <Typography variant="caption" color="text.secondary">
+        {bonusLabel}
+      </Typography>
+    </>
+  );
+}
+
 export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorProps) {
   const t = useCopy();
   const { locale } = useLocale();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const controllerRef = useRef<SimulatorController | null>(null);
+  const drawCounterRef = useRef(0);
   const [status, setStatus] = useState(t.mark6DrawSimulatorIdle);
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<Mark6DrawSimulatorPayload | null>(null);
+  const [drawHistory, setDrawHistory] = useState<DrawHistoryEntry[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,9 +103,23 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
     t.mark6DrawSimulatorSectionRolling,
   ]);
 
+  const archiveCurrentResult = useCallback(() => {
+    setResults((current) => {
+      if (!current) {
+        return null;
+      }
+      drawCounterRef.current += 1;
+      setDrawHistory((history) => [
+        { ...current, id: `${drawCounterRef.current}-${current.mainNumbers.join("-")}-${current.bonusNumber}` },
+        ...history,
+      ]);
+      return null;
+    });
+  }, []);
+
   const handleStart = useCallback(async () => {
     setLoadError(null);
-    setResults(null);
+    archiveCurrentResult();
     setRunning(true);
     setStatus(t.mark6DrawSimulatorPreparing);
     controllerRef.current?.reset();
@@ -94,7 +137,7 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
       setRunning(false);
       setStatus(t.mark6DrawSimulatorIdle);
     }
-  }, [locale, persona, t, targetDate]);
+  }, [archiveCurrentResult, locale, persona, t, targetDate]);
 
   const handleReset = useCallback(() => {
     controllerRef.current?.reset();
@@ -135,16 +178,7 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
           useFlexGap
           sx={{ flexWrap: "wrap", alignItems: "center", justifyContent: "center" }}
         >
-          {results.mainNumbers.map((number) => (
-            <Chip key={`sim-main-${number}`} label={number} color="primary" sx={{ fontWeight: 700 }} />
-          ))}
-          <Typography variant="body2" sx={{ color: "warning.main", fontWeight: 700, px: 0.2 }}>
-            +
-          </Typography>
-          <Chip label={results.bonusNumber} color="warning" sx={{ fontWeight: 700 }} />
-          <Typography variant="caption" color="text.secondary">
-            {t.mark6DrawSimulatorBonusLabel}
-          </Typography>
+          <DrawResultChips payload={results} bonusLabel={t.mark6DrawSimulatorBonusLabel} />
         </Stack>
       ) : null}
       {loadError ? (
@@ -172,6 +206,41 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
           {t.mark6DrawSimulatorReset}
         </Button>
       </Stack>
+      {drawHistory.length > 0 ? (
+        <Stack
+          spacing={1}
+          sx={{
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+            p: 1.2,
+            bgcolor: "background.paper",
+          }}
+        >
+          <Typography variant="subtitle2">{t.mark6DrawSimulatorHistoryTitle}</Typography>
+          <Stack spacing={1}>
+            {drawHistory.map((entry, index) => (
+              <Stack
+                key={entry.id}
+                direction="row"
+                spacing={0.8}
+                useFlexGap
+                sx={{ flexWrap: "wrap", alignItems: "center" }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ minWidth: 56 }}>
+                  {t.mark6DrawSimulatorHistoryDrawLabel.replace(
+                    "{index}",
+                    String(drawHistory.length - index),
+                  )}
+                </Typography>
+                <Stack direction="row" spacing={0.8} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+                  <DrawResultChips payload={entry} bonusLabel={t.mark6DrawSimulatorBonusLabel} />
+                </Stack>
+              </Stack>
+            ))}
+          </Stack>
+        </Stack>
+      ) : null}
       <Alert severity="info" sx={{ py: 0.4 }}>
         {t.mark6DrawSimulatorDisclaimer}
       </Alert>

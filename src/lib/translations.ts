@@ -325,6 +325,8 @@ type CopyShape = {
   mark6DrawSimulatorDrawingBonus: string;
   mark6DrawSimulatorComplete: string;
   mark6DrawSimulatorBonusLabel: string;
+  mark6DrawSimulatorHistoryTitle: string;
+  mark6DrawSimulatorHistoryDrawLabel: string;
   horseWinningHorseLabel: string;
   horsePreviousWinnerLabel: string;
   horsePreviousWinnerDateLabel: string;
@@ -722,6 +724,8 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorDrawingBonus: "Drawing bonus number: {number}",
     mark6DrawSimulatorComplete: "Draw complete — 6 main numbers plus bonus revealed.",
     mark6DrawSimulatorBonusLabel: "Bonus",
+    mark6DrawSimulatorHistoryTitle: "Previous draws",
+    mark6DrawSimulatorHistoryDrawLabel: "Draw {index}",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
     horsePreviousWinnerDateLabel: "Last result date",
@@ -1106,6 +1110,8 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorDrawingBonus: "抽出特別號：{number}",
     mark6DrawSimulatorComplete: "攪珠完成 — 6 個主號及特別號已揭曉。",
     mark6DrawSimulatorBonusLabel: "特別號",
+    mark6DrawSimulatorHistoryTitle: "過往攪珠",
+    mark6DrawSimulatorHistoryDrawLabel: "第 {index} 次",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",
     horsePreviousWinnerDateLabel: "最近結果日期",
