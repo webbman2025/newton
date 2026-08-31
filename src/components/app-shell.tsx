@@ -312,13 +312,14 @@ function NavButton({
         bgcolor: active ? "primary.main" : "transparent",
         boxShadow: active ? "0 1px 5px rgba(15,108,189,0.25)" : "none",
         transition:
-          "background-color 120ms cubic-bezier(0.1, 0.9, 0.2, 1), box-shadow 160ms cubic-bezier(0.1, 0.9, 0.2, 1), transform 120ms cubic-bezier(0.1, 0.9, 0.2, 1)",
-        "&:hover": {
-          bgcolor: active ? "#115ea3" : "rgba(15,108,189,0.1)",
-          boxShadow: active ? "0 3px 10px rgba(15,108,189,0.28)" : "none",
+          "background-color 120ms cubic-bezier(0.1, 0.9, 0.2, 1), box-shadow 160ms cubic-bezier(0.1, 0.9, 0.2, 1)",
+        "@media (hover: hover) and (pointer: fine)": {
+          "&:hover": {
+            bgcolor: active ? "#115ea3" : "rgba(15,108,189,0.1)",
+            boxShadow: active ? "0 3px 10px rgba(15,108,189,0.28)" : "none",
+          },
         },
         "&:active": {
-          transform: "translateY(1px)",
           bgcolor: active ? "#0f548c" : "rgba(15,108,189,0.16)",
         },
       }}

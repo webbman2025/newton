@@ -60,21 +60,23 @@ const theme = createTheme({
           fontWeight: 600,
           textTransform: "none",
           boxShadow: "0 1px 2px rgba(0, 0, 0, 0.08)",
-          "&:hover": {
-            boxShadow: "0 3px 10px rgba(0, 0, 0, 0.12)",
+          // No transform on :active — iOS Safari cancels clicks when the target moves.
+          "@media (hover: hover) and (pointer: fine)": {
+            "&:hover": {
+              boxShadow: "0 3px 10px rgba(0, 0, 0, 0.12)",
+            },
+            "&.MuiButton-containedPrimary:hover": {
+              backgroundColor: "#115ea3",
+            },
+            "&.MuiButton-text:hover": {
+              backgroundColor: alpha("#0f6cbd", 0.08),
+            },
           },
           "&:active": {
             boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-            transform: "translateY(1px)",
-          },
-          "&.MuiButton-containedPrimary:hover": {
-            backgroundColor: "#115ea3",
           },
           "&.MuiButton-containedPrimary:active": {
             backgroundColor: "#0f548c",
-          },
-          "&.MuiButton-text:hover": {
-            backgroundColor: alpha("#0f6cbd", 0.08),
           },
         },
       },
@@ -129,20 +131,19 @@ const theme = createTheme({
           borderRadius: 10,
           textTransform: "none",
           borderColor: "#d2d0ce",
-          "&:hover": {
-            backgroundColor: alpha("#0f6cbd", 0.09),
-            borderColor: alpha("#0f6cbd", 0.5),
+          "@media (hover: hover) and (pointer: fine)": {
+            "&:hover": {
+              backgroundColor: alpha("#0f6cbd", 0.09),
+              borderColor: alpha("#0f6cbd", 0.5),
+            },
+            "&.Mui-selected:hover": {
+              backgroundColor: alpha("#0f6cbd", 0.22),
+            },
           },
           "&.Mui-selected": {
             backgroundColor: alpha("#0f6cbd", 0.16),
             borderColor: "#0f6cbd",
             color: "#0f6cbd",
-          },
-          "&.Mui-selected:hover": {
-            backgroundColor: alpha("#0f6cbd", 0.22),
-          },
-          "&:active": {
-            transform: "translateY(1px)",
           },
         },
       },

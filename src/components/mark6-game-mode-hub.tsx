@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import {
   ArrowTrendingLinesRegular,
@@ -44,6 +45,17 @@ type Mark6GameModeHubProps = {
 
 export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
   const t = useCopy();
+  // iOS Safari can fire both touchend and a delayed click — debounce to one select.
+  const lastSelectAtRef = useRef(0);
+
+  const selectMode = (modeId: Mark6GameModeId) => {
+    const now = Date.now();
+    if (now - lastSelectAtRef.current < 450) {
+      return;
+    }
+    lastSelectAtRef.current = now;
+    onSelect(modeId);
+  };
 
   const modes: Array<{
     id: Mark6GameModeId;
@@ -130,10 +142,12 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
               component="button"
               type="button"
               aria-label={mode.title}
-              onClick={(event) => {
+              onClick={() => selectMode(mode.id)}
+              onTouchEnd={(event) => {
+                // iOS Safari browser often cancels click when :active moves the target.
+                // touchend is reliable in Mobile Safari; prevent ghost click afterward.
                 event.preventDefault();
-                event.stopPropagation();
-                onSelect(mode.id);
+                selectMode(mode.id);
               }}
               sx={{
                 appearance: "none",
@@ -152,15 +166,20 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
                 color: "inherit",
                 touchAction: "manipulation",
                 WebkitTapHighlightColor: "transparent",
+                WebkitTouchCallout: "none",
+                userSelect: "none",
                 position: "relative",
                 zIndex: 1,
-                transition: "transform 120ms ease, background-color 120ms ease",
-                "&:hover": {
-                  bgcolor: "rgba(15,108,189,0.08)",
-                },
+                transition: "background-color 120ms ease",
+                // Avoid :active { transform } — iOS Safari cancels the click if the
+                // button moves under the finger. Standalone PWA WebKit is more lenient.
                 "&:active": {
-                  transform: "scale(0.985)",
                   bgcolor: "rgba(15,108,189,0.14)",
+                },
+                "@media (hover: hover) and (pointer: fine)": {
+                  "&:hover": {
+                    bgcolor: "rgba(15,108,189,0.08)",
+                  },
                 },
               }}
             >
