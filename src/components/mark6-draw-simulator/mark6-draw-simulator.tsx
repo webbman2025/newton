@@ -138,10 +138,13 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
           {results.mainNumbers.map((number) => (
             <Chip key={`sim-main-${number}`} label={number} color="primary" sx={{ fontWeight: 700 }} />
           ))}
+          <Typography variant="body2" sx={{ color: "warning.main", fontWeight: 700, px: 0.2 }}>
+            +
+          </Typography>
+          <Chip label={results.bonusNumber} color="warning" sx={{ fontWeight: 700 }} />
           <Typography variant="caption" color="text.secondary">
             {t.mark6DrawSimulatorBonusLabel}
           </Typography>
-          <Chip label={results.bonusNumber} color="warning" sx={{ fontWeight: 700 }} />
         </Stack>
       ) : null}
       {loadError ? (

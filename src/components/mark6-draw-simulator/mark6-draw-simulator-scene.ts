@@ -49,6 +49,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
   private drumGraphic?: Phaser.GameObjects.Graphics;
   private drumBase?: Phaser.GameObjects.Graphics;
   private rackGraphic?: Phaser.GameObjects.Graphics;
+  private rackPlusLabel?: Phaser.GameObjects.Text;
   private columnGraphic?: Phaser.GameObjects.Graphics;
   private running = false;
   private mixing = false;
@@ -109,13 +110,14 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     this.rackY = height - 72;
     this.drumRadius = Math.min(118, width * 0.36, height * 0.28);
 
-    const slotGap = Math.min(36, Math.max(24, (width - 80) / 7));
-    // 6 main + 1 bonus, evenly spaced and centered on drumX (k = -3 … +3).
+    const slotGap = Math.min(36, Math.max(24, (width - 96) / 8));
+    const bonusGap = slotGap * 0.55;
+    const rackStartX = this.drumX - (5 * slotGap + bonusGap) / 2;
     this.mainSlotXs = Array.from(
       { length: 6 },
-      (_value, index) => this.drumX + (index - 3) * slotGap,
+      (_value, index) => rackStartX + index * slotGap,
     );
-    this.bonusSlotX = this.drumX + 3 * slotGap;
+    this.bonusSlotX = rackStartX + 5 * slotGap + bonusGap;
   }
 
   private drawStage() {
@@ -125,6 +127,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     this.drumGraphic?.destroy();
     this.drumBase?.destroy();
     this.rackGraphic?.destroy();
+    this.rackPlusLabel?.destroy();
     this.columnGraphic?.destroy();
 
     this.backdrop = this.add.graphics();
@@ -175,7 +178,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     this.rackGraphic.strokeRoundedRect(
       this.mainSlotXs[0] - 24,
       this.rackY - 24,
-      this.bonusSlotX - this.mainSlotXs[0] + 48,
+      this.mainSlotXs[5] - this.mainSlotXs[0] + 48,
       48,
       12,
     );
@@ -183,7 +186,22 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       this.rackGraphic?.lineStyle(1.5, 0xffffff, 0.18);
       this.rackGraphic?.strokeCircle(x, this.rackY, 17);
     });
+
+    const dividerX = (this.mainSlotXs[5] + this.bonusSlotX) / 2;
+    this.rackGraphic.lineStyle(2, 0xffd54f, 0.45);
+    this.rackGraphic.lineBetween(dividerX, this.rackY - 12, dividerX, this.rackY + 12);
+    this.rackPlusLabel = this.add
+      .text(dividerX, this.rackY, "+", {
+        fontFamily: "Arial, sans-serif",
+        fontSize: "18px",
+        color: "#ffd54f",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5)
+      .setAlpha(0.85);
+
     this.rackGraphic.lineStyle(2, 0xffd54f, 0.55);
+    this.rackGraphic.strokeRoundedRect(this.bonusSlotX - 24, this.rackY - 24, 48, 48, 12);
     this.rackGraphic.strokeCircle(this.bonusSlotX, this.rackY, 17);
   }
 
