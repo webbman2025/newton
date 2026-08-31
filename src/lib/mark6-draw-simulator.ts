@@ -5,7 +5,8 @@ export const MARK6_BALL_SECTIONS = [
   { min: 31, max: 49 },
 ] as const;
 
-export const MARK6_DRAW_SIMULATOR_MIX_MS = 10_000;
+export const MARK6_DRAW_SIMULATOR_BATCH_DELAY_MS = 1_000;
+export const MARK6_DRAW_SIMULATOR_MIX_MS = 5_000;
 
 export type Mark6DrawSimulatorPayload = {
   mainNumbers: number[];

@@ -717,7 +717,7 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorDisclaimer:
       "Visual simulation for entertainment only. Not an official HKJC draw or guaranteed prediction.",
     mark6DrawSimulatorSectionRolling: "Rolling in balls {range}…",
-    mark6DrawSimulatorMixing: "Mixing balls {range} (10 seconds)…",
+    mark6DrawSimulatorMixing: "Mixing all balls (5 seconds)…",
     mark6DrawSimulatorDrawingMain: "Drawing main number {index}: {number}",
     mark6DrawSimulatorDrawingBonus: "Drawing bonus number: {number}",
     mark6DrawSimulatorComplete: "Draw complete — 6 main numbers plus bonus revealed.",
@@ -1101,7 +1101,7 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorError: "未能啟動模擬，請再試。",
     mark6DrawSimulatorDisclaimer: "僅供娛樂的視覺模擬，並非香港賽馬會官方攪珠或保證預測。",
     mark6DrawSimulatorSectionRolling: "正在放入 {range} 號球…",
-    mark6DrawSimulatorMixing: "正在混合 {range} 號球（10 秒）…",
+    mark6DrawSimulatorMixing: "正在混合全部彩球（5 秒）…",
     mark6DrawSimulatorDrawingMain: "抽出第 {index} 個主號：{number}",
     mark6DrawSimulatorDrawingBonus: "抽出特別號：{number}",
     mark6DrawSimulatorComplete: "攪珠完成 — 6 個主號及特別號已揭曉。",
