@@ -51,6 +51,7 @@ import { getMark6LeanProbabilitiesKey, Mark6NextDrawLeanSection } from "@/compon
 import { Mark6PersonaAnalysis } from "@/components/mark6-persona-analysis";
 import { Mark6TutorialOverlay } from "@/components/mark6-tutorial-overlay";
 import { Mark6CollapsibleSection } from "@/components/mark6-collapsible-section";
+import { Mark6PredictiveDrawCard } from "@/components/mark6-predictive-draw-card";
 import { HomeStickyActionBar } from "@/components/home-sticky-action-bar";
 import { HorsePredictionPicks } from "@/components/horse-prediction-picks";
 import type { Mark6Persona } from "@/lib/mark6-analysis";
@@ -1481,6 +1482,10 @@ export default function Home() {
 
       {error ? <Alert severity="warning">{error}</Alert> : null}
       {mark6PreviousDrawError ? <Alert severity="warning">{mark6PreviousDrawError}</Alert> : null}
+
+      {mode === "mark6" ? (
+        <Mark6PredictiveDrawCard targetDate={targetDate} persona={mark6Persona} />
+      ) : null}
 
       {mode === "mark6" ? (
       <Box ref={predictionsRef}>

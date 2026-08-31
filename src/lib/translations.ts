@@ -272,6 +272,18 @@ type CopyShape = {
   mark6ResultsWhyTitle: string;
   mark6ResultsAdvancedTitle: string;
   mark6ResultsAdvancedHint: string;
+  mark6PredictiveTitle: string;
+  mark6PredictivePrimaryLabel: string;
+  mark6PredictiveAlternatesLabel: string;
+  mark6PredictiveSpecialLabel: string;
+  mark6PredictiveEvidenceTitle: string;
+  mark6PredictiveEvidenceDraws: string;
+  mark6PredictiveDataSourceLabel: string;
+  mark6PredictiveHotColdLabel: string;
+  mark6PredictiveSignalsLabel: string;
+  mark6PredictiveScoreLabel: string;
+  mark6PredictiveLoading: string;
+  mark6PredictiveError: string;
   horseWinningHorseLabel: string;
   horsePreviousWinnerLabel: string;
   horsePreviousWinnerDateLabel: string;
@@ -615,6 +627,18 @@ export const copy: Record<Locale, CopyShape> = {
     mark6ResultsWhyTitle: "Why these numbers?",
     mark6ResultsAdvancedTitle: "Mix & combine sets",
     mark6ResultsAdvancedHint: "Shuffle numbers across generated sets into new combinations.",
+    mark6PredictiveTitle: "AI draw prediction",
+    mark6PredictivePrimaryLabel: "Primary pick (6 numbers)",
+    mark6PredictiveAlternatesLabel: "Backup combinations",
+    mark6PredictiveSpecialLabel: "Special number lean",
+    mark6PredictiveEvidenceTitle: "Data backing",
+    mark6PredictiveEvidenceDraws: "Trained on {count} draws ({start} → {end})",
+    mark6PredictiveDataSourceLabel: "Source",
+    mark6PredictiveHotColdLabel: "Hot / cold (50-draw window)",
+    mark6PredictiveSignalsLabel: "Top model signals",
+    mark6PredictiveScoreLabel: "Score {score}",
+    mark6PredictiveLoading: "Building Saturday draw prediction from live HKJC history…",
+    mark6PredictiveError: "Could not build the predictive draw. Try again shortly.",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
     horsePreviousWinnerDateLabel: "Last result date",
@@ -946,6 +970,18 @@ export const copy: Record<Locale, CopyShape> = {
     mark6ResultsWhyTitle: "為何是這些號碼？",
     mark6ResultsAdvancedTitle: "混合組合",
     mark6ResultsAdvancedHint: "將已生成組合的號碼重新排列成新組合。",
+    mark6PredictiveTitle: "AI 開獎預測",
+    mark6PredictivePrimaryLabel: "主選 6 個號碼",
+    mark6PredictiveAlternatesLabel: "後備組合",
+    mark6PredictiveSpecialLabel: "特別號碼參考",
+    mark6PredictiveEvidenceTitle: "數據支持",
+    mark6PredictiveEvidenceDraws: "以 {count} 期資料訓練（{start} → {end}）",
+    mark6PredictiveDataSourceLabel: "來源",
+    mark6PredictiveHotColdLabel: "熱門 / 冷門（50 期）",
+    mark6PredictiveSignalsLabel: "主要模型信號",
+    mark6PredictiveScoreLabel: "分數 {score}",
+    mark6PredictiveLoading: "正在以香港賽馬會歷史資料建立開獎預測…",
+    mark6PredictiveError: "未能建立預測，請稍後再試。",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",
     horsePreviousWinnerDateLabel: "最近結果日期",

@@ -1795,7 +1795,7 @@ function getMark6Confidence({
     lowerSlice.reduce((sum, value) => sum + value, 0) / lowerSlice.length;
 
   const separationRatio = lowerAvg > 0 ? topAvg / lowerAvg : 1;
-  return separationRatio >= 1.12 ? "Medium" : "Low";
+  return separationRatio >= 1.25 ? "High" : separationRatio >= 1.12 ? "Medium" : "Low";
 }
 
 function buildMark6NumberProbabilities(
@@ -2012,7 +2012,7 @@ async function getMark6Suggestion(
           }
         : getFallbackPreviousMark6Draw(targetDate),
       mark6NumberProbabilities,
-      modelVersion: "mark6-expert-consensus-v1",
+      modelVersion: "mark6-predictive-v2",
       mark6Analysis: {
         strategy: expertConfig.strategy,
         activeProfiles: activeExpertProfiles,
