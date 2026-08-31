@@ -634,7 +634,14 @@ export function createMark6DrawSimulatorGame(
     audio: {
       noAudio: true,
     },
+    input: {
+      touch: {
+        capture: false,
+      },
+    },
   });
+
+  game.input.enabled = false;
 
   game.scene.start("Mark6DrawSimulatorScene", { callbacks, labels });
 

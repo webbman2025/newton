@@ -152,19 +152,21 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
         ref={containerRef}
         sx={{
           width: "100%",
-          height: 520,
+          height: { xs: 420, sm: 520 },
           borderRadius: 2,
           overflow: "hidden",
           border: "1px solid",
           borderColor: "divider",
           bgcolor: "#07101f",
-          touchAction: "none",
+          touchAction: "pan-y",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
           "& canvas": {
             display: "block",
             margin: "0 auto",
+            pointerEvents: "none",
+            touchAction: "pan-y",
           },
         }}
       />
