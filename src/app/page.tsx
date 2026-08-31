@@ -11,6 +11,7 @@ import {
   Card,
   CardContent,
   Chip,
+  Collapse,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -49,6 +50,7 @@ import { useCopy, useLocale } from "@/components/locale-provider";
 import { getMark6LeanProbabilitiesKey, Mark6NextDrawLeanSection } from "@/components/mark6-next-draw-lean";
 import { Mark6PersonaAnalysis } from "@/components/mark6-persona-analysis";
 import { Mark6TutorialOverlay } from "@/components/mark6-tutorial-overlay";
+import { Mark6CollapsibleSection } from "@/components/mark6-collapsible-section";
 import { HomeStickyActionBar } from "@/components/home-sticky-action-bar";
 import { HorsePredictionPicks } from "@/components/horse-prediction-picks";
 import type { Mark6Persona } from "@/lib/mark6-analysis";
@@ -339,6 +341,12 @@ export default function Home() {
   const [mark6PreviousDrawError, setMark6PreviousDrawError] = useState<string | null>(null);
   const [horseRacesError, setHorseRacesError] = useState<string | null>(null);
   const [horseHistoryError, setHorseHistoryError] = useState<string | null>(null);
+  const [mark6ShowCalendar, setMark6ShowCalendar] = useState(false);
+  const [mark6ShowCustomize, setMark6ShowCustomize] = useState(false);
+  const [mark6ShowBackground, setMark6ShowBackground] = useState(false);
+  const [mark6ShowAnalysis, setMark6ShowAnalysis] = useState(false);
+  const [mark6ShowResultDetails, setMark6ShowResultDetails] = useState(false);
+  const [mark6ShowResultAdvanced, setMark6ShowResultAdvanced] = useState(false);
   const predictionsRef = useRef<HTMLDivElement | null>(null);
 
   const handleModeChange = useCallback((next: Mode) => {
@@ -525,6 +533,37 @@ export default function Home() {
   const setHorseStakeForRace = (raceId: string, value: string) => {
     setHorseStakeByRace((previous) => ({ ...previous, [raceId]: value }));
   };
+  const mark6PredictionTypeLabel = useMemo(() => {
+    if (mark6PredictionType === "multiple") {
+      return t.mark6PredictionMultiple;
+    }
+    if (mark6PredictionType === "banker") {
+      return t.mark6PredictionBanker;
+    }
+    return t.mark6PredictionSingle;
+  }, [mark6PredictionType, t.mark6PredictionBanker, t.mark6PredictionMultiple, t.mark6PredictionSingle]);
+  const mark6CustomizeSummary = useMemo(() => {
+    if (isManualMark6) {
+      return t.mark6CustomizeSummaryManual.replace("{count}", String(mark6BatchCount));
+    }
+    return t.mark6CustomizeSummaryAuto
+      .replace("{count}", String(mark6BatchCount))
+      .replace("{type}", mark6PredictionTypeLabel);
+  }, [isManualMark6, mark6BatchCount, mark6PredictionTypeLabel, t.mark6CustomizeSummaryAuto, t.mark6CustomizeSummaryManual]);
+  const selectedMark6PersonaDescription = useMemo(() => {
+    if (mark6Persona === "gameTheorist") {
+      return t.mark6PersonaGameTheoristDescription;
+    }
+    if (mark6Persona === "patternFinder") {
+      return t.mark6PersonaPatternFinderDescription;
+    }
+    return t.mark6PersonaLotteryAnalystDescription;
+  }, [
+    mark6Persona,
+    t.mark6PersonaGameTheoristDescription,
+    t.mark6PersonaLotteryAnalystDescription,
+    t.mark6PersonaPatternFinderDescription,
+  ]);
 
   useEffect(() => {
     if (mode !== "mark6") {
@@ -1076,57 +1115,90 @@ export default function Home() {
               <ToggleButton value="horse">{t.horse}</ToggleButton>
             </ToggleButtonGroup>
             {mode === "mark6" ? (
-              <Stack spacing={0.8}>
-                <Typography variant="body2" color="text.secondary">
-                  {t.mark6PersonaSectionSubtitle}
-                </Typography>
+              <Stack spacing={1.5}>
                 <Box
-                  data-tutorial="persona-selector"
-                  sx={{ display: "flex", gap: 0.8, overflowX: "auto", pb: 0.5 }}
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 2,
+                    p: 1.2,
+                    bgcolor: "rgba(15,108,189,0.04)",
+                  }}
                 >
-                  {(Object.keys(mark6PersonaLabels) as Mark6Persona[]).map((item) => (
-                    <Chip
-                      key={item}
-                      clickable
-                      color={mark6Persona === item ? "primary" : "default"}
-                      variant={mark6Persona === item ? "filled" : "outlined"}
-                      label={mark6PersonaLabels[item]}
-                      onClick={() => setMark6Persona(item)}
-                      aria-pressed={mark6Persona === item}
-                      sx={{ flexShrink: 0, minHeight: 40 }}
-                    />
-                  ))}
-                </Box>
-              </Stack>
-            ) : null}
-            {mode === "mark6" ? (
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1 }}>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    {t.selectDate}
+                  <Typography variant="subtitle2" sx={{ mb: 0.8 }}>
+                    {t.mark6QuickStartTitle}
                   </Typography>
-                  <DateCalendar
-                    value={dayjs(targetDate)}
-                    onChange={(nextValue) => {
-                      if (nextValue?.isValid()) {
-                        setTargetDate(nextValue.format("YYYY-MM-DD"));
-                      }
-                    }}
-                    slots={{ day: HighlightedDay }}
-                    slotProps={{
-                      day: {
-                        highlightedDays: highlightedMark6Days,
-                      } as HighlightedDayProps,
-                    }}
-                  />
+                  <Stack direction="row" spacing={0.8} useFlexGap sx={{ flexWrap: "wrap", mb: 0.8 }}>
+                    {[t.mark6QuickStartStepDate, t.mark6QuickStartStepStyle, t.mark6QuickStartStepGenerate].map(
+                      (label, index) => (
+                        <Chip
+                          key={label}
+                          size="small"
+                          label={`${index + 1}. ${label}`}
+                          color={index === 2 ? "primary" : "default"}
+                          variant={index === 2 ? "filled" : "outlined"}
+                        />
+                      ),
+                    )}
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">
+                    {t.mark6QuickStartHint}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1.2 }}>
+                  <Typography variant="body2" sx={{ mb: 0.6 }}>
+                    {t.mark6DrawDateLabel}
+                  </Typography>
+                  <Typography variant="h6" sx={{ mb: 0.8 }}>
+                    {targetDate}
+                  </Typography>
+                  <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap", mb: 0.8 }}>
+                    {upcomingMark6Dates.slice(0, 4).map((date) => (
+                      <Chip
+                        key={`mark6-upcoming-${date}`}
+                        clickable
+                        size="small"
+                        label={date}
+                        color={targetDate === date ? "primary" : "default"}
+                        variant={targetDate === date ? "filled" : "outlined"}
+                        onClick={() => setTargetDate(date)}
+                      />
+                    ))}
+                  </Stack>
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => setMark6ShowCalendar((value) => !value)}
+                    sx={{ textTransform: "none", px: 0 }}
+                  >
+                    {mark6ShowCalendar ? t.mark6HideDateAction : t.mark6ChangeDateAction}
+                  </Button>
+                  <Collapse in={mark6ShowCalendar}>
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DateCalendar
+                        value={dayjs(targetDate)}
+                        onChange={(nextValue) => {
+                          if (nextValue?.isValid()) {
+                            setTargetDate(nextValue.format("YYYY-MM-DD"));
+                          }
+                        }}
+                        slots={{ day: HighlightedDay }}
+                        slotProps={{
+                          day: {
+                            highlightedDays: highlightedMark6Days,
+                          } as HighlightedDayProps,
+                        }}
+                      />
+                    </LocalizationProvider>
+                  </Collapse>
                   {isMark6DatesLoading ? (
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.6 }}>
                       {t.mark6UpcomingDrawDatesLoading}
                     </Typography>
                   ) : (
-                    <Typography variant="caption" color="text.secondary">
-                      {t.mark6UpcomingDrawDatesLabel}:{" "}
-                      {upcomingMark6Dates.slice(0, 4).join(", ") || "-"}
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.6 }}>
+                      {t.mark6UpcomingDrawDatesLabel}: {upcomingMark6Dates.slice(0, 4).join(", ") || "-"}
                       {mark6DateSource === "fallback" ? ` (${t.mark6UpcomingDrawDatesFallback})` : ""}
                     </Typography>
                   )}
@@ -1136,8 +1208,221 @@ export default function Home() {
                     </Alert>
                   ) : null}
                 </Box>
-              </LocalizationProvider>
-            ) : (
+
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 0.6 }}>
+                    {t.mark6PersonaSectionTitle}
+                  </Typography>
+                  <Box
+                    data-tutorial="persona-selector"
+                    sx={{ display: "flex", gap: 0.8, overflowX: "auto", pb: 0.5 }}
+                  >
+                    {(Object.keys(mark6PersonaLabels) as Mark6Persona[]).map((item) => (
+                      <Chip
+                        key={item}
+                        clickable
+                        color={mark6Persona === item ? "primary" : "default"}
+                        variant={mark6Persona === item ? "filled" : "outlined"}
+                        label={mark6PersonaLabels[item]}
+                        onClick={() => setMark6Persona(item)}
+                        aria-pressed={mark6Persona === item}
+                        sx={{ flexShrink: 0, minHeight: 40 }}
+                      />
+                    ))}
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.6 }}>
+                    {selectedMark6PersonaDescription}
+                  </Typography>
+                </Box>
+
+                {!mark6ShowCustomize ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {mark6CustomizeSummary}
+                  </Typography>
+                ) : null}
+
+                <Mark6CollapsibleSection
+                  id="mark6-customize"
+                  title={t.mark6CustomizeSectionTitle}
+                  hint={t.mark6CustomizeSectionHint}
+                  expanded={mark6ShowCustomize}
+                  onChange={setMark6ShowCustomize}
+                >
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="body2" sx={{ mb: 0.8 }}>
+                        {t.mark6GenerateModeLabel}
+                      </Typography>
+                      <ToggleButtonGroup
+                        color="primary"
+                        exclusive
+                        size="small"
+                        value={mark6GenerateMode}
+                        onChange={(_event, value) => {
+                          if (value) {
+                            setMark6GenerateMode(value);
+                            if (value === "manual") {
+                              setMark6BatchCount(1);
+                            }
+                          }
+                        }}
+                        fullWidth
+                      >
+                        <ToggleButton value="auto">{t.mark6GenerateModeAuto}</ToggleButton>
+                        <ToggleButton value="manual">{t.mark6GenerateModeManual}</ToggleButton>
+                      </ToggleButtonGroup>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography variant="body2">{t.mark6PredictionTypeLabel}</Typography>
+                      {mark6PredictionType === "banker" ? (
+                        <Typography variant="caption" color="text.secondary">
+                          {t.mark6EstimatedCombinationsLabel}:{" "}
+                          {getBankerCombinationCount(MARK6_BANKER_SELECTION_PREVIEW_COUNT)}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                    <ToggleButtonGroup
+                      color="primary"
+                      exclusive
+                      size="small"
+                      value={mark6PredictionType}
+                      onChange={(_event, value) => {
+                        if (value) {
+                          setMark6PredictionType(value);
+                        }
+                      }}
+                      fullWidth
+                    >
+                      <ToggleButton value="single">{t.mark6PredictionSingle}</ToggleButton>
+                      <ToggleButton value="multiple">{t.mark6PredictionMultiple}</ToggleButton>
+                      <ToggleButton value="banker">{t.mark6PredictionBanker}</ToggleButton>
+                    </ToggleButtonGroup>
+                    <Stack direction="row" spacing={2}>
+                      <TextField
+                        select
+                        size="small"
+                        label={t.mark6GenerateCountLabel}
+                        value={mark6BatchCount}
+                        onChange={(event) => {
+                          const nextCount = Number.parseInt(event.target.value, 10);
+                          if (Number.isFinite(nextCount)) {
+                            setMark6BatchCount(nextCount);
+                            setMark6ManualSets((current) =>
+                              current.length > nextCount ? current.slice(0, nextCount) : current,
+                            );
+                            setMixedMark6Sets([]);
+                          }
+                        }}
+                        fullWidth
+                      >
+                        {[1, 2, 3, 4, 5, 6, 8, 10].map((count) => (
+                          <MenuItem key={`mark6-count-${count}`} value={count}>
+                            {count} {t.mark6GenerateCountOptionSets}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      {mark6GenerateMode === "auto" ? (
+                        <TextField
+                          select
+                          size="small"
+                          label={t.mark6NumberMixLabel}
+                          value={mark6NumberMix}
+                          onChange={(event) =>
+                            setMark6NumberMix(
+                              event.target.value as "mixed" | "smallOnly" | "bigOnly",
+                            )
+                          }
+                          fullWidth
+                        >
+                          <MenuItem value="mixed">{t.mark6NumberMixMixed}</MenuItem>
+                          <MenuItem value="smallOnly">{t.mark6NumberMixSmallOnly}</MenuItem>
+                          <MenuItem value="bigOnly">{t.mark6NumberMixBigOnly}</MenuItem>
+                        </TextField>
+                      ) : null}
+                    </Stack>
+                    {mark6GenerateMode === "manual" ? (
+                      <Stack spacing={2}>
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.8 }}
+                        >
+                          <Typography variant="body2">{t.mark6ManualPickLabel}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {t.mark6ManualPickedCountLabel}: {mark6ManualNumbers.length}/6
+                          </Typography>
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.6 }}>
+                          {t.mark6ManualSetProgressLabel}: {mark6ManualSets.length}/{mark6BatchCount}
+                        </Typography>
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+                            gap: 0.6,
+                            justifyItems: "center",
+                          }}
+                        >
+                          {Array.from({ length: 49 }, (_value, index) => index + 1).map((number) => {
+                            const selected = mark6ManualNumbers.includes(number);
+                            return (
+                              <Chip
+                                key={`mark6-manual-${number}`}
+                                label={number}
+                                size="small"
+                                clickable
+                                aria-pressed={selected}
+                                aria-label={t.mark6ManualChipAriaLabel.replace("{number}", String(number))}
+                                onClick={() => {
+                                  setMark6ManualNumbers((current) =>
+                                    current.includes(number)
+                                      ? current.filter((item) => item !== number)
+                                      : current.length >= 6
+                                        ? current
+                                        : [...current, number].sort((a, b) => a - b),
+                                  );
+                                }}
+                                color={selected ? "primary" : "default"}
+                                variant={selected ? "filled" : "outlined"}
+                                sx={{
+                                  width: 44,
+                                  height: 44,
+                                  minWidth: 44,
+                                  borderRadius: "50%",
+                                  "& .MuiChip-label": {
+                                    px: 0,
+                                    fontSize: "0.79rem",
+                                    fontWeight: 600,
+                                  },
+                                }}
+                              />
+                            );
+                          })}
+                        </Box>
+                        {!canGenerateMark6Manual ? (
+                          <Typography variant="caption" color="warning.main" sx={{ display: "block" }}>
+                            {t.mark6ManualNeedExactlyLabel}
+                          </Typography>
+                        ) : null}
+                        {isManualMark6Complete ? (
+                          <Button variant="outlined" size="small" onClick={resetManualMark6Builder}>
+                            {t.mark6ManualStartNewAction}
+                          </Button>
+                        ) : null}
+                      </Stack>
+                    ) : null}
+                  </Stack>
+                </Mark6CollapsibleSection>
+              </Stack>
+            ) : null}
+            {mode === "mark6" ? null : (
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1 }}>
                   <Typography variant="body2" sx={{ mb: 1 }}>
@@ -1173,183 +1458,6 @@ export default function Home() {
                 </Box>
               </LocalizationProvider>
             )}
-            {mode === "mark6" ? (
-              <Stack spacing={2}>
-                <Box>
-                  <Typography variant="body2" sx={{ mb: 0.8 }}>
-                    {t.mark6GenerateModeLabel}
-                  </Typography>
-                  <ToggleButtonGroup
-                    color="primary"
-                    exclusive
-                    size="small"
-                    value={mark6GenerateMode}
-                    onChange={(_event, value) => {
-                      if (value) {
-                        setMark6GenerateMode(value);
-                        if (value === "manual") {
-                          setMark6BatchCount(1);
-                        }
-                      }
-                    }}
-                    fullWidth
-                  >
-                    <ToggleButton value="auto">{t.mark6GenerateModeAuto}</ToggleButton>
-                    <ToggleButton value="manual">{t.mark6GenerateModeManual}</ToggleButton>
-                  </ToggleButtonGroup>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 1,
-                  }}
-                >
-                  <Typography variant="body2">{t.mark6PredictionTypeLabel}</Typography>
-                  {mark6PredictionType === "banker" ? (
-                    <Typography variant="caption" color="text.secondary">
-                      {t.mark6EstimatedCombinationsLabel}:{" "}
-                      {getBankerCombinationCount(MARK6_BANKER_SELECTION_PREVIEW_COUNT)}
-                    </Typography>
-                  ) : null}
-                </Box>
-                <ToggleButtonGroup
-                  color="primary"
-                  exclusive
-                  size="small"
-                  value={mark6PredictionType}
-                  onChange={(_event, value) => {
-                    if (value) {
-                      setMark6PredictionType(value);
-                    }
-                  }}
-                  fullWidth
-                >
-                  <ToggleButton value="single">{t.mark6PredictionSingle}</ToggleButton>
-                  <ToggleButton value="multiple">{t.mark6PredictionMultiple}</ToggleButton>
-                  <ToggleButton value="banker">{t.mark6PredictionBanker}</ToggleButton>
-                </ToggleButtonGroup>
-                <Stack direction="row" spacing={2}>
-                  <TextField
-                    select
-                    size="small"
-                    label={t.mark6GenerateCountLabel}
-                    value={mark6BatchCount}
-                    onChange={(event) => {
-                      const nextCount = Number.parseInt(event.target.value, 10);
-                      if (Number.isFinite(nextCount)) {
-                        setMark6BatchCount(nextCount);
-                        setMark6ManualSets((current) =>
-                          current.length > nextCount ? current.slice(0, nextCount) : current,
-                        );
-                        setMixedMark6Sets([]);
-                      }
-                    }}
-                    fullWidth
-                  >
-                    {[1, 2, 3, 4, 5, 6, 8, 10].map((count) => (
-                      <MenuItem key={`mark6-count-${count}`} value={count}>
-                        {count} {t.mark6GenerateCountOptionSets}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  {mark6GenerateMode === "auto" ? (
-                    <TextField
-                      select
-                      size="small"
-                      label={t.mark6NumberMixLabel}
-                      value={mark6NumberMix}
-                      onChange={(event) =>
-                        setMark6NumberMix(
-                          event.target.value as "mixed" | "smallOnly" | "bigOnly",
-                        )
-                      }
-                      fullWidth
-                    >
-                      <MenuItem value="mixed">{t.mark6NumberMixMixed}</MenuItem>
-                      <MenuItem value="smallOnly">{t.mark6NumberMixSmallOnly}</MenuItem>
-                      <MenuItem value="bigOnly">{t.mark6NumberMixBigOnly}</MenuItem>
-                    </TextField>
-                  ) : null}
-                </Stack>
-                {mark6GenerateMode === "manual" ? (
-                  <Stack spacing={2}>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.8 }}
-                    >
-                      <Typography variant="body2">{t.mark6ManualPickLabel}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {t.mark6ManualPickedCountLabel}: {mark6ManualNumbers.length}/6
-                      </Typography>
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.6 }}>
-                      {t.mark6ManualSetProgressLabel}: {mark6ManualSets.length}/{mark6BatchCount}
-                    </Typography>
-                    <Box
-                      sx={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                        gap: 0.6,
-                        justifyItems: "center",
-                      }}
-                    >
-                      {Array.from({ length: 49 }, (_value, index) => index + 1).map((number) => {
-                        const selected = mark6ManualNumbers.includes(number);
-                        return (
-                          <Chip
-                            key={`mark6-manual-${number}`}
-                            label={number}
-                            size="small"
-                            clickable
-                            aria-pressed={selected}
-                            aria-label={t.mark6ManualChipAriaLabel.replace("{number}", String(number))}
-                            onClick={() => {
-                              setMark6ManualNumbers((current) =>
-                                current.includes(number)
-                                  ? current.filter((item) => item !== number)
-                                  : current.length >= 6
-                                    ? current
-                                    : [...current, number].sort((a, b) => a - b),
-                              );
-                            }}
-                            color={selected ? "primary" : "default"}
-                            variant={selected ? "filled" : "outlined"}
-                            sx={{
-                              width: 44,
-                              height: 44,
-                              minWidth: 44,
-                              borderRadius: "50%",
-                              "& .MuiChip-label": {
-                                px: 0,
-                                fontSize: "0.79rem",
-                                fontWeight: 600,
-                              },
-                            }}
-                          />
-                        );
-                      })}
-                    </Box>
-                    {!canGenerateMark6Manual ? (
-                      <Typography variant="caption" color="warning.main" sx={{ display: "block" }}>
-                        {t.mark6ManualNeedExactlyLabel}
-                      </Typography>
-                    ) : null}
-                    {isManualMark6Complete ? (
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={resetManualMark6Builder}
-                      >
-                        {t.mark6ManualStartNewAction}
-                      </Button>
-                    ) : null}
-                  </Stack>
-                ) : null}
-              </Stack>
-            ) : null}
             {mode !== "horse" || !isHorsePastDate ? (
               isManualMark6 ? (
                 <Button
@@ -1375,30 +1483,12 @@ export default function Home() {
       {mark6PreviousDrawError ? <Alert severity="warning">{mark6PreviousDrawError}</Alert> : null}
 
       {mode === "mark6" ? (
-        <Mark6PreviousDrawSection
-          previousDraw={displayedMark6PreviousDraw}
-          isLoading={isMark6PreviousDrawLoading}
-          bestImpact={mark6BestPreviousImpact}
-          t={t}
-        />
-      ) : null}
-
-      {mode === "mark6" ? (
-        <Mark6NextDrawLeanSection
-          key={getMark6LeanProbabilitiesKey(mark6LeanProbabilitySource ?? undefined)}
-          probabilities={mark6LeanProbabilitySource}
-          previousDrawDate={displayedMark6PreviousDraw?.date}
-          t={t}
-        />
-      ) : null}
-
-      {mode === "mark6" ? (
       <Box ref={predictionsRef}>
         <Card>
         <CardContent>
           <Stack spacing={2}>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-              <Typography variant="h6">{t.suggestionsTitle}</Typography>
+              <Typography variant="h6">{t.mark6ResultsTitle}</Typography>
               <Stack direction="row" spacing={0.8}>
                 <Button
                   component={Link}
@@ -1419,19 +1509,6 @@ export default function Home() {
                 ) : null}
               </Stack>
             </Box>
-            <Chip
-              size="small"
-              color="primary"
-              variant="outlined"
-              label={`${t.mark6ActivePersonaLabel}: ${
-                mark6Persona === "lotteryAnalyst"
-                  ? t.mark6PersonaLotteryAnalyst
-                  : mark6Persona === "gameTheorist"
-                    ? t.mark6PersonaGameTheorist
-                    : t.mark6PersonaPatternFinder
-              }`}
-              sx={{ alignSelf: "flex-start" }}
-            />
             {mark6CopyStatus !== "idle" ? (
               <Typography
                 variant="caption"
@@ -1564,11 +1641,6 @@ export default function Home() {
                   <Box>
                     {result.mode === "mark6" && result.mark6Prediction?.type === "multiple" ? (
                       <Stack spacing={2}>
-                        {(result.mark6NumberProbabilities?.length ?? 0) > 0 ? (
-                          <Typography variant="caption" color="text.secondary">
-                            {t.mark6NumberProbabilityLabel}
-                          </Typography>
-                        ) : null}
                         {(result.mark6Prediction.multiple ?? []).map((set, index) => (
                           <Box key={`set-${index}`}>
                             <Typography variant="caption" sx={{ display: "block", mb: 0.8 }}>
@@ -1640,11 +1712,6 @@ export default function Home() {
                           <Typography variant="caption" color="text.secondary">
                             {t.mark6GeneratedSetsLabel}
                           </Typography>
-                          {(result.mark6NumberProbabilities?.length ?? 0) > 0 ? (
-                            <Typography variant="caption" color="text.secondary">
-                              {t.mark6NumberProbabilityLabel}
-                            </Typography>
-                          ) : null}
                           {result.mark6BatchSets?.map((set, index) => (
                             <Box key={`mark6-batch-${index}`}>
                               <Typography variant="caption" sx={{ display: "block", mb: 0.8 }}>
@@ -1679,56 +1746,73 @@ export default function Home() {
                       )
                     ) : null}
                     {result.mode === "mark6" && baseMark6Sets.length > 0 ? (
-                      <Stack spacing={0.8} sx={{ mt: 1 }}>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={handleMixGeneratedMark6Sets}
-                          disabled={!canMixMark6Sets}
-                        >
-                          {t.mark6MixGeneratedSetsAction}
-                        </Button>
-                        {!canMixMark6Sets ? (
-                          <Typography variant="caption" color="text.secondary">
-                            {t.mark6MixNotEnoughNumbers}
-                          </Typography>
-                        ) : null}
-                        {mixedMark6Sets.length > 0 ? (
-                          <Stack spacing={1}>
+                      <Mark6CollapsibleSection
+                        id="mark6-result-advanced"
+                        title={t.mark6ResultsAdvancedTitle}
+                        hint={t.mark6ResultsAdvancedHint}
+                        expanded={mark6ShowResultAdvanced}
+                        onChange={setMark6ShowResultAdvanced}
+                      >
+                        <Stack spacing={0.8}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={handleMixGeneratedMark6Sets}
+                            disabled={!canMixMark6Sets}
+                          >
+                            {t.mark6MixGeneratedSetsAction}
+                          </Button>
+                          {!canMixMark6Sets ? (
                             <Typography variant="caption" color="text.secondary">
-                              {t.mark6MixedSetsLabel}
+                              {t.mark6MixNotEnoughNumbers}
                             </Typography>
-                            {mixedMark6Sets.map((set, index) => (
-                              <Box key={`mark6-mixed-${index}`}>
-                                <Typography variant="caption" sx={{ display: "block", mb: 0.4 }}>
-                                  {t.mark6SetLabel} {index + 1}
-                                </Typography>
-                                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-                                  {set.map((item) => (
-                                    <Chip
-                                      key={`mark6-mixed-${index}-${item}`}
-                                      label={item}
-                                      color="secondary"
-                                      icon={<TrophyFilled />}
-                                      sx={{ fontWeight: 600 }}
-                                    />
-                                  ))}
-                                </Stack>
-                              </Box>
-                            ))}
-                          </Stack>
-                        ) : null}
-                      </Stack>
+                          ) : null}
+                          {mixedMark6Sets.length > 0 ? (
+                            <Stack spacing={1}>
+                              <Typography variant="caption" color="text.secondary">
+                                {t.mark6MixedSetsLabel}
+                              </Typography>
+                              {mixedMark6Sets.map((set, index) => (
+                                <Box key={`mark6-mixed-${index}`}>
+                                  <Typography variant="caption" sx={{ display: "block", mb: 0.4 }}>
+                                    {t.mark6SetLabel} {index + 1}
+                                  </Typography>
+                                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                                    {set.map((item) => (
+                                      <Chip
+                                        key={`mark6-mixed-${index}-${item}`}
+                                        label={item}
+                                        color="secondary"
+                                        icon={<TrophyFilled />}
+                                        sx={{ fontWeight: 600 }}
+                                      />
+                                    ))}
+                                  </Stack>
+                                </Box>
+                              ))}
+                            </Stack>
+                          ) : null}
+                        </Stack>
+                      </Mark6CollapsibleSection>
                     ) : null}
                   </Box>
                 )}
-                <Typography variant="subtitle2">
-                  {t.confidenceTitle}: {formatConfidenceBandLabel(result.confidenceBand, locale)}
-                </Typography>
-                <Typography variant="body2">
-                  {t.explanationTitle}: {result.explanation}
-                </Typography>
-                <Alert severity="info">{result.disclaimer}</Alert>
+                <Mark6CollapsibleSection
+                  id="mark6-result-why"
+                  title={t.mark6ResultsWhyTitle}
+                  expanded={mark6ShowResultDetails}
+                  onChange={setMark6ShowResultDetails}
+                >
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2">
+                      {t.confidenceTitle}: {formatConfidenceBandLabel(result.confidenceBand, locale)}
+                    </Typography>
+                    <Typography variant="body2">
+                      {t.explanationTitle}: {result.explanation}
+                    </Typography>
+                    <Alert severity="info">{result.disclaimer}</Alert>
+                  </Stack>
+                </Mark6CollapsibleSection>
               </>
             ) : isManualMark6 && mark6ManualSets.length > 0 ? (
                       <Stack spacing={2}>
@@ -1753,52 +1837,60 @@ export default function Home() {
                     </Stack>
                   </Box>
                 ))}
-                <Stack spacing={2} sx={{ mt: 1 }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={handleMixGeneratedMark6Sets}
-                    disabled={!isManualMark6Complete || !canMixMark6Sets}
-                  >
-                    {t.mark6MixGeneratedSetsAction}
-                  </Button>
-                  {(!isManualMark6Complete || !canMixMark6Sets) ? (
-                    <Typography variant="caption" color="text.secondary">
-                      {!isManualMark6Complete
-                        ? `${t.mark6ManualSetProgressLabel}: ${mark6ManualSets.length}/${mark6BatchCount}`
-                        : t.mark6MixNotEnoughNumbers}
-                    </Typography>
-                  ) : null}
-                  {mixedMark6Sets.length > 0 ? (
-                    <Stack spacing={2}>
+                <Mark6CollapsibleSection
+                  id="mark6-manual-advanced"
+                  title={t.mark6ResultsAdvancedTitle}
+                  hint={t.mark6ResultsAdvancedHint}
+                  expanded={mark6ShowResultAdvanced}
+                  onChange={setMark6ShowResultAdvanced}
+                >
+                  <Stack spacing={2}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={handleMixGeneratedMark6Sets}
+                      disabled={!isManualMark6Complete || !canMixMark6Sets}
+                    >
+                      {t.mark6MixGeneratedSetsAction}
+                    </Button>
+                    {(!isManualMark6Complete || !canMixMark6Sets) ? (
                       <Typography variant="caption" color="text.secondary">
-                        {t.mark6MixedSetsLabel}
+                        {!isManualMark6Complete
+                          ? `${t.mark6ManualSetProgressLabel}: ${mark6ManualSets.length}/${mark6BatchCount}`
+                          : t.mark6MixNotEnoughNumbers}
                       </Typography>
-                      {mixedMark6Sets.map((set, index) => (
-                        <Box key={`mark6-mixed-manual-${index}`}>
-                          <Typography variant="caption" sx={{ display: "block", mb: 0.8 }}>
-                            {t.mark6SetLabel} {index + 1}
-                          </Typography>
-                          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-                            {set.map((item) => (
-                              <Chip
-                                key={`mark6-mixed-manual-${index}-${item}`}
-                                label={item}
-                                color="secondary"
-                                icon={<TrophyFilled />}
-                                sx={{ fontWeight: 600 }}
-                              />
-                            ))}
-                          </Stack>
-                        </Box>
-                      ))}
-                    </Stack>
-                  ) : null}
-                </Stack>
+                    ) : null}
+                    {mixedMark6Sets.length > 0 ? (
+                      <Stack spacing={2}>
+                        <Typography variant="caption" color="text.secondary">
+                          {t.mark6MixedSetsLabel}
+                        </Typography>
+                        {mixedMark6Sets.map((set, index) => (
+                          <Box key={`mark6-mixed-manual-${index}`}>
+                            <Typography variant="caption" sx={{ display: "block", mb: 0.8 }}>
+                              {t.mark6SetLabel} {index + 1}
+                            </Typography>
+                            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                              {set.map((item) => (
+                                <Chip
+                                  key={`mark6-mixed-manual-${index}-${item}`}
+                                  label={item}
+                                  color="secondary"
+                                  icon={<TrophyFilled />}
+                                  sx={{ fontWeight: 600 }}
+                                />
+                              ))}
+                            </Stack>
+                          </Box>
+                        ))}
+                      </Stack>
+                    ) : null}
+                  </Stack>
+                </Mark6CollapsibleSection>
               </Stack>
             ) : (
               <Typography variant="body2" color="text.secondary">
-                {t.noSuggestionYet}
+                {t.mark6ResultsEmptyHint}
               </Typography>
             )}
           </Stack>
@@ -1808,12 +1900,46 @@ export default function Home() {
       ) : null}
 
       {mode === "mark6" ? (
-        <Mark6PersonaAnalysis
-          targetDate={targetDate}
-          persona={mark6Persona}
-          onPersonaChange={setMark6Persona}
-          showPersonaSelector={false}
-        />
+        <Mark6CollapsibleSection
+          id="mark6-background"
+          title={t.mark6BackgroundSectionTitle}
+          hint={t.mark6BackgroundSectionHint}
+          expanded={mark6ShowBackground}
+          onChange={setMark6ShowBackground}
+        >
+          <Stack spacing={1.5}>
+            <Mark6PreviousDrawSection
+              previousDraw={displayedMark6PreviousDraw}
+              isLoading={isMark6PreviousDrawLoading}
+              bestImpact={mark6BestPreviousImpact}
+              t={t}
+            />
+            <Mark6NextDrawLeanSection
+              key={getMark6LeanProbabilitiesKey(mark6LeanProbabilitySource ?? undefined)}
+              probabilities={mark6LeanProbabilitySource}
+              previousDrawDate={displayedMark6PreviousDraw?.date}
+              t={t}
+            />
+          </Stack>
+        </Mark6CollapsibleSection>
+      ) : null}
+
+      {mode === "mark6" ? (
+        <Mark6CollapsibleSection
+          id="mark6-explore-stats"
+          title={t.mark6ExploreStatsTitle}
+          hint={t.mark6ExploreStatsHint}
+          expanded={mark6ShowAnalysis}
+          onChange={setMark6ShowAnalysis}
+        >
+          <Mark6PersonaAnalysis
+            targetDate={targetDate}
+            persona={mark6Persona}
+            onPersonaChange={setMark6Persona}
+            showPersonaSelector={false}
+            enabled={mark6ShowAnalysis}
+          />
+        </Mark6CollapsibleSection>
       ) : null}
 
       {mode === "horse" ? (

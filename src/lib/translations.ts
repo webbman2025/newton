@@ -251,6 +251,27 @@ type CopyShape = {
   mark6InsightMomentum: string;
   mark6InsightProxy: string;
   mark6ActivePersonaLabel: string;
+  mark6QuickStartTitle: string;
+  mark6QuickStartStepDate: string;
+  mark6QuickStartStepStyle: string;
+  mark6QuickStartStepGenerate: string;
+  mark6QuickStartHint: string;
+  mark6DrawDateLabel: string;
+  mark6ChangeDateAction: string;
+  mark6HideDateAction: string;
+  mark6CustomizeSectionTitle: string;
+  mark6CustomizeSectionHint: string;
+  mark6CustomizeSummaryAuto: string;
+  mark6CustomizeSummaryManual: string;
+  mark6BackgroundSectionTitle: string;
+  mark6BackgroundSectionHint: string;
+  mark6ExploreStatsTitle: string;
+  mark6ExploreStatsHint: string;
+  mark6ResultsTitle: string;
+  mark6ResultsEmptyHint: string;
+  mark6ResultsWhyTitle: string;
+  mark6ResultsAdvancedTitle: string;
+  mark6ResultsAdvancedHint: string;
   horseWinningHorseLabel: string;
   horsePreviousWinnerLabel: string;
   horsePreviousWinnerDateLabel: string;
@@ -573,6 +594,27 @@ export const copy: Record<Locale, CopyShape> = {
     mark6InsightMomentum: "Positive recent frequency movement: {numbers}.",
     mark6InsightProxy: "{value}% of drawn numbers were 1–31; {secondary}% of draws contained consecutive numbers.",
     mark6ActivePersonaLabel: "Active approach",
+    mark6QuickStartTitle: "Quick start",
+    mark6QuickStartStepDate: "Pick date",
+    mark6QuickStartStepStyle: "Pick style",
+    mark6QuickStartStepGenerate: "Generate",
+    mark6QuickStartHint: "Choose a draw date and analysis style, then tap Generate in the bar below.",
+    mark6DrawDateLabel: "Draw date",
+    mark6ChangeDateAction: "Change date",
+    mark6HideDateAction: "Hide calendar",
+    mark6CustomizeSectionTitle: "Customize generation",
+    mark6CustomizeSectionHint: "Auto or manual picks, single/multiple/banker, set count, and number mix.",
+    mark6CustomizeSummaryAuto: "Auto · {count} sets · {type}",
+    mark6CustomizeSummaryManual: "Manual · {count} sets",
+    mark6BackgroundSectionTitle: "Last draw & model scores",
+    mark6BackgroundSectionHint: "Previous HKJC result and optional high-score number preview.",
+    mark6ExploreStatsTitle: "Explore statistics",
+    mark6ExploreStatsHint: "Hot/cold charts, patterns, and insight feed — optional deep dive.",
+    mark6ResultsTitle: "Your numbers",
+    mark6ResultsEmptyHint: "Tap Generate below to create number sets for the selected draw.",
+    mark6ResultsWhyTitle: "Why these numbers?",
+    mark6ResultsAdvancedTitle: "Mix & combine sets",
+    mark6ResultsAdvancedHint: "Shuffle numbers across generated sets into new combinations.",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
     horsePreviousWinnerDateLabel: "Last result date",
@@ -883,6 +925,27 @@ export const copy: Record<Locale, CopyShape> = {
     mark6InsightMomentum: "近期頻率上升號碼：{numbers}。",
     mark6InsightProxy: "開出號碼中 {value}% 為 1–31；{secondary}% 期數包含連號。",
     mark6ActivePersonaLabel: "目前分析方式",
+    mark6QuickStartTitle: "快速開始",
+    mark6QuickStartStepDate: "選日期",
+    mark6QuickStartStepStyle: "選風格",
+    mark6QuickStartStepGenerate: "生成",
+    mark6QuickStartHint: "選擇開獎日期及分析風格，然後點按下方「生成」。",
+    mark6DrawDateLabel: "開獎日期",
+    mark6ChangeDateAction: "更改日期",
+    mark6HideDateAction: "收起月曆",
+    mark6CustomizeSectionTitle: "自訂生成方式",
+    mark6CustomizeSectionHint: "自動或手選、單式/複式/膽拖、組數及大小號混合。",
+    mark6CustomizeSummaryAuto: "自動 · {count} 組 · {type}",
+    mark6CustomizeSummaryManual: "手選 · {count} 組",
+    mark6BackgroundSectionTitle: "上期結果及模型分數",
+    mark6BackgroundSectionHint: "上一期香港賽馬會結果及可選的高分號碼預覽。",
+    mark6ExploreStatsTitle: "探索統計分析",
+    mark6ExploreStatsHint: "冷熱門圖表、模式及分析摘要 — 可選的深入資料。",
+    mark6ResultsTitle: "你的號碼",
+    mark6ResultsEmptyHint: "點按下方「生成」為所選期數建立號碼組合。",
+    mark6ResultsWhyTitle: "為何是這些號碼？",
+    mark6ResultsAdvancedTitle: "混合組合",
+    mark6ResultsAdvancedHint: "將已生成組合的號碼重新排列成新組合。",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",
     horsePreviousWinnerDateLabel: "最近結果日期",

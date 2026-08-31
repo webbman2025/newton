@@ -33,6 +33,7 @@ type PersonaAnalysisProps = {
   persona: Mark6Persona;
   onPersonaChange: (persona: Mark6Persona) => void;
   showPersonaSelector?: boolean;
+  enabled?: boolean;
 };
 
 const PERSONAS: Mark6Persona[] = ["lotteryAnalyst", "gameTheorist", "patternFinder"];
@@ -43,6 +44,7 @@ export function Mark6PersonaAnalysis({
   persona,
   onPersonaChange,
   showPersonaSelector = true,
+  enabled = true,
 }: PersonaAnalysisProps) {
   const t = useCopy();
   const [query, setQuery] = useState<Mark6AnalysisQuery>("hotCold");
@@ -53,6 +55,10 @@ export function Mark6PersonaAnalysis({
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     let active = true;
     const load = async () => {
       setIsLoading(true);
@@ -88,7 +94,7 @@ export function Mark6PersonaAnalysis({
     return () => {
       active = false;
     };
-  }, [persona, query, targetDate, windowSize]);
+  }, [enabled, persona, query, targetDate, windowSize]);
 
   const personaCopy = {
     lotteryAnalyst: {
