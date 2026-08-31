@@ -284,6 +284,31 @@ type CopyShape = {
   mark6PredictiveScoreLabel: string;
   mark6PredictiveLoading: string;
   mark6PredictiveError: string;
+  mark6ModeHubTitle: string;
+  mark6ModeHubSubtitle: string;
+  mark6ModeHowToPlayLabel: string;
+  mark6ModeBackAction: string;
+  mark6ModeDrawPredictorTitle: string;
+  mark6ModeDrawPredictorDescription: string;
+  mark6ModeDrawPredictorHowToPlay: string;
+  mark6ModeQuickPickTitle: string;
+  mark6ModeQuickPickDescription: string;
+  mark6ModeQuickPickHowToPlay: string;
+  mark6ModeLuckyPackTitle: string;
+  mark6ModeLuckyPackDescription: string;
+  mark6ModeLuckyPackHowToPlay: string;
+  mark6ModeBankerStarTitle: string;
+  mark6ModeBankerStarDescription: string;
+  mark6ModeBankerStarHowToPlay: string;
+  mark6ModeManualPickTitle: string;
+  mark6ModeManualPickDescription: string;
+  mark6ModeManualPickHowToPlay: string;
+  mark6ModePatternHunterTitle: string;
+  mark6ModePatternHunterDescription: string;
+  mark6ModePatternHunterHowToPlay: string;
+  mark6ModeSmartDiversifyTitle: string;
+  mark6ModeSmartDiversifyDescription: string;
+  mark6ModeSmartDiversifyHowToPlay: string;
   horseWinningHorseLabel: string;
   horsePreviousWinnerLabel: string;
   horsePreviousWinnerDateLabel: string;
@@ -639,6 +664,31 @@ export const copy: Record<Locale, CopyShape> = {
     mark6PredictiveScoreLabel: "Score {score}",
     mark6PredictiveLoading: "Building Saturday draw prediction from live HKJC history…",
     mark6PredictiveError: "Could not build the predictive draw. Try again shortly.",
+    mark6ModeHubTitle: "Choose a Mark Six game",
+    mark6ModeHubSubtitle: "Tap a mode below. Each one opens a focused screen with only the controls you need.",
+    mark6ModeHowToPlayLabel: "How to play",
+    mark6ModeBackAction: "All Mark Six modes",
+    mark6ModeDrawPredictorTitle: "AI Draw Predictor",
+    mark6ModeDrawPredictorDescription: "Data-backed pick for the upcoming draw with backtest stats and backup sets.",
+    mark6ModeDrawPredictorHowToPlay: "Pick your draw date, review the AI card, then tap Generate if you want more sets.",
+    mark6ModeQuickPickTitle: "Quick Pick",
+    mark6ModeQuickPickDescription: "One AI-built 6-number set using hot/cold and history signals.",
+    mark6ModeQuickPickHowToPlay: "Choose a date and tap Generate for a single recommended line.",
+    mark6ModeLuckyPackTitle: "Lucky Pack",
+    mark6ModeLuckyPackDescription: "Five different auto-generated sets for the same draw.",
+    mark6ModeLuckyPackHowToPlay: "Pick a date, adjust set count if needed, then tap Generate.",
+    mark6ModeBankerStarTitle: "Banker Star",
+    mark6ModeBankerStarDescription: "Build a banker number with supporting selections for combo bets.",
+    mark6ModeBankerStarHowToPlay: "Choose a date and tap Generate to get a banker plus selection pool.",
+    mark6ModeManualPickTitle: "Pick Your Numbers",
+    mark6ModeManualPickDescription: "You choose 6 numbers; AI ranks and builds sets from your pool.",
+    mark6ModeManualPickHowToPlay: "Tap six numbers on the grid, then tap Add/Generate to save your set.",
+    mark6ModePatternHunterTitle: "Pattern Hunter",
+    mark6ModePatternHunterDescription: "Uses repeating pairs, streaks, and draw-pattern signals.",
+    mark6ModePatternHunterHowToPlay: "Pick a date and tap Generate for three pattern-weighted sets.",
+    mark6ModeSmartDiversifyTitle: "Smart Diversify",
+    mark6ModeSmartDiversifyDescription: "Avoids common birthday and consecutive picks using proxy signals.",
+    mark6ModeSmartDiversifyHowToPlay: "Pick a date and tap Generate for three diversified sets.",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
     horsePreviousWinnerDateLabel: "Last result date",
@@ -982,6 +1032,31 @@ export const copy: Record<Locale, CopyShape> = {
     mark6PredictiveScoreLabel: "分數 {score}",
     mark6PredictiveLoading: "正在以香港賽馬會歷史資料建立開獎預測…",
     mark6PredictiveError: "未能建立預測，請稍後再試。",
+    mark6ModeHubTitle: "選擇六合彩玩法",
+    mark6ModeHubSubtitle: "點按以下模式，每種玩法會開啟獨立畫面，只顯示需要的控制項。",
+    mark6ModeHowToPlayLabel: "玩法",
+    mark6ModeBackAction: "所有六合彩模式",
+    mark6ModeDrawPredictorTitle: "AI 開獎預測",
+    mark6ModeDrawPredictorDescription: "以數據支持下一期預測，附回測統計及後備組合。",
+    mark6ModeDrawPredictorHowToPlay: "選日期、查看 AI 預測卡，需要更多組合時再按「生成」。",
+    mark6ModeQuickPickTitle: "快速選號",
+    mark6ModeQuickPickDescription: "AI 根據冷熱門及歷史信號生成一組 6 個號碼。",
+    mark6ModeQuickPickHowToPlay: "選日期後按「生成」即可取得一組建議號碼。",
+    mark6ModeLuckyPackTitle: "幸運組合包",
+    mark6ModeLuckyPackDescription: "同一期自動生成五組不同號碼組合。",
+    mark6ModeLuckyPackHowToPlay: "選日期，可按需要調整組數，然後按「生成」。",
+    mark6ModeBankerStarTitle: "膽拖星號",
+    mark6ModeBankerStarDescription: "建立膽號及配套選號，適合膽拖玩法。",
+    mark6ModeBankerStarHowToPlay: "選日期後按「生成」取得膽號及選號池。",
+    mark6ModeManualPickTitle: "自選號碼",
+    mark6ModeManualPickDescription: "由你選 6 個號碼，AI 在你的號碼池內生成組合。",
+    mark6ModeManualPickHowToPlay: "在格子上點選 6 個號碼，再按新增/生成儲存組合。",
+    mark6ModePatternHunterTitle: "模式獵手",
+    mark6ModePatternHunterDescription: "偏重重複配對、連號及走勢模式信號。",
+    mark6ModePatternHunterHowToPlay: "選日期後按「生成」取得三組模式加權組合。",
+    mark6ModeSmartDiversifyTitle: "分散智選",
+    mark6ModeSmartDiversifyDescription: "避開常見生日及連號選法，使用分散代理信號。",
+    mark6ModeSmartDiversifyHowToPlay: "選日期後按「生成」取得三組分散組合。",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",
     horsePreviousWinnerDateLabel: "最近結果日期",
