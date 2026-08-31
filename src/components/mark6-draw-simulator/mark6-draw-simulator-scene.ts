@@ -109,12 +109,13 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     this.rackY = height - 72;
     this.drumRadius = Math.min(118, width * 0.36, height * 0.28);
 
-    const slotGap = Math.min(40, Math.max(26, (width - 56) / 8));
+    const slotGap = Math.min(36, Math.max(24, (width - 80) / 7));
+    // 6 main + 1 bonus, evenly spaced and centered on drumX (k = -3 … +3).
     this.mainSlotXs = Array.from(
       { length: 6 },
-      (_value, index) => this.drumX + (index - 2.75) * slotGap,
+      (_value, index) => this.drumX + (index - 3) * slotGap,
     );
-    this.bonusSlotX = this.drumX + 3.25 * slotGap;
+    this.bonusSlotX = this.drumX + 3 * slotGap;
   }
 
   private drawStage() {

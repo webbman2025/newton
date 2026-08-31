@@ -129,7 +129,12 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
         {status}
       </Typography>
       {results ? (
-        <Stack direction="row" spacing={0.8} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+        <Stack
+          direction="row"
+          spacing={0.8}
+          useFlexGap
+          sx={{ flexWrap: "wrap", alignItems: "center", justifyContent: "center" }}
+        >
           {results.mainNumbers.map((number) => (
             <Chip key={`sim-main-${number}`} label={number} color="primary" sx={{ fontWeight: 700 }} />
           ))}
