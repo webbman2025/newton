@@ -1,15 +1,10 @@
 "use client";
 
-import {
-  Box,
-  ButtonBase,
-  Card,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Box, Card, Stack, Typography } from "@mui/material";
 import {
   ArrowTrendingLinesRegular,
   BrainCircuitRegular,
+  ChevronRightRegular,
   CursorClickRegular,
   GridRegular,
   PlayCircleRegular,
@@ -111,7 +106,7 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
   );
 
   return (
-    <Stack spacing={1.2} sx={{ position: "relative", zIndex: 1 }}>
+    <Stack spacing={1.2} sx={{ position: "relative", zIndex: 5, isolation: "isolate" }}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.4 }}>
           {t.mark6ModeHubTitle}
@@ -131,68 +126,70 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
         {orderedModes.map((mode) => (
           <Card
             key={mode.id}
+            component="button"
+            type="button"
             variant="outlined"
+            onClick={() => onSelect(mode.id)}
+            aria-label={mode.title}
             sx={{
               borderRadius: 2,
               borderColor: mode.id === "drawPredictor" ? "primary.main" : "divider",
               bgcolor: mode.id === "drawPredictor" ? "rgba(15,108,189,0.05)" : "background.paper",
-              overflow: "visible",
+              cursor: "pointer",
+              minHeight: 120,
+              width: "100%",
+              textAlign: "left",
+              p: 0,
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              transition: "transform 120ms ease, box-shadow 120ms ease",
+              "&:hover": {
+                bgcolor: "rgba(15,108,189,0.06)",
+              },
+              "&:active": {
+                transform: "scale(0.985)",
+                boxShadow: "0 4px 14px rgba(15,108,189,0.18)",
+              },
             }}
           >
-            <ButtonBase
-              component="button"
-              type="button"
-              aria-label={mode.title}
-              onClick={() => onSelect(mode.id)}
-              sx={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                borderRadius: "inherit",
-                p: 1.4,
-                minHeight: 120,
-                touchAction: "manipulation",
-                WebkitTapHighlightColor: "transparent",
-                cursor: "pointer",
-                "&:hover": {
-                  bgcolor: "rgba(15,108,189,0.06)",
-                },
-                "&:active": {
-                  bgcolor: "rgba(15,108,189,0.12)",
-                  transform: "scale(0.985)",
-                },
-                "& .MuiTouchRipple-root": {
-                  pointerEvents: "none",
-                },
-              }}
-            >
+            <Box sx={{ p: 1.4, pointerEvents: "none" }}>
               <Stack spacing={0.8}>
-                <Box
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 2,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    bgcolor: "rgba(15,108,189,0.1)",
-                    color: "primary.main",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {MODE_ICONS[mode.id] ?? <GridRegular fontSize={28} />}
-                </Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
-                  {mode.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {mode.description}
-                </Typography>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 2,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      bgcolor: "rgba(15,108,189,0.1)",
+                      color: "primary.main",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {MODE_ICONS[mode.id] ?? <GridRegular fontSize={28} />}
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+                      <Typography
+                        variant="subtitle1"
+                        sx={{ fontWeight: 700, lineHeight: 1.25, flex: 1 }}
+                      >
+                        {mode.title}
+                      </Typography>
+                      <ChevronRightRegular fontSize={18} style={{ opacity: 0.55, flexShrink: 0 }} />
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      {mode.description}
+                    </Typography>
+                  </Box>
+                </Stack>
                 <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
                   {t.mark6ModeHowToPlayLabel}: {mode.howToPlay}
                 </Typography>
               </Stack>
-            </ButtonBase>
+            </Box>
           </Card>
         ))}
       </Box>

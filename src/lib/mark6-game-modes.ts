@@ -139,3 +139,10 @@ export function applyMark6GameModePreset(
 ): Mark6GameModePreset {
   return MARK6_GAME_MODE_PRESETS[modeId];
 }
+
+export function isMark6GameModeId(value: string | null | undefined): value is Mark6GameModeId {
+  if (!value) {
+    return false;
+  }
+  return (mark6GameModeIds as readonly string[]).includes(value);
+}

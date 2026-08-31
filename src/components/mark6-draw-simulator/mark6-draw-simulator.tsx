@@ -115,6 +115,12 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
           border: "1px solid",
           borderColor: "divider",
           bgcolor: "#07101f",
+          touchAction: "none",
+          "& canvas": {
+            display: "block",
+            width: "100% !important",
+            height: "100% !important",
+          },
         }}
       />
       <Typography variant="body2" color="text.secondary" sx={{ minHeight: 24 }}>
