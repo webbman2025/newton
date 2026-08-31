@@ -360,9 +360,7 @@ export default function Home() {
 
   const handleModeChange = useCallback((next: Mode) => {
     setMode(next);
-    if (next !== "mark6") {
-      setSelectedMark6GameMode(null);
-    }
+    setSelectedMark6GameMode(null);
     if (next !== "horse") {
       setHorseHistoryRows([]);
       setSelectedDateHorseRows([]);
@@ -1173,9 +1171,22 @@ export default function Home() {
               <ToggleButton value="mark6">{t.mark6}</ToggleButton>
               <ToggleButton value="horse">{t.horse}</ToggleButton>
             </ToggleButtonGroup>
-            {mark6OnHub ? <Mark6GameModeHub onSelect={selectMark6GameMode} /> : null}
-            {mark6InPlayView ? (
-              <Stack spacing={1.5}>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {mark6OnHub ? (
+        <Card sx={{ position: "relative", zIndex: 1 }}>
+          <CardContent>
+            <Mark6GameModeHub onSelect={selectMark6GameMode} />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {mark6InPlayView ? (
+        <Card>
+          <CardContent>
+            <Stack spacing={1.5}>
                 <Button
                   size="small"
                   variant="text"
@@ -1372,9 +1383,27 @@ export default function Home() {
                 {mark6GameModePreset?.showDrawSimulator ? (
                   <Mark6DrawSimulator targetDate={targetDate} persona={mark6Persona} />
                 ) : null}
+
+                {isManualMark6 ? (
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => setMark6ManualNumbers([])}
+                    disabled={mark6ManualNumbers.length === 0}
+                    sx={{ alignSelf: "flex-start" }}
+                  >
+                    {t.mark6ManualClearAction}
+                  </Button>
+                ) : null}
               </Stack>
-            ) : null}
-            {mode === "mark6" ? null : (
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {mode !== "mark6" ? (
+        <Card>
+          <CardContent>
+            <Stack spacing={1.5}>
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1 }}>
                   <Typography variant="body2" sx={{ mb: 1 }}>
@@ -1409,27 +1438,15 @@ export default function Home() {
                   ) : null}
                 </Box>
               </LocalizationProvider>
-            )}
-            {mode !== "horse" || !isHorsePastDate ? (
-              mark6InPlayView && isManualMark6 ? (
-                <Button
-                  variant="text"
-                  size="small"
-                  onClick={() => setMark6ManualNumbers([])}
-                  disabled={mark6ManualNumbers.length === 0}
-                  sx={{ alignSelf: "flex-start" }}
-                >
-                  {t.mark6ManualClearAction}
-                </Button>
-              ) : null
-            ) : (
-              <Alert severity="info" sx={{ py: 0.2 }}>
-                {t.horsePastDateResultsMode}
-              </Alert>
-            )}
-          </Stack>
-        </CardContent>
-      </Card>
+              {isHorsePastDate ? (
+                <Alert severity="info" sx={{ py: 0.2 }}>
+                  {t.horsePastDateResultsMode}
+                </Alert>
+              ) : null}
+            </Stack>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {error ? <Alert severity="warning">{error}</Alert> : null}
       {mark6PreviousDrawError ? <Alert severity="warning">{mark6PreviousDrawError}</Alert> : null}

@@ -2,9 +2,8 @@
 
 import {
   Box,
+  ButtonBase,
   Card,
-  CardActionArea,
-  CardContent,
   Stack,
   Typography,
 } from "@mui/material";
@@ -112,7 +111,7 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
   );
 
   return (
-    <Stack spacing={1.2}>
+    <Stack spacing={1.2} sx={{ position: "relative", zIndex: 1 }}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.4 }}>
           {t.mark6ModeHubTitle}
@@ -126,6 +125,7 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
           display: "grid",
           gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
           gap: 1.2,
+          "& > *": { minWidth: 0 },
         }}
       >
         {orderedModes.map((mode) => (
@@ -136,38 +136,63 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
               borderRadius: 2,
               borderColor: mode.id === "drawPredictor" ? "primary.main" : "divider",
               bgcolor: mode.id === "drawPredictor" ? "rgba(15,108,189,0.05)" : "background.paper",
-              height: "100%",
+              overflow: "visible",
             }}
           >
-            <CardActionArea onClick={() => onSelect(mode.id)} sx={{ height: "100%" }}>
-              <CardContent sx={{ p: 1.4, "&:last-child": { pb: 1.4 } }}>
-                <Stack spacing={0.8}>
-                  <Box
-                    sx={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 2,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      bgcolor: "rgba(15,108,189,0.1)",
-                      color: "primary.main",
-                    }}
-                  >
-                    {MODE_ICONS[mode.id] ?? <GridRegular fontSize={28} />}
-                  </Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
-                    {mode.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {mode.description}
-                  </Typography>
-                  <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
-                    {t.mark6ModeHowToPlayLabel}: {mode.howToPlay}
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </CardActionArea>
+            <ButtonBase
+              component="button"
+              type="button"
+              aria-label={mode.title}
+              onClick={() => onSelect(mode.id)}
+              sx={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                borderRadius: "inherit",
+                p: 1.4,
+                minHeight: 120,
+                touchAction: "manipulation",
+                WebkitTapHighlightColor: "transparent",
+                cursor: "pointer",
+                "&:hover": {
+                  bgcolor: "rgba(15,108,189,0.06)",
+                },
+                "&:active": {
+                  bgcolor: "rgba(15,108,189,0.12)",
+                  transform: "scale(0.985)",
+                },
+                "& .MuiTouchRipple-root": {
+                  pointerEvents: "none",
+                },
+              }}
+            >
+              <Stack spacing={0.8}>
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 2,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    bgcolor: "rgba(15,108,189,0.1)",
+                    color: "primary.main",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {MODE_ICONS[mode.id] ?? <GridRegular fontSize={28} />}
+                </Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.25 }}>
+                  {mode.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {mode.description}
+                </Typography>
+                <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
+                  {t.mark6ModeHowToPlayLabel}: {mode.howToPlay}
+                </Typography>
+              </Stack>
+            </ButtonBase>
           </Card>
         ))}
       </Box>
