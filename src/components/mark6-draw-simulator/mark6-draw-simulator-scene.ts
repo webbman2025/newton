@@ -45,6 +45,8 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
   private rackY = 0;
   private mainSlotXs: number[] = [];
   private bonusSlotX = 0;
+  private slotGap = 34;
+  private slotInset = 22;
   private backdrop?: Phaser.GameObjects.Graphics;
   private drumGraphic?: Phaser.GameObjects.Graphics;
   private drumBase?: Phaser.GameObjects.Graphics;
@@ -110,9 +112,19 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     this.rackY = height - 72;
     this.drumRadius = Math.min(118, width * 0.36, height * 0.28);
 
-    const slotGap = Math.min(36, Math.max(24, (width - 96) / 8));
-    const bonusGap = slotGap * 0.55;
+    const rackPadding = 20;
+    const minSlotGap = BALL_DIAMETER + 6;
+    const maxSlotGap = 42;
+    const bonusSeparator = 22;
+    const availableWidth = width - rackPadding * 2;
+    const slotGap = Math.min(
+      maxSlotGap,
+      Math.max(minSlotGap, (availableWidth - bonusSeparator) / 6),
+    );
+    const bonusGap = slotGap + bonusSeparator;
     const rackStartX = this.drumX - (5 * slotGap + bonusGap) / 2;
+    this.slotGap = slotGap;
+    this.slotInset = Math.max(22, slotGap * 0.65);
     this.mainSlotXs = Array.from(
       { length: 6 },
       (_value, index) => rackStartX + index * slotGap,
@@ -173,12 +185,14 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       8,
     );
 
+    const mainRackWidth = this.mainSlotXs[5] - this.mainSlotXs[0] + this.slotInset * 2;
+
     this.rackGraphic = this.add.graphics();
     this.rackGraphic.lineStyle(2, 0xffffff, 0.2);
     this.rackGraphic.strokeRoundedRect(
-      this.mainSlotXs[0] - 24,
+      this.mainSlotXs[0] - this.slotInset,
       this.rackY - 24,
-      this.mainSlotXs[5] - this.mainSlotXs[0] + 48,
+      mainRackWidth,
       48,
       12,
     );
@@ -201,7 +215,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       .setAlpha(0.85);
 
     this.rackGraphic.lineStyle(2, 0xffd54f, 0.55);
-    this.rackGraphic.strokeRoundedRect(this.bonusSlotX - 24, this.rackY - 24, 48, 48, 12);
+    this.rackGraphic.strokeRoundedRect(this.bonusSlotX - this.slotInset, this.rackY - 24, this.slotInset * 2, 48, 12);
     this.rackGraphic.strokeCircle(this.bonusSlotX, this.rackY, 17);
   }
 
