@@ -116,10 +116,12 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
           borderColor: "divider",
           bgcolor: "#07101f",
           touchAction: "none",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
           "& canvas": {
             display: "block",
-            width: "100% !important",
-            height: "100% !important",
+            margin: "0 auto",
           },
         }}
       />
