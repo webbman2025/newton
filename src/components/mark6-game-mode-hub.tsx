@@ -28,6 +28,7 @@ const MODE_ICONS: Record<Mark6GameModeId, React.ReactNode> = {
 };
 
 const MODE_ORDER: Mark6GameModeId[] = [
+  "drawSimulator",
   "drawPredictor",
   "quickPick",
   "luckyPack",
@@ -35,7 +36,6 @@ const MODE_ORDER: Mark6GameModeId[] = [
   "manualPick",
   "patternHunter",
   "smartDiversify",
-  "drawSimulator",
 ];
 
 type Mark6GameModeHubProps = {
@@ -123,7 +123,7 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
         }}
       >
         {orderedModes.map((mode) => {
-          const highlighted = mode.id === "drawPredictor";
+          const highlighted = mode.id === "drawSimulator";
           return (
             <button
               key={mode.id}
