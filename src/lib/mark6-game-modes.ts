@@ -8,6 +8,7 @@ export const mark6GameModeIds = [
   "patternHunter",
   "smartDiversify",
   "drawPredictor",
+  "drawSimulator",
 ] as const;
 
 export type Mark6GameModeId = (typeof mark6GameModeIds)[number];
@@ -23,6 +24,7 @@ export type Mark6GameModePreset = {
   showManualGrid: boolean;
   showBatchControl: boolean;
   showPredictionTypeControl: boolean;
+  showDrawSimulator: boolean;
 };
 
 export const MARK6_GAME_MODE_PRESETS: Record<Mark6GameModeId, Mark6GameModePreset> = {
@@ -37,6 +39,7 @@ export const MARK6_GAME_MODE_PRESETS: Record<Mark6GameModeId, Mark6GameModePrese
     showManualGrid: false,
     showBatchControl: false,
     showPredictionTypeControl: false,
+    showDrawSimulator: false,
   },
   luckyPack: {
     id: "luckyPack",
@@ -49,6 +52,7 @@ export const MARK6_GAME_MODE_PRESETS: Record<Mark6GameModeId, Mark6GameModePrese
     showManualGrid: false,
     showBatchControl: true,
     showPredictionTypeControl: false,
+    showDrawSimulator: false,
   },
   bankerStar: {
     id: "bankerStar",
@@ -61,6 +65,7 @@ export const MARK6_GAME_MODE_PRESETS: Record<Mark6GameModeId, Mark6GameModePrese
     showManualGrid: false,
     showBatchControl: false,
     showPredictionTypeControl: false,
+    showDrawSimulator: false,
   },
   manualPick: {
     id: "manualPick",
@@ -73,6 +78,7 @@ export const MARK6_GAME_MODE_PRESETS: Record<Mark6GameModeId, Mark6GameModePrese
     showManualGrid: true,
     showBatchControl: false,
     showPredictionTypeControl: false,
+    showDrawSimulator: false,
   },
   patternHunter: {
     id: "patternHunter",
@@ -85,6 +91,7 @@ export const MARK6_GAME_MODE_PRESETS: Record<Mark6GameModeId, Mark6GameModePrese
     showManualGrid: false,
     showBatchControl: false,
     showPredictionTypeControl: false,
+    showDrawSimulator: false,
   },
   smartDiversify: {
     id: "smartDiversify",
@@ -97,6 +104,7 @@ export const MARK6_GAME_MODE_PRESETS: Record<Mark6GameModeId, Mark6GameModePrese
     showManualGrid: false,
     showBatchControl: false,
     showPredictionTypeControl: false,
+    showDrawSimulator: false,
   },
   drawPredictor: {
     id: "drawPredictor",
@@ -109,6 +117,20 @@ export const MARK6_GAME_MODE_PRESETS: Record<Mark6GameModeId, Mark6GameModePrese
     showManualGrid: false,
     showBatchControl: false,
     showPredictionTypeControl: false,
+    showDrawSimulator: false,
+  },
+  drawSimulator: {
+    id: "drawSimulator",
+    persona: "lotteryAnalyst",
+    generateMode: "auto",
+    predictionType: "single",
+    batchCount: 1,
+    numberMix: "mixed",
+    showPredictiveCard: false,
+    showManualGrid: false,
+    showBatchControl: false,
+    showPredictionTypeControl: false,
+    showDrawSimulator: true,
   },
 };
 

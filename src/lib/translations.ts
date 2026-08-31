@@ -309,6 +309,22 @@ type CopyShape = {
   mark6ModeSmartDiversifyTitle: string;
   mark6ModeSmartDiversifyDescription: string;
   mark6ModeSmartDiversifyHowToPlay: string;
+  mark6ModeDrawSimulatorTitle: string;
+  mark6ModeDrawSimulatorDescription: string;
+  mark6ModeDrawSimulatorHowToPlay: string;
+  mark6DrawSimulatorStart: string;
+  mark6DrawSimulatorRunning: string;
+  mark6DrawSimulatorReset: string;
+  mark6DrawSimulatorIdle: string;
+  mark6DrawSimulatorPreparing: string;
+  mark6DrawSimulatorError: string;
+  mark6DrawSimulatorDisclaimer: string;
+  mark6DrawSimulatorSectionRolling: string;
+  mark6DrawSimulatorMixing: string;
+  mark6DrawSimulatorDrawingMain: string;
+  mark6DrawSimulatorDrawingBonus: string;
+  mark6DrawSimulatorComplete: string;
+  mark6DrawSimulatorBonusLabel: string;
   horseWinningHorseLabel: string;
   horsePreviousWinnerLabel: string;
   horsePreviousWinnerDateLabel: string;
@@ -689,6 +705,23 @@ export const copy: Record<Locale, CopyShape> = {
     mark6ModeSmartDiversifyTitle: "Smart Diversify",
     mark6ModeSmartDiversifyDescription: "Avoids common birthday and consecutive picks using proxy signals.",
     mark6ModeSmartDiversifyHowToPlay: "Pick a date and tap Generate for three diversified sets.",
+    mark6ModeDrawSimulatorTitle: "Ball Machine Simulator",
+    mark6ModeDrawSimulatorDescription: "Watch 49 balls load in four HK-style batches, mix, then reveal 6 numbers plus bonus.",
+    mark6ModeDrawSimulatorHowToPlay: "Pick a draw date, tap Start, and watch the staged machine animation.",
+    mark6DrawSimulatorStart: "Start draw",
+    mark6DrawSimulatorRunning: "Draw in progress…",
+    mark6DrawSimulatorReset: "Reset",
+    mark6DrawSimulatorIdle: "Press Start to run the ball machine simulation.",
+    mark6DrawSimulatorPreparing: "Loading draw numbers…",
+    mark6DrawSimulatorError: "Could not start the simulator. Try again.",
+    mark6DrawSimulatorDisclaimer:
+      "Visual simulation for entertainment only. Not an official HKJC draw or guaranteed prediction.",
+    mark6DrawSimulatorSectionRolling: "Rolling in balls {range}…",
+    mark6DrawSimulatorMixing: "Mixing balls {range} (10 seconds)…",
+    mark6DrawSimulatorDrawingMain: "Drawing main number {index}: {number}",
+    mark6DrawSimulatorDrawingBonus: "Drawing bonus number: {number}",
+    mark6DrawSimulatorComplete: "Draw complete — 6 main numbers plus bonus revealed.",
+    mark6DrawSimulatorBonusLabel: "Bonus",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
     horsePreviousWinnerDateLabel: "Last result date",
@@ -1057,6 +1090,22 @@ export const copy: Record<Locale, CopyShape> = {
     mark6ModeSmartDiversifyTitle: "分散智選",
     mark6ModeSmartDiversifyDescription: "避開常見生日及連號選法，使用分散代理信號。",
     mark6ModeSmartDiversifyHowToPlay: "選日期後按「生成」取得三組分散組合。",
+    mark6ModeDrawSimulatorTitle: "攪珠機模擬",
+    mark6ModeDrawSimulatorDescription: "49 個彩球分四批入球、攪動混合，再逐一抽出 6 個主號及特別號。",
+    mark6ModeDrawSimulatorHowToPlay: "選開獎日期，按「開始攪珠」觀看模擬過程。",
+    mark6DrawSimulatorStart: "開始攪珠",
+    mark6DrawSimulatorRunning: "攪珠進行中…",
+    mark6DrawSimulatorReset: "重設",
+    mark6DrawSimulatorIdle: "按「開始攪珠」啟動模擬。",
+    mark6DrawSimulatorPreparing: "正在載入開獎號碼…",
+    mark6DrawSimulatorError: "未能啟動模擬，請再試。",
+    mark6DrawSimulatorDisclaimer: "僅供娛樂的視覺模擬，並非香港賽馬會官方攪珠或保證預測。",
+    mark6DrawSimulatorSectionRolling: "正在放入 {range} 號球…",
+    mark6DrawSimulatorMixing: "正在混合 {range} 號球（10 秒）…",
+    mark6DrawSimulatorDrawingMain: "抽出第 {index} 個主號：{number}",
+    mark6DrawSimulatorDrawingBonus: "抽出特別號：{number}",
+    mark6DrawSimulatorComplete: "攪珠完成 — 6 個主號及特別號已揭曉。",
+    mark6DrawSimulatorBonusLabel: "特別號",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",
     horsePreviousWinnerDateLabel: "最近結果日期",

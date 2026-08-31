@@ -53,6 +53,7 @@ import { Mark6PersonaAnalysis } from "@/components/mark6-persona-analysis";
 import { Mark6TutorialOverlay } from "@/components/mark6-tutorial-overlay";
 import { Mark6CollapsibleSection } from "@/components/mark6-collapsible-section";
 import { Mark6GameModeHub } from "@/components/mark6-game-mode-hub";
+import { Mark6DrawSimulator } from "@/components/mark6-draw-simulator/mark6-draw-simulator";
 import { Mark6PredictiveDrawCard } from "@/components/mark6-predictive-draw-card";
 import { HomeStickyActionBar } from "@/components/home-sticky-action-bar";
 import { HorsePredictionPicks } from "@/components/horse-prediction-picks";
@@ -375,6 +376,7 @@ export default function Home() {
   );
   const mark6InPlayView = mode === "mark6" && selectedMark6GameMode !== null;
   const mark6OnHub = mode === "mark6" && selectedMark6GameMode === null;
+  const mark6ShowStandardPlayUi = mark6InPlayView && !mark6GameModePreset?.showDrawSimulator;
 
   const selectMark6GameMode = useCallback((modeId: Mark6GameModeId) => {
     const preset = applyMark6GameModePreset(modeId);
@@ -612,6 +614,11 @@ export default function Home() {
         title: t.mark6ModeSmartDiversifyTitle,
         description: t.mark6ModeSmartDiversifyDescription,
         howToPlay: t.mark6ModeSmartDiversifyHowToPlay,
+      },
+      drawSimulator: {
+        title: t.mark6ModeDrawSimulatorTitle,
+        description: t.mark6ModeDrawSimulatorDescription,
+        howToPlay: t.mark6ModeDrawSimulatorHowToPlay,
       },
     };
     return copyByMode[selectedMark6GameMode];
@@ -1133,7 +1140,7 @@ export default function Home() {
 
   return (
     <Stack spacing={2.2}>
-      <Mark6TutorialOverlay enabled={mark6InPlayView} />
+      <Mark6TutorialOverlay enabled={mark6ShowStandardPlayUi} />
       <Card>
         <CardContent>
           <Stack spacing={2}>
@@ -1361,6 +1368,10 @@ export default function Home() {
                     ) : null}
                   </Stack>
                 ) : null}
+
+                {mark6GameModePreset?.showDrawSimulator ? (
+                  <Mark6DrawSimulator targetDate={targetDate} persona={mark6Persona} />
+                ) : null}
               </Stack>
             ) : null}
             {mode === "mark6" ? null : (
@@ -1427,7 +1438,7 @@ export default function Home() {
         <Mark6PredictiveDrawCard targetDate={targetDate} persona={mark6Persona} />
       ) : null}
 
-      {mark6InPlayView ? (
+      {mark6ShowStandardPlayUi ? (
       <Box ref={predictionsRef}>
         <Card>
         <CardContent>
@@ -1844,7 +1855,7 @@ export default function Home() {
       </Box>
       ) : null}
 
-      {mark6InPlayView ? (
+      {mark6ShowStandardPlayUi ? (
         <Mark6CollapsibleSection
           id="mark6-background"
           title={t.mark6BackgroundSectionTitle}
@@ -1869,7 +1880,7 @@ export default function Home() {
         </Mark6CollapsibleSection>
       ) : null}
 
-      {mark6InPlayView ? (
+      {mark6ShowStandardPlayUi ? (
         <Mark6CollapsibleSection
           id="mark6-explore-stats"
           title={t.mark6ExploreStatsTitle}
@@ -2391,7 +2402,7 @@ export default function Home() {
         </Card>
       ) : null}
       <HomeStickyActionBar
-        visible={(mode !== "horse" || !isHorsePastDate) && (mode !== "mark6" || mark6InPlayView)}
+        visible={(mode !== "horse" || !isHorsePastDate) && (mode !== "mark6" || mark6ShowStandardPlayUi)}
         primaryLabel={isManualMark6 ? t.mark6AddAction : t.generate}
         loadingLabel={t.generating}
         isLoading={isLoading}

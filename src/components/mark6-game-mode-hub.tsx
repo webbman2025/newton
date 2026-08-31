@@ -13,6 +13,7 @@ import {
   BrainCircuitRegular,
   CursorClickRegular,
   GridRegular,
+  PlayCircleRegular,
   SearchRegular,
   SparkleRegular,
   StarRegular,
@@ -29,6 +30,7 @@ const MODE_ICONS: Record<Mark6GameModeId, React.ReactNode> = {
   patternHunter: <SearchRegular fontSize={28} />,
   smartDiversify: <BrainCircuitRegular fontSize={28} />,
   drawPredictor: <ArrowTrendingLinesRegular fontSize={28} />,
+  drawSimulator: <PlayCircleRegular fontSize={28} />,
 };
 
 const MODE_ORDER: Mark6GameModeId[] = [
@@ -39,6 +41,7 @@ const MODE_ORDER: Mark6GameModeId[] = [
   "manualPick",
   "patternHunter",
   "smartDiversify",
+  "drawSimulator",
 ];
 
 type Mark6GameModeHubProps = {
@@ -95,6 +98,12 @@ export function Mark6GameModeHub({ onSelect }: Mark6GameModeHubProps) {
       title: t.mark6ModeSmartDiversifyTitle,
       description: t.mark6ModeSmartDiversifyDescription,
       howToPlay: t.mark6ModeSmartDiversifyHowToPlay,
+    },
+    {
+      id: "drawSimulator",
+      title: t.mark6ModeDrawSimulatorTitle,
+      description: t.mark6ModeDrawSimulatorDescription,
+      howToPlay: t.mark6ModeDrawSimulatorHowToPlay,
     },
   ];
 
