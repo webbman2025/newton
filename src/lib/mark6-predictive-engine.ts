@@ -25,7 +25,8 @@ export type Mark6PredictiveSignalTag =
   | "previousDrawPattern"
   | "seasonalMatch"
   | "hotTrend"
-  | "coldRebound";
+  | "coldRebound"
+  | "pairLink";
 
 export type Mark6PredictiveNumberRow = {
   number: number;
@@ -223,7 +224,7 @@ function applyPreviousDrawSignal(
   for (let number = 1; number <= 49; number += 1) {
     let score = scores.get(number) ?? 0;
     if (drawn.has(number)) {
-      score *= 0.92;
+      score *= 1.08;
     }
     for (const signal of signals) {
       const distance = Math.abs(number - signal);
@@ -237,6 +238,67 @@ function applyPreviousDrawSignal(
       }
     }
     scores.set(number, score);
+  }
+}
+
+function pairKey(left: number, right: number) {
+  return left < right ? `${left}-${right}` : `${right}-${left}`;
+}
+
+function buildPairCounts(draws: TrainingDraw[], window = 120) {
+  const counts = new Map<string, number>();
+  for (const draw of draws.slice(-window)) {
+    const numbers = draw.numbers;
+    for (let i = 0; i < numbers.length; i += 1) {
+      for (let j = i + 1; j < numbers.length; j += 1) {
+        const key = pairKey(numbers[i] ?? 0, numbers[j] ?? 0);
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+    }
+  }
+  return counts;
+}
+
+function getAverageGap(draws: TrainingDraw[], number: number) {
+  const hitIndexes: number[] = [];
+  draws.forEach((draw, index) => {
+    if (draw.numbers.includes(number)) {
+      hitIndexes.push(index);
+    }
+  });
+  if (hitIndexes.length < 2) {
+    return 8;
+  }
+  let total = 0;
+  for (let index = 1; index < hitIndexes.length; index += 1) {
+    total += (hitIndexes[index] ?? 0) - (hitIndexes[index - 1] ?? 0);
+  }
+  return total / (hitIndexes.length - 1);
+}
+
+function applyPairAndDueSignals(
+  scores: Map<number, number>,
+  draws: TrainingDraw[],
+  pairCounts: Map<string, number>,
+  previousDraw?: { numbers: number[] },
+) {
+  const previous = previousDraw?.numbers ?? draws.at(-1)?.numbers ?? [];
+  const maxPair = Math.max(1, ...pairCounts.values());
+
+  for (let number = 1; number <= 49; number += 1) {
+    let extra = 0;
+    for (const partner of previous) {
+      if (partner === number) {
+        continue;
+      }
+      extra += ((pairCounts.get(pairKey(number, partner)) ?? 0) / maxPair) * 0.24;
+    }
+    const averageGap = getAverageGap(draws, number);
+    const gap = getGap(draws, number);
+    if (gap >= averageGap * 0.75 && gap <= averageGap * 2.3) {
+      extra += 0.07;
+    }
+    scores.set(number, (scores.get(number) ?? 0) + extra);
   }
 }
 
@@ -313,8 +375,10 @@ function scoreDraws(
   }
 
   applyPreviousDrawSignal(finalScores, previousDraw);
+  const pairCounts = buildPairCounts(draws);
+  applyPairAndDueSignals(finalScores, draws, pairCounts, previousDraw);
 
-  return { finalScores, historical, modelOnly };
+  return { finalScores, historical, modelOnly, pairCounts };
 }
 
 function pickDeterministicMixedSet(ranked: Array<{ number: number; score: number }>) {
@@ -364,6 +428,81 @@ function pickDeterministicMixedSet(ranked: Array<{ number: number; score: number
   return chosen.sort((a, b) => a - b).slice(0, 6);
 }
 
+function compositionAdjust(chosen: number[], candidate: number) {
+  const next = [...chosen, candidate];
+  const smallCount = next.filter((value) => value <= 24).length;
+  const oddCount = next.filter((value) => value % 2 === 1).length;
+  let adjust = 0;
+  if (chosen.filter((value) => value <= 24).length >= 4 && candidate <= 24) {
+    adjust -= 0.4;
+  }
+  if (chosen.filter((value) => value >= 25).length >= 4 && candidate >= 25) {
+    adjust -= 0.4;
+  }
+  if (chosen.filter((value) => value % 2 === 1).length >= 4 && candidate % 2 === 1) {
+    adjust -= 0.22;
+  }
+  if (chosen.filter((value) => value % 2 === 0).length >= 4 && candidate % 2 === 0) {
+    adjust -= 0.22;
+  }
+  if (next.length === 6) {
+    const sum = next.reduce((total, value) => total + value, 0);
+    if (smallCount < 2 || smallCount > 4) {
+      adjust -= 0.45;
+    }
+    if (oddCount < 2 || oddCount > 4) {
+      adjust -= 0.28;
+    }
+    if (sum < 100 || sum > 190) {
+      adjust -= 0.2;
+    }
+  }
+  return adjust;
+}
+
+function pickCoverageSet(
+  ranked: Array<{ number: number; score: number }>,
+  pairCounts: Map<string, number>,
+) {
+  if (ranked.length <= 6) {
+    return ranked.map((row) => row.number).sort((a, b) => a - b);
+  }
+
+  const pool = [...ranked];
+  const chosen: number[] = [];
+  const maxPair = Math.max(1, ...pairCounts.values());
+  const first = pool.shift();
+  if (first) {
+    chosen.push(first.number);
+  }
+
+  while (chosen.length < 6 && pool.length > 0) {
+    let bestIndex = 0;
+    let bestValue = Number.NEGATIVE_INFINITY;
+    for (let index = 0; index < pool.length; index += 1) {
+      const row = pool[index];
+      if (!row || chosen.includes(row.number)) {
+        continue;
+      }
+      let pairBoost = 0;
+      for (const number of chosen) {
+        pairBoost += (pairCounts.get(pairKey(number, row.number)) ?? 0) / maxPair;
+      }
+      const value = row.score * (1 + pairBoost * 0.2) + compositionAdjust(chosen, row.number) * row.score * 0.1;
+      if (value > bestValue) {
+        bestValue = value;
+        bestIndex = index;
+      }
+    }
+    const picked = pool.splice(bestIndex, 1)[0];
+    if (picked) {
+      chosen.push(picked.number);
+    }
+  }
+
+  return chosen.sort((a, b) => a - b);
+}
+
 function buildTags(
   number: number,
   draws: TrainingDraw[],
@@ -371,6 +510,7 @@ function buildTags(
   modelOnly: Map<number, number>,
   heatByNumber: Map<number, number>,
   previousDraw?: { numbers: number[]; specialNumber?: number },
+  pairCounts?: Map<string, number>,
 ): Mark6PredictiveSignalTag[] {
   const tags: Mark6PredictiveSignalTag[] = [];
   const historicalValues = [...historical.values()].sort((a, b) => b - a);
@@ -392,8 +532,15 @@ function buildTags(
     const signals = previousDraw.specialNumber
       ? [...previousDraw.numbers, previousDraw.specialNumber]
       : previousDraw.numbers;
-    if (signals.some((item) => Math.abs(item - number) <= 2 || 50 - item === number)) {
+    if (signals.some((item) => Math.abs(item - number) <= 2 || 50 - item === number || item === number)) {
       tags.push("previousDrawPattern");
+    }
+    const maxPair = Math.max(1, ...(pairCounts ? pairCounts.values() : [1]));
+    const linked = signals.some(
+      (item) => item !== number && ((pairCounts?.get(pairKey(item, number)) ?? 0) / maxPair) >= 0.35,
+    );
+    if (linked) {
+      tags.push("pairLink");
     }
   }
   return tags.length > 0 ? tags : ["historicalFrequency"];
@@ -418,11 +565,11 @@ function runBacktest(draws: TrainingDraw[], holdout = 24) {
     const training = draws.slice(0, index);
     const actual = new Set(draws[index]?.numbers ?? []);
     const targetDate = draws[index]?.drawDate ?? new Date();
-    const { finalScores } = scoreDraws(training, targetDate);
+    const { finalScores, pairCounts } = scoreDraws(training, targetDate);
     const ranked = [...finalScores.entries()]
       .map(([number, score]) => ({ number, score }))
       .sort((a, b) => b.score - a.score || a.number - b.number);
-    const top6 = new Set(pickDeterministicMixedSet(ranked));
+    const top6 = new Set(pickCoverageSet(ranked, pairCounts));
     const top12 = new Set(ranked.slice(0, 12).map((row) => row.number));
     top6Total += [...actual].filter((number) => top6.has(number)).length;
     top12Total += [...actual].filter((number) => top12.has(number)).length;
@@ -577,7 +724,7 @@ export async function getMark6PredictiveDraw({
   });
 
   const endDateObject = toDate(resolvedDate);
-  const { finalScores, historical, modelOnly } = scoreDraws(
+  const { finalScores, historical, modelOnly, pairCounts } = scoreDraws(
     draws,
     endDateObject,
     previousDraw ?? undefined,
@@ -589,17 +736,15 @@ export async function getMark6PredictiveDraw({
     .sort((a, b) => b.score - a.score || a.number - b.number);
 
   const primarySet =
-    suggestion.mark6BatchSets?.[0]?.length === 6
-      ? [...suggestion.mark6BatchSets[0]].sort((a, b) => a - b)
-      : pickDeterministicMixedSet(ranked);
+    ranked.length >= 6 ? pickCoverageSet(ranked, pairCounts) : pickDeterministicMixedSet(ranked);
 
   const alternativeSets: Array<{ label: string; numbers: number[] }> = [];
   const batchSets = suggestion.mark6BatchSets ?? [];
-  for (let index = 1; index < Math.min(batchSets.length, 4); index += 1) {
+  for (let index = 0; index < Math.min(batchSets.length, 3); index += 1) {
     const set = batchSets[index];
-    if (set?.length === 6) {
+    if (set?.length === 6 && set.join("-") !== primarySet.join("-")) {
       alternativeSets.push({
-        label: locale === "zh-HK" ? `後備組合 ${index}` : `Alternate set ${index}`,
+        label: locale === "zh-HK" ? `後備組合 ${alternativeSets.length + 1}` : `Alternate set ${alternativeSets.length + 1}`,
         numbers: [...set].sort((a, b) => a - b),
       });
     }
@@ -608,7 +753,7 @@ export async function getMark6PredictiveDraw({
   if (alternativeSets.length === 0 && ranked.length >= 12) {
     alternativeSets.push({
       label: locale === "zh-HK" ? "模型排名 7–12" : "Model ranks 7–12",
-      numbers: pickDeterministicMixedSet(ranked.slice(6, 18)),
+      numbers: pickCoverageSet(ranked.slice(6, 18), pairCounts),
     });
   }
 
@@ -625,6 +770,7 @@ export async function getMark6PredictiveDraw({
       modelOnly,
       heatByNumber,
       previousDraw ?? undefined,
+      pairCounts,
     ),
   }));
 
@@ -694,12 +840,12 @@ export async function getMark6PredictiveDraw({
       windowDraws: analysis.window,
     },
     confidenceBand,
-    modelVersion: "mark6-predictive-v3",
+    modelVersion: "mark6-predictive-v4",
     persona,
     methodology:
       locale === "zh-HK"
-        ? `綜合 ${Math.max(draws.length, analysis.drawCount)} 期歷史開彩、walk-forward 邏輯回歸、上一期官方結果模式、50 期冷熱走勢與季節權重。`
-        : `Ensemble of ${Math.max(draws.length, analysis.drawCount)} historical draws, walk-forward logistic scoring, previous-draw pattern boosts, 50-draw hot/cold trends, and seasonal weighting.`,
+        ? `綜合 ${Math.max(draws.length, analysis.drawCount)} 期歷史開彩、共現配對、上期重號、到期間隔、walk-forward 邏輯回歸與 50 期冷熱走勢。組合以覆蓋頭 12 熱號為目標，並非提高中獎機率。`
+        : `Ensemble of ${Math.max(draws.length, analysis.drawCount)} historical draws, pair co-occurrence, last-draw overlap, due-gap timing, walk-forward logistic scoring, and 50-draw hot/cold trends. Sets are built for 3-number coverage, not higher official odds.`,
     disclaimer:
       locale === "zh-HK"
         ? "預測只供娛樂及研究用途。六合彩每個組合機會均等，歷史資料不能保證未來結果。"

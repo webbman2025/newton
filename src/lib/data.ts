@@ -1431,6 +1431,27 @@ function buildRankedMark6Entries(
   return rankedEntries.map(([number, score]) => ({ number, score }));
 }
 
+function rebalanceMark6SizeMix(
+  picked: number[],
+  entries: Array<{ number: number; score: number }>,
+) {
+  const smallCount = picked.filter((value) => value <= 24).length;
+  if (smallCount >= 2 && smallCount <= 4) {
+    return [...picked].sort((a, b) => a - b);
+  }
+  const wantSmall = smallCount < 2;
+  const replacement = entries.find(
+    (row) => !picked.includes(row.number) && (wantSmall ? row.number <= 24 : row.number >= 25),
+  );
+  const dropIndex = picked.findIndex((value) => (wantSmall ? value >= 25 : value <= 24));
+  if (!replacement || dropIndex < 0) {
+    return [...picked].sort((a, b) => a - b);
+  }
+  const next = [...picked];
+  next[dropIndex] = replacement.number;
+  return next.sort((a, b) => a - b);
+}
+
 function pickMark6SetWithMix(
   entries: Array<{ number: number; score: number }>,
   numberMix: Mark6NumberMix,
@@ -1451,13 +1472,8 @@ function pickMark6SetWithMix(
   }
 
   if (numberMix === "mixed") {
-    const smallPool = entries.filter((item) => item.number <= 24);
-    const bigPool = entries.filter((item) => item.number >= 25);
-    if (smallPool.length >= 3 && bigPool.length >= 3) {
-      const smallPicks = pickWeightedNumbers(smallPool, 3);
-      const bigPicks = pickWeightedNumbers(bigPool, 3);
-      return [...smallPicks, ...bigPicks].sort((a, b) => a - b);
-    }
+    const picked = pickWeightedNumbers(entries, 6);
+    return rebalanceMark6SizeMix(picked, entries);
   }
 
   const filtered = getNumberMixFilteredEntries(entries, numberMix);

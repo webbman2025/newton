@@ -32,6 +32,7 @@ const signalTagLabels: Record<
   seasonalMatch: { en: "Seasonal", zh: "季節" },
   hotTrend: { en: "Hot", zh: "熱門" },
   coldRebound: { en: "Cold gap", zh: "冷門間隔" },
+  pairLink: { en: "Pair", zh: "常配" },
 };
 
 export function Mark6PredictiveDrawCard({ targetDate, persona }: Mark6PredictiveDrawCardProps) {
