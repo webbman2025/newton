@@ -6,6 +6,7 @@ import { ArrowClockwiseRegular, PlayRegular } from "@fluentui/react-icons";
 import { useCopy, useLocale } from "@/components/locale-provider";
 import type { Mark6Persona } from "@/lib/mark6-analysis";
 import {
+  deriveSimulatorBankers,
   fetchMark6DrawSimulatorNumbers,
   type Mark6DrawSimulatorPayload,
 } from "@/lib/mark6-draw-simulator";
@@ -28,14 +29,22 @@ type DrawHistoryEntry = Mark6DrawSimulatorPayload & {
 function DrawResultChips({
   payload,
   bonusLabel,
+  bankers = [],
 }: {
   payload: Mark6DrawSimulatorPayload;
   bonusLabel: string;
+  bankers?: number[];
 }) {
+  const bankerSet = new Set(bankers);
   return (
     <>
       {payload.mainNumbers.map((number) => (
-        <Chip key={`sim-main-${number}`} label={number} color="primary" sx={{ fontWeight: 700 }} />
+        <Chip
+          key={`sim-main-${number}`}
+          label={number}
+          color={bankerSet.has(number) ? "success" : "primary"}
+          sx={{ fontWeight: 700 }}
+        />
       ))}
       <Typography variant="body2" sx={{ color: "warning.main", fontWeight: 700, px: 0.2 }}>
         +
@@ -117,7 +126,10 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
     });
   }, []);
 
+  const bankers = deriveSimulatorBankers(drawHistory, results);
+
   const handleStart = useCallback(async () => {
+    const nextBankers = deriveSimulatorBankers(drawHistory, results);
     setLoadError(null);
     archiveCurrentResult();
     setRunning(true);
@@ -130,14 +142,14 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
       return;
     }
     try {
-      const payload = await fetchMark6DrawSimulatorNumbers(targetDate, persona, locale);
+      const payload = await fetchMark6DrawSimulatorNumbers(targetDate, persona, locale, nextBankers);
       controllerRef.current?.startDraw(payload);
     } catch {
       setLoadError(t.mark6DrawSimulatorError);
       setRunning(false);
       setStatus(t.mark6DrawSimulatorIdle);
     }
-  }, [archiveCurrentResult, locale, persona, t, targetDate]);
+  }, [archiveCurrentResult, drawHistory, locale, persona, results, t, targetDate]);
 
   const handleReset = useCallback(() => {
     controllerRef.current?.reset();
@@ -173,6 +185,19 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
       <Typography variant="body2" color="text.secondary" sx={{ minHeight: 24 }}>
         {status}
       </Typography>
+      <Typography variant="caption" color="text.secondary">
+        {t.mark6DrawSimulatorPoolHint}
+      </Typography>
+      {bankers.length > 0 ? (
+        <Stack direction="row" spacing={0.8} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+          <Typography variant="caption" color="text.secondary">
+            {t.mark6DrawSimulatorBankerLabel}
+          </Typography>
+          {bankers.map((number) => (
+            <Chip key={`sim-banker-${number}`} label={number} color="success" size="small" sx={{ fontWeight: 700 }} />
+          ))}
+        </Stack>
+      ) : null}
       {results ? (
         <Stack
           direction="row"
@@ -180,7 +205,11 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
           useFlexGap
           sx={{ flexWrap: "wrap", alignItems: "center", justifyContent: "center" }}
         >
-          <DrawResultChips payload={results} bonusLabel={t.mark6DrawSimulatorBonusLabel} />
+          <DrawResultChips
+            payload={results}
+            bonusLabel={t.mark6DrawSimulatorBonusLabel}
+            bankers={results.bankers ?? bankers}
+          />
         </Stack>
       ) : null}
       {loadError ? (
@@ -236,7 +265,11 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
                   )}
                 </Typography>
                 <Stack direction="row" spacing={0.8} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
-                  <DrawResultChips payload={entry} bonusLabel={t.mark6DrawSimulatorBonusLabel} />
+                  <DrawResultChips
+                    payload={entry}
+                    bonusLabel={t.mark6DrawSimulatorBonusLabel}
+                    bankers={entry.bankers}
+                  />
                 </Stack>
               </Stack>
             ))}

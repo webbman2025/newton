@@ -58,6 +58,7 @@ export type Mark6PredictiveDrawResult = {
   primarySet: number[];
   alternativeSets: Array<{ label: string; numbers: number[] }>;
   specialNumberPick?: number;
+  specialNumberRanks?: number[];
   topSignals: Mark6PredictiveNumberRow[];
   analysisHighlights: {
     hotNumbers: number[];
@@ -222,7 +223,7 @@ function applyPreviousDrawSignal(
   for (let number = 1; number <= 49; number += 1) {
     let score = scores.get(number) ?? 0;
     if (drawn.has(number)) {
-      score *= 0.72;
+      score *= 0.92;
     }
     for (const signal of signals) {
       const distance = Math.abs(number - signal);
@@ -461,15 +462,16 @@ function getConfidence(drawCount: number, rankedScores: number[]): ConfidenceBan
   return "Low";
 }
 
-function predictSpecialNumber(draws: TrainingDraw[]) {
+function rankSpecialNumbers(draws: TrainingDraw[]) {
   const counts = new Map<number, number>();
   for (const draw of draws.slice(-80)) {
     if (draw.specialNumber && draw.specialNumber >= 1 && draw.specialNumber <= 49) {
       counts.set(draw.specialNumber, (counts.get(draw.specialNumber) ?? 0) + 1);
     }
   }
-  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]);
-  return ranked[0]?.[0];
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+    .map(([number]) => number);
 }
 
 export function resolveNextMark6DrawDate(preferredDate?: string, upcomingDates: string[] = []) {
@@ -611,7 +613,7 @@ export async function getMark6PredictiveDraw({
   }
 
   const maxScore = ranked[0]?.score ?? 1;
-  const topSignals: Mark6PredictiveNumberRow[] = ranked.slice(0, 12).map((row, index) => ({
+  const topSignals: Mark6PredictiveNumberRow[] = ranked.slice(0, 18).map((row, index) => ({
     number: row.number,
     rank: index + 1,
     score: Number(row.score.toFixed(4)),
@@ -649,6 +651,8 @@ export async function getMark6PredictiveDraw({
     ranked.map((row) => row.score),
   );
 
+  const specialNumberRanks = rankSpecialNumbers(draws).slice(0, 12);
+
   const drawDay = endDateObject.toLocaleDateString(locale === "zh-HK" ? "zh-HK" : "en-HK", {
     weekday: "long",
     year: "numeric",
@@ -680,7 +684,8 @@ export async function getMark6PredictiveDraw({
     },
     primarySet,
     alternativeSets,
-    specialNumberPick: predictSpecialNumber(draws),
+    specialNumberPick: specialNumberRanks[0],
+    specialNumberRanks,
     topSignals,
     analysisHighlights: {
       hotNumbers,
@@ -689,7 +694,7 @@ export async function getMark6PredictiveDraw({
       windowDraws: analysis.window,
     },
     confidenceBand,
-    modelVersion: "mark6-predictive-v2",
+    modelVersion: "mark6-predictive-v3",
     persona,
     methodology:
       locale === "zh-HK"

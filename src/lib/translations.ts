@@ -327,6 +327,8 @@ type CopyShape = {
   mark6DrawSimulatorBonusLabel: string;
   mark6DrawSimulatorHistoryTitle: string;
   mark6DrawSimulatorHistoryDrawLabel: string;
+  mark6DrawSimulatorPoolHint: string;
+  mark6DrawSimulatorBankerLabel: string;
   horseWinningHorseLabel: string;
   horsePreviousWinnerLabel: string;
   horsePreviousWinnerDateLabel: string;
@@ -726,6 +728,9 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorBonusLabel: "Bonus",
     mark6DrawSimulatorHistoryTitle: "Previous draws",
     mark6DrawSimulatorHistoryDrawLabel: "Draw {index}",
+    mark6DrawSimulatorPoolHint:
+      "Each draw samples 6 numbers from the model’s top 18. Numbers that repeat in recent runs lock in as bankers.",
+    mark6DrawSimulatorBankerLabel: "Bankers",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
     horsePreviousWinnerDateLabel: "Last result date",
@@ -1112,6 +1117,8 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorBonusLabel: "特別號",
     mark6DrawSimulatorHistoryTitle: "過往攪珠",
     mark6DrawSimulatorHistoryDrawLabel: "第 {index} 次",
+    mark6DrawSimulatorPoolHint: "每次從模型頭 18 個號碼加權抽出 6 個；近期重複出現的號碼會鎖定為膽碼。",
+    mark6DrawSimulatorBankerLabel: "膽碼",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",
     horsePreviousWinnerDateLabel: "最近結果日期",
