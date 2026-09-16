@@ -16,16 +16,21 @@ const GAME_HEIGHT = 520;
 const BALL_DIAMETER = BALL_RADIUS * 2;
 const MIX_GRAVITY = 0.42;
 const MIX_DRAG = 0.988;
+const MIX_SETTLE_DRAG = 0.955;
 const WALL_BOUNCE = 0.78;
+const WALL_BOUNCE_SETTLE = 0.32;
 const BALL_BOUNCE = 0.92;
 const MAX_BALL_SPEED = 9.5;
 const MIX_SPIN = 0.085;
+const MIX_SETTLE_MS = 1_800;
+const REVEAL_SCALE = 1.5;
+const REVEAL_BONUS_SCALE = 1.65;
+const RACK_SLOT_RADIUS = 20;
 
 type BallEntry = {
   number: number;
   dropSprite?: Phaser.GameObjects.Container;
   circle?: Phaser.GameObjects.Arc;
-  highlight?: Phaser.GameObjects.Arc;
   label?: Phaser.GameObjects.Text;
   drawn: boolean;
   vx: number;
@@ -68,6 +73,8 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
   private mixing = false;
   private mixTimer?: Phaser.Time.TimerEvent;
   private spinPhase = 0;
+  private mixElapsedMs = 0;
+  private mixDurationMs = MARK6_DRAW_SIMULATOR_MIX_MS;
 
   constructor() {
     super({ key: "Mark6DrawSimulatorScene" });
@@ -97,12 +104,15 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     }
 
     const step = Math.min(delta, 34);
-    this.spinPhase += step * MIX_SPIN;
+    this.mixElapsedMs += step;
+    const energy = this.getMixEnergy();
+    this.spinPhase += step * MIX_SPIN * (0.22 + energy * 0.78);
+    const rock = Math.sin(this.spinPhase * 0.35) * 11 * energy;
     if (this.drumGraphic) {
-      this.drumGraphic.setAngle(Math.sin(this.spinPhase * 0.35) * 11);
+      this.drumGraphic.setAngle(rock);
     }
     if (this.drumRimGraphic) {
-      this.drumRimGraphic.setAngle(Math.sin(this.spinPhase * 0.35) * 11);
+      this.drumRimGraphic.setAngle(rock);
     }
     if (this.paddleGraphic) {
       this.paddleGraphic.setAngle(this.spinPhase * 18);
@@ -137,8 +147,8 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     this.drumRadius = Math.min(118, width * 0.36, height * 0.28);
 
     const rackPadding = 20;
-    const minSlotGap = BALL_DIAMETER + 6;
-    const maxSlotGap = 42;
+    const minSlotGap = RACK_SLOT_RADIUS * 2 + 4;
+    const maxSlotGap = 48;
     const bonusSeparator = 22;
     const availableWidth = width - rackPadding * 2;
     const slotGap = Math.min(
@@ -148,12 +158,15 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     const bonusGap = slotGap + bonusSeparator;
     const rackStartX = this.drumX - (5 * slotGap + bonusGap) / 2;
     this.slotGap = slotGap;
-    this.slotInset = Math.max(22, slotGap * 0.65);
     this.mainSlotXs = Array.from(
       { length: 6 },
       (_value, index) => rackStartX + index * slotGap,
     );
     this.bonusSlotX = rackStartX + 5 * slotGap + bonusGap;
+    this.slotInset = Math.max(
+      12,
+      Math.min(22, this.mainSlotXs[0] - 8, width - this.bonusSlotX - 8),
+    );
   }
 
   private drawStage() {
@@ -252,14 +265,14 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     this.rackGraphic.lineStyle(2, 0xffffff, 0.2);
     this.rackGraphic.strokeRoundedRect(
       this.mainSlotXs[0] - this.slotInset,
-      this.rackY - 24,
+      this.rackY - 28,
       mainRackWidth,
-      48,
-      12,
+      56,
+      14,
     );
     this.mainSlotXs.forEach((x) => {
       this.rackGraphic?.lineStyle(1.5, 0xffffff, 0.18);
-      this.rackGraphic?.strokeCircle(x, this.rackY, 17);
+      this.rackGraphic?.strokeCircle(x, this.rackY, RACK_SLOT_RADIUS);
     });
 
     const dividerX = (this.mainSlotXs[5] + this.bonusSlotX) / 2;
@@ -276,8 +289,8 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       .setAlpha(0.85);
 
     this.rackGraphic.lineStyle(2, 0xffd54f, 0.55);
-    this.rackGraphic.strokeRoundedRect(this.bonusSlotX - this.slotInset, this.rackY - 24, this.slotInset * 2, 48, 12);
-    this.rackGraphic.strokeCircle(this.bonusSlotX, this.rackY, 17);
+    this.rackGraphic.strokeRoundedRect(this.bonusSlotX - this.slotInset, this.rackY - 28, this.slotInset * 2, 56, 14);
+    this.rackGraphic.strokeCircle(this.bonusSlotX, this.rackY, RACK_SLOT_RADIUS);
   }
 
   private getBallPosition(entry: BallEntry): { x: number; y: number } | null {
@@ -297,9 +310,6 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     if (entry.label) {
       entry.label.setPosition(entry.circle.x, entry.circle.y);
       entry.label.setRotation(entry.circle.rotation);
-    }
-    if (entry.highlight) {
-      entry.highlight.setPosition(entry.circle.x - 4, entry.circle.y - 5);
     }
   }
 
@@ -325,13 +335,10 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       .circle(x, y, BALL_RADIUS, color)
       .setStrokeStyle(2, 0xffffff)
       .setDepth(10);
-    const highlight = this.add
-      .circle(x - 4, y - 5, 4.5, 0xffffff, 0.38)
-      .setDepth(12);
     const label = this.add
       .text(x, y, String(number), {
         fontFamily: "Arial, sans-serif",
-        fontSize: "12px",
+        fontSize: "13px",
         color: "#ffffff",
         fontStyle: "bold",
       })
@@ -340,7 +347,6 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     return {
       number,
       circle,
-      highlight,
       label,
       drawn: false,
       vx: Phaser.Math.FloatBetween(-3.2, 3.2),
@@ -363,12 +369,22 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     };
   }
 
+  private getMixEnergy() {
+    const remaining = this.mixDurationMs - this.mixElapsedMs;
+    if (remaining >= MIX_SETTLE_MS) {
+      return 1;
+    }
+    const t = Math.max(0, remaining / MIX_SETTLE_MS);
+    return 0.08 + t * t * 0.92;
+  }
+
   private clampSpeed(entry: BallEntry) {
+    const maxSpeed = 1.4 + MAX_BALL_SPEED * this.getMixEnergy();
     const speed = Math.hypot(entry.vx, entry.vy);
-    if (speed <= MAX_BALL_SPEED) {
+    if (speed <= maxSpeed) {
       return;
     }
-    const scale = MAX_BALL_SPEED / speed;
+    const scale = maxSpeed / speed;
     entry.vx *= scale;
     entry.vy *= scale;
   }
@@ -390,15 +406,17 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     entry.circle.x = this.drumX + nx * maxDist;
     entry.circle.y = this.drumY + ny * maxDist;
 
+    const energy = this.getMixEnergy();
+    const restitution = WALL_BOUNCE_SETTLE + (WALL_BOUNCE - WALL_BOUNCE_SETTLE) * energy;
     const outgoing = entry.vx * nx + entry.vy * ny;
     if (outgoing > 0) {
-      entry.vx -= (1 + WALL_BOUNCE) * outgoing * nx;
-      entry.vy -= (1 + WALL_BOUNCE) * outgoing * ny;
+      entry.vx -= (1 + restitution) * outgoing * nx;
+      entry.vy -= (1 + restitution) * outgoing * ny;
     }
 
     const tangentX = -ny;
     const tangentY = nx;
-    const scoop = 2.6 + Math.abs(Math.sin(this.spinPhase)) * 1.8;
+    const scoop = (2.6 + Math.abs(Math.sin(this.spinPhase)) * 1.8) * energy;
     entry.vx += tangentX * scoop;
     entry.vy += tangentY * scoop;
     this.clampSpeed(entry);
@@ -437,7 +455,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
         if (closing >= 0) {
           continue;
         }
-        const impulse = (-(1 + BALL_BOUNCE) * closing) / 2;
+        const impulse = (-(1 + BALL_BOUNCE * (0.35 + this.getMixEnergy() * 0.65)) * closing) / 2;
         a.vx -= impulse * nx;
         a.vy -= impulse * ny;
         b.vx += impulse * nx;
@@ -453,9 +471,11 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       if (!entry.circle || entry.drawn) {
         continue;
       }
+      const energy = this.getMixEnergy();
+      const drag = MIX_SETTLE_DRAG + (MIX_DRAG - MIX_SETTLE_DRAG) * energy;
       entry.vy += MIX_GRAVITY * dt;
-      entry.vx *= MIX_DRAG;
-      entry.vy *= MIX_DRAG;
+      entry.vx *= drag;
+      entry.vy *= drag;
       entry.circle.x += entry.vx * dt * 16.67;
       entry.circle.y += entry.vy * dt * 16.67;
       entry.circle.angle += entry.vx * 2.4 * dt;
@@ -511,7 +531,6 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
   private destroyBallEntry(entry: BallEntry) {
     entry.dropSprite?.destroy();
     entry.circle?.destroy();
-    entry.highlight?.destroy();
     entry.label?.destroy();
   }
 
@@ -588,6 +607,8 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
 
     this.mixing = true;
     this.spinPhase = 0;
+    this.mixElapsedMs = 0;
+    this.mixDurationMs = durationMs;
 
     for (const entry of this.balls) {
       if (entry.drawn || !entry.circle) {
@@ -714,8 +735,9 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     entry.vx = 0;
     entry.vy = 0;
     entry.circle.setDepth(20);
-    entry.highlight?.setDepth(22);
     entry.label.setDepth(21);
+    entry.label.setFontSize(18);
+    entry.label.setRotation(0);
 
     if (this.columnGraphic) {
       this.tweens.add({
@@ -732,7 +754,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       targets: [entry.circle, entry.label],
       x: this.drumX,
       y: liftY,
-      scale: 1.25,
+      scale: 1.7,
       angle: 0,
       duration: 700,
       ease: "Cubic.Out",
@@ -742,13 +764,13 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
           targets: [entry.circle, entry.label],
           x: slotX,
           y: this.rackY,
-          scale: isBonus ? 1.15 : 1.05,
+          scale: isBonus ? REVEAL_BONUS_SCALE : REVEAL_SCALE,
           duration: 900,
           ease: "Quad.InOut",
           onUpdate: () => this.syncLabel(entry),
           onComplete: () => {
             this.syncLabel(entry);
-            const glow = this.add.circle(slotX, this.rackY, 18, isBonus ? 0xffd54f : 0x42a5f5, 0.25);
+            const glow = this.add.circle(slotX, this.rackY, 24, isBonus ? 0xffd54f : 0x42a5f5, 0.25);
             glow.setDepth(5);
             this.tweens.add({
               targets: glow,
