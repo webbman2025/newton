@@ -14,13 +14,22 @@ import {
 const BALL_RADIUS = 14;
 const GAME_HEIGHT = 520;
 const BALL_DIAMETER = BALL_RADIUS * 2;
+const MIX_GRAVITY = 0.42;
+const MIX_DRAG = 0.988;
+const WALL_BOUNCE = 0.78;
+const BALL_BOUNCE = 0.92;
+const MAX_BALL_SPEED = 9.5;
+const MIX_SPIN = 0.085;
 
 type BallEntry = {
   number: number;
   dropSprite?: Phaser.GameObjects.Container;
   circle?: Phaser.GameObjects.Arc;
+  highlight?: Phaser.GameObjects.Arc;
   label?: Phaser.GameObjects.Text;
   drawn: boolean;
+  vx: number;
+  vy: number;
 };
 
 type SceneCallbacks = {
@@ -49,6 +58,8 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
   private slotInset = 22;
   private backdrop?: Phaser.GameObjects.Graphics;
   private drumGraphic?: Phaser.GameObjects.Graphics;
+  private drumRimGraphic?: Phaser.GameObjects.Graphics;
+  private paddleGraphic?: Phaser.GameObjects.Graphics;
   private drumBase?: Phaser.GameObjects.Graphics;
   private rackGraphic?: Phaser.GameObjects.Graphics;
   private rackPlusLabel?: Phaser.GameObjects.Text;
@@ -85,9 +96,22 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       return;
     }
 
-    this.spinPhase += delta * 0.006;
+    const step = Math.min(delta, 34);
+    this.spinPhase += step * MIX_SPIN;
     if (this.drumGraphic) {
-      this.drumGraphic.setAngle(Math.sin(this.spinPhase * 1.5) * 7);
+      this.drumGraphic.setAngle(Math.sin(this.spinPhase * 0.35) * 11);
+    }
+    if (this.drumRimGraphic) {
+      this.drumRimGraphic.setAngle(Math.sin(this.spinPhase * 0.35) * 11);
+    }
+    if (this.paddleGraphic) {
+      this.paddleGraphic.setAngle(this.spinPhase * 18);
+    }
+
+    const substeps = 2;
+    const dt = step / (16.67 * substeps);
+    for (let i = 0; i < substeps; i += 1) {
+      this.integrateMixPhysics(dt);
     }
   }
 
@@ -137,6 +161,8 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
 
     this.backdrop?.destroy();
     this.drumGraphic?.destroy();
+    this.drumRimGraphic?.destroy();
+    this.paddleGraphic?.destroy();
     this.drumBase?.destroy();
     this.rackGraphic?.destroy();
     this.rackPlusLabel?.destroy();
@@ -147,16 +173,51 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     this.backdrop.fillRect(0, 0, width, height);
 
     const chute = this.add.graphics();
-    chute.fillStyle(0xffffff, 0.08);
-    chute.fillRoundedRect(this.drumX - 34, 18, 68, 86, 10);
-    chute.lineStyle(2, 0x5eb3ff, 0.35);
-    chute.strokeRoundedRect(this.drumX - 34, 18, 68, 86, 10);
+    chute.fillStyle(0xffffff, 0.1);
+    chute.fillRoundedRect(this.drumX - 22, 10, 44, this.drumY - this.drumRadius - 8, 8);
+    chute.lineStyle(2, 0x5eb3ff, 0.4);
+    chute.strokeRoundedRect(this.drumX - 22, 10, 44, this.drumY - this.drumRadius - 8, 8);
+    chute.fillStyle(0x07101f, 0.55);
+    chute.fillTriangle(
+      this.drumX - 18,
+      this.drumY - this.drumRadius - 10,
+      this.drumX + 18,
+      this.drumY - this.drumRadius - 10,
+      this.drumX,
+      this.drumY - this.drumRadius + 6,
+    );
 
     this.drumGraphic = this.add.graphics();
-    this.drumGraphic.lineStyle(4, 0x8fd0ff, 0.85);
-    this.drumGraphic.strokeCircle(this.drumX, this.drumY, this.drumRadius);
-    this.drumGraphic.lineStyle(2, 0xffffff, 0.15);
-    this.drumGraphic.strokeCircle(this.drumX, this.drumY, this.drumRadius - 16);
+    this.drumGraphic.setPosition(this.drumX, this.drumY);
+    this.drumGraphic.setDepth(1);
+    this.drumGraphic.fillStyle(0x0b2748, 0.42);
+    this.drumGraphic.fillCircle(0, 0, this.drumRadius);
+    this.drumGraphic.fillStyle(0xffffff, 0.07);
+    this.drumGraphic.fillEllipse(-this.drumRadius * 0.22, -this.drumRadius * 0.28, this.drumRadius * 0.7, this.drumRadius * 0.38);
+
+    this.paddleGraphic = this.add.graphics();
+    this.paddleGraphic.setPosition(this.drumX, this.drumY);
+    this.paddleGraphic.setDepth(2);
+    this.paddleGraphic.lineStyle(4, 0xb3e5fc, 0.55);
+    for (let paddle = 0; paddle < 4; paddle += 1) {
+      const angle = (Math.PI / 2) * paddle;
+      this.paddleGraphic.lineBetween(
+        Math.cos(angle) * 18,
+        Math.sin(angle) * 18,
+        Math.cos(angle) * (this.drumRadius - 22),
+        Math.sin(angle) * (this.drumRadius - 22),
+      );
+    }
+    this.paddleGraphic.fillStyle(0x90caf9, 0.35);
+    this.paddleGraphic.fillCircle(0, 0, 10);
+
+    this.drumRimGraphic = this.add.graphics();
+    this.drumRimGraphic.setPosition(this.drumX, this.drumY);
+    this.drumRimGraphic.setDepth(16);
+    this.drumRimGraphic.lineStyle(8, 0x7ec8ff, 0.95);
+    this.drumRimGraphic.strokeCircle(0, 0, this.drumRadius);
+    this.drumRimGraphic.lineStyle(3, 0xffffff, 0.22);
+    this.drumRimGraphic.strokeCircle(0, 0, this.drumRadius - 14);
 
     this.drumBase = this.add.graphics();
     this.drumBase.fillStyle(0x123d6b, 0.9);
@@ -230,11 +291,16 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
   }
 
   private syncLabel(entry: BallEntry) {
-    if (!entry.circle || !entry.label) {
+    if (!entry.circle) {
       return;
     }
-    entry.label.setPosition(entry.circle.x, entry.circle.y);
-    entry.label.setRotation(entry.circle.rotation);
+    if (entry.label) {
+      entry.label.setPosition(entry.circle.x, entry.circle.y);
+      entry.label.setRotation(entry.circle.rotation);
+    }
+    if (entry.highlight) {
+      entry.highlight.setPosition(entry.circle.x - 4, entry.circle.y - 5);
+    }
   }
 
   private createDropSprite(number: number, x: number, y: number): BallEntry {
@@ -250,7 +316,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       .setOrigin(0.5);
     const dropSprite = this.add.container(x, y, [circle, text]);
     dropSprite.setDepth(10);
-    return { number, dropSprite, drawn: false };
+    return { number, dropSprite, drawn: false, vx: 0, vy: 0 };
   }
 
   private createCircleBall(number: number, x: number, y: number): BallEntry {
@@ -259,6 +325,9 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       .circle(x, y, BALL_RADIUS, color)
       .setStrokeStyle(2, 0xffffff)
       .setDepth(10);
+    const highlight = this.add
+      .circle(x - 4, y - 5, 4.5, 0xffffff, 0.38)
+      .setDepth(12);
     const label = this.add
       .text(x, y, String(number), {
         fontFamily: "Arial, sans-serif",
@@ -268,7 +337,15 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(11);
-    return { number, circle, label, drawn: false };
+    return {
+      number,
+      circle,
+      highlight,
+      label,
+      drawn: false,
+      vx: Phaser.Math.FloatBetween(-3.2, 3.2),
+      vy: Phaser.Math.FloatBetween(-1.2, 2.4),
+    };
   }
 
   private clampToDrum(x: number, y: number): { x: number; y: number } {
@@ -286,36 +363,114 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     };
   }
 
-  private resolveBallCollisions(entry: BallEntry, targetX: number, targetY: number): { x: number; y: number } {
-    let x = targetX;
-    let y = targetY;
+  private clampSpeed(entry: BallEntry) {
+    const speed = Math.hypot(entry.vx, entry.vy);
+    if (speed <= MAX_BALL_SPEED) {
+      return;
+    }
+    const scale = MAX_BALL_SPEED / speed;
+    entry.vx *= scale;
+    entry.vy *= scale;
+  }
 
-    for (let pass = 0; pass < 3; pass += 1) {
-      for (const other of this.balls) {
-        if (other === entry || other.drawn) {
+  private bounceOffDrum(entry: BallEntry) {
+    if (!entry.circle) {
+      return;
+    }
+    const dx = entry.circle.x - this.drumX;
+    const dy = entry.circle.y - this.drumY;
+    const dist = Math.max(Math.hypot(dx, dy), 0.001);
+    const maxDist = this.drumRadius - BALL_RADIUS - 3;
+    if (dist <= maxDist) {
+      return;
+    }
+
+    const nx = dx / dist;
+    const ny = dy / dist;
+    entry.circle.x = this.drumX + nx * maxDist;
+    entry.circle.y = this.drumY + ny * maxDist;
+
+    const outgoing = entry.vx * nx + entry.vy * ny;
+    if (outgoing > 0) {
+      entry.vx -= (1 + WALL_BOUNCE) * outgoing * nx;
+      entry.vy -= (1 + WALL_BOUNCE) * outgoing * ny;
+    }
+
+    const tangentX = -ny;
+    const tangentY = nx;
+    const scoop = 2.6 + Math.abs(Math.sin(this.spinPhase)) * 1.8;
+    entry.vx += tangentX * scoop;
+    entry.vy += tangentY * scoop;
+    this.clampSpeed(entry);
+  }
+
+  private resolveBallCollisions() {
+    for (let i = 0; i < this.balls.length; i += 1) {
+      const a = this.balls[i];
+      if (!a?.circle || a.drawn) {
+        continue;
+      }
+      for (let j = i + 1; j < this.balls.length; j += 1) {
+        const b = this.balls[j];
+        if (!b?.circle || b.drawn) {
           continue;
         }
-        const otherPos = this.getBallPosition(other);
-        if (!otherPos) {
-          continue;
-        }
-        const dx = x - otherPos.x;
-        const dy = y - otherPos.y;
+        const dx = b.circle.x - a.circle.x;
+        const dy = b.circle.y - a.circle.y;
         const dist = Math.hypot(dx, dy);
-        const minDist = BALL_DIAMETER + 2;
+        const minDist = BALL_DIAMETER + 1;
         if (dist >= minDist || dist === 0) {
           continue;
         }
-        const overlap = minDist - dist;
-        const nx = dist === 0 ? 1 : dx / dist;
-        const ny = dist === 0 ? 0 : dy / dist;
-        x += nx * overlap * 0.55;
-        y += ny * overlap * 0.55;
-      }
-      ({ x, y } = this.clampToDrum(x, y));
-    }
 
-    return { x, y };
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const overlap = minDist - dist;
+        a.circle.x -= nx * overlap * 0.5;
+        a.circle.y -= ny * overlap * 0.5;
+        b.circle.x += nx * overlap * 0.5;
+        b.circle.y += ny * overlap * 0.5;
+
+        const relVx = b.vx - a.vx;
+        const relVy = b.vy - a.vy;
+        const closing = relVx * nx + relVy * ny;
+        if (closing >= 0) {
+          continue;
+        }
+        const impulse = (-(1 + BALL_BOUNCE) * closing) / 2;
+        a.vx -= impulse * nx;
+        a.vy -= impulse * ny;
+        b.vx += impulse * nx;
+        b.vy += impulse * ny;
+        this.clampSpeed(a);
+        this.clampSpeed(b);
+      }
+    }
+  }
+
+  private integrateMixPhysics(dt: number) {
+    for (const entry of this.balls) {
+      if (!entry.circle || entry.drawn) {
+        continue;
+      }
+      entry.vy += MIX_GRAVITY * dt;
+      entry.vx *= MIX_DRAG;
+      entry.vy *= MIX_DRAG;
+      entry.circle.x += entry.vx * dt * 16.67;
+      entry.circle.y += entry.vy * dt * 16.67;
+      entry.circle.angle += entry.vx * 2.4 * dt;
+      this.bounceOffDrum(entry);
+    }
+    this.resolveBallCollisions();
+    for (const entry of this.balls) {
+      if (!entry.circle || entry.drawn) {
+        continue;
+      }
+      const clamped = this.clampToDrum(entry.circle.x, entry.circle.y);
+      entry.circle.x = clamped.x;
+      entry.circle.y = clamped.y;
+      this.syncLabel(entry);
+    }
   }
 
   private randomPointInDrum(): { x: number; y: number } {
@@ -356,6 +511,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
   private destroyBallEntry(entry: BallEntry) {
     entry.dropSprite?.destroy();
     entry.circle?.destroy();
+    entry.highlight?.destroy();
     entry.label?.destroy();
   }
 
@@ -413,9 +569,9 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
         targets: ball.dropSprite,
         x: target.x,
         y: target.y,
-        delay: index * 45,
-        duration: 420,
-        ease: "Back.Out",
+        delay: index * 38,
+        duration: 620,
+        ease: "Bounce.Out",
         onComplete: () => {
           completed += 1;
           if (completed === numbers.length) {
@@ -438,37 +594,13 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
         continue;
       }
       this.tweens.killTweensOf(entry.circle);
-      this.scrambleBall(entry);
+      entry.vx = Phaser.Math.FloatBetween(-5.5, 5.5);
+      entry.vy = Phaser.Math.FloatBetween(-4.2, 3.8);
+      this.syncLabel(entry);
     }
 
     this.mixTimer = this.time.delayedCall(durationMs, () => {
       this.finishMixing(onComplete);
-    });
-  }
-
-  private scrambleBall(entry: BallEntry) {
-    if (!this.mixing || entry.drawn || !entry.circle) {
-      return;
-    }
-
-    const rawTarget = this.randomPointInDrum();
-    const target = this.resolveBallCollisions(entry, rawTarget.x, rawTarget.y);
-    const duration = Phaser.Math.Between(220, 380);
-
-    this.tweens.add({
-      targets: entry.circle,
-      x: target.x,
-      y: target.y,
-      angle: entry.circle.angle + Phaser.Math.Between(-140, 140),
-      duration,
-      ease: "Sine.InOut",
-      onUpdate: () => this.syncLabel(entry),
-      onComplete: () => {
-        this.syncLabel(entry);
-        if (this.mixing && !entry.drawn) {
-          this.scrambleBall(entry);
-        }
-      },
     });
   }
 
@@ -488,12 +620,20 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       if (entry.circle) {
         this.tweens.killTweensOf(entry.circle);
       }
+      entry.vx = 0;
+      entry.vy = 0;
       this.syncLabel(entry);
     }
 
     if (this.drumGraphic) {
       this.tweens.killTweensOf(this.drumGraphic);
       this.drumGraphic.setAngle(0);
+    }
+    if (this.drumRimGraphic) {
+      this.drumRimGraphic.setAngle(0);
+    }
+    if (this.paddleGraphic) {
+      this.paddleGraphic.setAngle(0);
     }
 
     onComplete();
@@ -511,11 +651,19 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       if (entry.circle) {
         this.tweens.killTweensOf(entry.circle);
       }
+      entry.vx = 0;
+      entry.vy = 0;
     }
 
     if (this.drumGraphic) {
       this.tweens.killTweensOf(this.drumGraphic);
       this.drumGraphic.setAngle(0);
+    }
+    if (this.drumRimGraphic) {
+      this.drumRimGraphic.setAngle(0);
+    }
+    if (this.paddleGraphic) {
+      this.paddleGraphic.setAngle(0);
     }
   }
 
@@ -563,7 +711,10 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     }
     entry.drawn = true;
     this.tweens.killTweensOf(entry.circle);
+    entry.vx = 0;
+    entry.vy = 0;
     entry.circle.setDepth(20);
+    entry.highlight?.setDepth(22);
     entry.label.setDepth(21);
 
     if (this.columnGraphic) {
@@ -585,6 +736,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       angle: 0,
       duration: 700,
       ease: "Cubic.Out",
+      onUpdate: () => this.syncLabel(entry),
       onComplete: () => {
         this.tweens.add({
           targets: [entry.circle, entry.label],
@@ -593,7 +745,9 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
           scale: isBonus ? 1.15 : 1.05,
           duration: 900,
           ease: "Quad.InOut",
+          onUpdate: () => this.syncLabel(entry),
           onComplete: () => {
+            this.syncLabel(entry);
             const glow = this.add.circle(slotX, this.rackY, 18, isBonus ? 0xffd54f : 0x42a5f5, 0.25);
             glow.setDepth(5);
             this.tweens.add({
