@@ -8,6 +8,11 @@ import {
 import { getLatestMark6PreviousDraw, getSuggestion } from "@/lib/data";
 import { ingestMarkSixFromWeb } from "@/lib/web-ingest";
 import { getUpcomingMark6DrawDates } from "@/lib/upcoming-mark6";
+import {
+  formatMajorJackpotHistoryNote,
+  getMajorJackpotNumberWeightMap,
+  getMark6MajorJackpotHistory,
+} from "@/lib/mark6-major-jackpot-history";
 
 const HISTORY_YEARS = 5;
 const MARK6_BASELINE = 6 / 49;
@@ -28,7 +33,8 @@ export type Mark6PredictiveSignalTag =
   | "seasonalMatch"
   | "hotTrend"
   | "coldRebound"
-  | "pairLink";
+  | "pairLink"
+  | "majorJackpotFootprint";
 
 export type Mark6PredictiveNumberRow = {
   number: number;
@@ -74,6 +80,11 @@ export type Mark6PredictiveDrawResult = {
   persona: Mark6Persona;
   methodology: string;
   disclaimer: string;
+  majorJackpotHistory?: {
+    majorDrawCount: number;
+    topNumbers: number[];
+    note: string;
+  };
 };
 
 function canUseDatabase() {
@@ -309,6 +320,7 @@ function scoreDraws(
   targetDate: Date,
   previousDraw?: { numbers: number[]; specialNumber?: number },
   heatByNumber?: Map<number, number>,
+  majorFootprint?: Map<number, number>,
 ) {
   const historical = new Map<number, number>();
   const modelOnly = new Map<number, number>();
@@ -372,6 +384,10 @@ function scoreDraws(
     const heat = heatByNumber?.get(number) ?? 0;
     if (heat > 0) {
       score += (heat / 100) * 0.12;
+    }
+    const footprint = majorFootprint?.get(number) ?? 0;
+    if (footprint > 0) {
+      score += footprint * 0.06;
     }
     finalScores.set(number, score);
   }
@@ -518,6 +534,7 @@ function buildTags(
   targetDate: Date,
   previousDraw?: { numbers: number[]; specialNumber?: number },
   pairCounts?: Map<string, number>,
+  majorFootprint?: Map<number, number>,
 ): Mark6PredictiveSignalTag[] {
   const tags: Mark6PredictiveSignalTag[] = [];
   const historicalOrder = [...historical.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]);
@@ -546,6 +563,9 @@ function buildTags(
   );
   if (weekdayFreq >= MARK6_BASELINE * 1.12 || monthFreq >= MARK6_BASELINE * 1.12) {
     tags.push("seasonalMatch");
+  }
+  if ((majorFootprint?.get(number) ?? 0) >= 0.55) {
+    tags.push("majorJackpotFootprint");
   }
   if (previousDraw) {
     const signals = previousDraw.specialNumber
@@ -681,6 +701,10 @@ export async function getMark6PredictiveDraw({
   const heatByNumber = new Map<number, number>(
     analysis.numberStats.map((row) => [row.number, row.heat]),
   );
+  const majorJackpotHistory = await getMark6MajorJackpotHistory(resolvedDate, locale).catch(() => null);
+  const majorFootprint = majorJackpotHistory
+    ? getMajorJackpotNumberWeightMap(majorJackpotHistory)
+    : new Map<number, number>();
 
   let draws: TrainingDraw[] = [];
   let dataSource: "database" | "fallback" = "fallback";
@@ -749,6 +773,7 @@ export async function getMark6PredictiveDraw({
     endDateObject,
     previousDraw ?? undefined,
     heatByNumber,
+    majorFootprint,
   );
 
   const ranked = [...finalScores.entries()]
@@ -795,6 +820,7 @@ export async function getMark6PredictiveDraw({
       endDateObject,
       previousDraw ?? undefined,
       pairCounts,
+      majorFootprint,
     ),
   }));
 
@@ -874,5 +900,12 @@ export async function getMark6PredictiveDraw({
       locale === "zh-HK"
         ? "預測只供娛樂及研究用途。六合彩每個組合機會均等，歷史資料不能保證未來結果。"
         : "Predictions are for entertainment and research only. Mark Six draws are random; historical data cannot guarantee future outcomes.",
+    majorJackpotHistory: majorJackpotHistory
+      ? {
+          majorDrawCount: majorJackpotHistory.majorDrawCount,
+          topNumbers: majorJackpotHistory.topNumbers.slice(0, 6).map((row) => row.number),
+          note: formatMajorJackpotHistoryNote(majorJackpotHistory, locale),
+        }
+      : undefined,
   };
 }

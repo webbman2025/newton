@@ -14,6 +14,7 @@ import {
   formatMark6PrizeAmount,
   type Mark6DrawPrizePayload,
 } from "@/lib/mark6-draw-prize";
+import type { Mark6MajorJackpotHistory } from "@/lib/mark6-major-jackpot-history";
 
 type Mark6DrawSimulatorProps = {
   targetDate: string;
@@ -74,29 +75,39 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
   const [loadError, setLoadError] = useState<string | null>(null);
   const [usedRandomFallback, setUsedRandomFallback] = useState(false);
   const [prizeInfo, setPrizeInfo] = useState<Mark6DrawPrizePayload | null>(null);
+  const [majorHistory, setMajorHistory] = useState<(Mark6MajorJackpotHistory & { note?: string }) | null>(
+    null,
+  );
 
   useEffect(() => {
     let active = true;
-    const loadPrize = async () => {
+    const loadContext = async () => {
       try {
         const params = new URLSearchParams({ targetDate, locale });
-        const response = await fetch(`/api/mark6-draw-prize?${params.toString()}`, {
-          cache: "no-store",
-        });
-        if (!response.ok) {
-          throw new Error("Prize request failed.");
+        const [prizeResponse, majorResponse] = await Promise.all([
+          fetch(`/api/mark6-draw-prize?${params.toString()}`, { cache: "no-store" }),
+          fetch(`/api/mark6-major-jackpot-history?${params.toString()}`, { cache: "no-store" }),
+        ]);
+        if (prizeResponse.ok && active) {
+          setPrizeInfo((await prizeResponse.json()) as Mark6DrawPrizePayload);
+        } else if (active) {
+          setPrizeInfo(null);
         }
-        const payload = (await response.json()) as Mark6DrawPrizePayload;
-        if (active) {
-          setPrizeInfo(payload);
+        if (majorResponse.ok && active) {
+          setMajorHistory(
+            (await majorResponse.json()) as Mark6MajorJackpotHistory & { note?: string },
+          );
+        } else if (active) {
+          setMajorHistory(null);
         }
       } catch {
         if (active) {
           setPrizeInfo(null);
+          setMajorHistory(null);
         }
       }
     };
-    void loadPrize();
+    void loadContext();
     return () => {
       active = false;
     };
@@ -260,6 +271,36 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
               {t.mark6DrawSimulatorPrizeLogicNote}
             </Typography>
           </Stack>
+        </Box>
+      ) : null}
+      {majorHistory && majorHistory.topNumbers.length > 0 ? (
+        <Box
+          sx={{
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+            p: 1.2,
+            bgcolor: "background.paper",
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.6 }}>
+            {t.mark6DrawSimulatorMajorHistoryTitle}
+          </Typography>
+          <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap", mb: 0.8 }}>
+            {majorHistory.topNumbers.slice(0, 8).map((row) => (
+              <Chip
+                key={`major-hit-${row.number}`}
+                size="small"
+                color="primary"
+                variant="outlined"
+                label={`${row.number} · ${t.mark6DrawSimulatorMajorHistoryHitLabel.replace("{hits}", String(row.majorDrawHits))}`}
+                sx={{ fontWeight: 600 }}
+              />
+            ))}
+          </Stack>
+          <Typography variant="caption" color="text.secondary">
+            {majorHistory.note}
+          </Typography>
         </Box>
       ) : null}
       <Box

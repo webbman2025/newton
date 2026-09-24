@@ -33,6 +33,7 @@ const signalTagLabels: Record<
   hotTrend: { en: "Hot", zh: "熱門" },
   coldRebound: { en: "Cold gap", zh: "冷門間隔" },
   pairLink: { en: "Pair", zh: "常配" },
+  majorJackpotFootprint: { en: "Major draws", zh: "巨獎紀錄" },
 };
 
 export function Mark6PredictiveDrawCard({ targetDate, persona }: Mark6PredictiveDrawCardProps) {
@@ -252,6 +253,11 @@ export function Mark6PredictiveDrawCard({ targetDate, persona }: Mark6Predictive
           <Alert severity="info" sx={{ py: 0.3 }}>
             {data.disclaimer}
           </Alert>
+          {data.majorJackpotHistory ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              {data.majorJackpotHistory.note}
+            </Typography>
+          ) : null}
         </Stack>
       </CardContent>
     </Card>
