@@ -16,7 +16,7 @@ import { useCopy, useLocale } from "@/components/locale-provider";
 import type { Mark6PredictiveDrawResult } from "@/lib/mark6-predictive-engine";
 import type { Mark6Persona } from "@/lib/mark6-analysis";
 import { formatConfidenceBandLabel } from "@/lib/translations";
-import { formatMark6PrizeAmount } from "@/lib/hkjc-mark6-schedule";
+import { formatMark6PrizeAmount, formatMark6PrizeAmountFull } from "@/lib/hkjc-mark6-schedule";
 
 type Mark6PredictiveDrawCardProps = {
   targetDate: string;
@@ -129,6 +129,27 @@ export function Mark6PredictiveDrawCard({ targetDate, persona }: Mark6Predictive
               </Typography>
             </Box>
           </Stack>
+          {data.hkjcPrize?.selected ? (
+            <Box sx={{ py: 0.5 }}>
+              <Typography variant="caption" color="text.secondary">
+                {data.hkjcPrize.selected.drawDate === data.hkjcPrize.nextScheduled?.drawDate
+                  ? t.mark6NextDrawPrizeLabel
+                  : t.mark6SelectedDrawPrizeLabel}
+                {data.hkjcPrize.selected.drawNo ? ` · ${data.hkjcPrize.selected.drawNo}` : ""}
+              </Typography>
+              <Typography
+                sx={{
+                  fontWeight: 800,
+                  fontSize: "1.45rem",
+                  lineHeight: 1.2,
+                  color:
+                    data.hkjcPrize.selected.tier === "major" ? "warning.dark" : "primary.main",
+                }}
+              >
+                {formatMark6PrizeAmountFull(data.hkjcPrize.selected.firstPrizeMax, locale)}
+              </Typography>
+            </Box>
+          ) : null}
           {data.hkjcPrize ? (
             <Stack spacing={0.5}>
               {data.hkjcPrize.latestResult ? (

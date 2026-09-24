@@ -340,6 +340,7 @@ type CopyShape = {
   mark6LatestDrawPrizePaidLabel: string;
   mark6NextDrawPrizeLabel: string;
   mark6SelectedDrawPrizeLabel: string;
+  mark6DrawSimulatorPrizeSyncWarning: string;
   mark6DrawSimulatorPrizeMajorBadge: string;
   horseWinningHorseLabel: string;
   horsePreviousWinnerLabel: string;
@@ -757,6 +758,8 @@ export const copy: Record<Locale, CopyShape> = {
     mark6LatestDrawPrizePaidLabel: "1st division paid: {amount}",
     mark6NextDrawPrizeLabel: "Next draw — est. max 1st division",
     mark6SelectedDrawPrizeLabel: "Selected draw — est. max 1st division",
+    mark6DrawSimulatorPrizeSyncWarning:
+      "Could not reach HKJC live prize data — amounts below may be estimates. Pull to refresh or try again shortly.",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
     horsePreviousWinnerDateLabel: "Last result date",
@@ -1159,6 +1162,8 @@ export const copy: Record<Locale, CopyShape> = {
     mark6LatestDrawPrizePaidLabel: "頭獎派彩：{amount}",
     mark6NextDrawPrizeLabel: "下期 — 估計最高頭獎",
     mark6SelectedDrawPrizeLabel: "所選日期 — 估計最高頭獎",
+    mark6DrawSimulatorPrizeSyncWarning:
+      "未能連接香港賽馬會即時獎金資料，以下金額可能為估算。請重新整理或稍後再試。",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",
     horsePreviousWinnerDateLabel: "最近結果日期",

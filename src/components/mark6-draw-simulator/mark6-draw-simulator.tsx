@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Box, Button, Chip, Stack, Typography } from "@mui/material";
 import { ArrowClockwiseRegular, PlayRegular } from "@fluentui/react-icons";
 import { useCopy, useLocale } from "@/components/locale-provider";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/mark6-draw-simulator";
 import {
   formatMark6PrizeAmount,
+  formatMark6PrizeAmountFull,
   type Mark6DrawPrizePayload,
 } from "@/lib/mark6-draw-prize";
 import type { Mark6MajorJackpotHistory } from "@/lib/mark6-major-jackpot-history";
@@ -209,82 +210,95 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
     setStatus(t.mark6DrawSimulatorIdle);
   }, [t.mark6DrawSimulatorIdle]);
 
+  const activeDraw = useMemo(() => {
+    if (!prizeInfo) {
+      return null;
+    }
+    if (prizeInfo.selected.source === "hkjc") {
+      return prizeInfo.selected;
+    }
+    if (prizeInfo.nextScheduled?.drawDate === targetDate) {
+      return { ...prizeInfo.nextScheduled, source: "hkjc" as const };
+    }
+    const fromCalendar = prizeInfo.prizesByDate?.[targetDate];
+    if (fromCalendar) {
+      return { ...fromCalendar, source: "hkjc" as const };
+    }
+    return prizeInfo.selected;
+  }, [prizeInfo, targetDate]);
+
   return (
     <Stack spacing={1.2}>
-      {prizeInfo ? (
+      {prizeInfo && activeDraw ? (
         <Box
           sx={{
             border: "1px solid",
-            borderColor: prizeInfo.selected.tier === "major" ? "warning.main" : "divider",
+            borderColor: activeDraw.tier === "major" ? "warning.main" : "divider",
             borderRadius: 2,
-            p: 1.2,
+            p: 1.4,
             bgcolor:
-              prizeInfo.selected.tier === "major"
-                ? "rgba(255, 213, 79, 0.08)"
+              activeDraw.tier === "major"
+                ? "rgba(255, 213, 79, 0.1)"
                 : "rgba(15, 108, 189, 0.05)",
           }}
         >
-          <Stack spacing={0.8}>
-            <Stack direction="row" spacing={0.8} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                {prizeInfo.selected.drawDate === prizeInfo.nextScheduled?.drawDate
+          <Stack spacing={1}>
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.3 }}>
+                {activeDraw.drawDate === prizeInfo.nextScheduled?.drawDate
                   ? t.mark6NextDrawPrizeLabel
                   : t.mark6SelectedDrawPrizeLabel}
+                {activeDraw.drawNo ? ` · ${activeDraw.drawNo}` : ""}
+                {prizeInfo.scheduleSource === "hkjc" ? " · HKJC" : ""}
               </Typography>
-              <Chip
-                size="small"
-                color={prizeInfo.selected.tier === "major" ? "warning" : "primary"}
-                label={formatMark6PrizeAmount(prizeInfo.selected.firstPrizeMax, locale)}
-                sx={{ fontWeight: 700 }}
-              />
-              {prizeInfo.selected.tier === "major" ? (
-                <Chip size="small" variant="outlined" color="warning" label={t.mark6DrawSimulatorPrizeMajorBadge} />
-              ) : null}
-              {prizeInfo.selected.snowballName ? (
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  label={`${t.mark6DrawSimulatorPrizeSnowballLabel}: ${prizeInfo.selected.snowballName}`}
-                />
-              ) : null}
-              <Typography variant="caption" color="text.secondary">
-                {targetDate}
+              <Typography
+                component="p"
+                sx={{
+                  fontWeight: 800,
+                  fontSize: { xs: "1.65rem", sm: "2rem" },
+                  lineHeight: 1.15,
+                  letterSpacing: "-0.02em",
+                  color: activeDraw.tier === "major" ? "warning.dark" : "primary.main",
+                  wordBreak: "break-word",
+                }}
+              >
+                {formatMark6PrizeAmountFull(activeDraw.firstPrizeMax, locale)}
               </Typography>
-            </Stack>
+              <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap", mt: 0.8 }}>
+                {activeDraw.tier === "major" ? (
+                  <Chip size="small" variant="outlined" color="warning" label={t.mark6DrawSimulatorPrizeMajorBadge} />
+                ) : null}
+                {activeDraw.snowballName ? (
+                  <Chip
+                    size="small"
+                    color="warning"
+                    variant="outlined"
+                    label={`${t.mark6DrawSimulatorPrizeSnowballLabel}: ${activeDraw.snowballName}`}
+                  />
+                ) : null}
+                {activeDraw.jackpotCarry > 0 ? (
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={`${locale === "zh-HK" ? "金多寶池" : "Jackpot pool"}: ${formatMark6PrizeAmount(activeDraw.jackpotCarry, locale)}`}
+                  />
+                ) : null}
+              </Stack>
+            </Box>
             {prizeInfo.latestResult ? (
               <Typography variant="caption" color="text.secondary">
-                {t.mark6LatestDrawPrizeLabel} ({prizeInfo.latestResult.drawDate}):{" "}
+                {t.mark6LatestDrawPrizeLabel} ({prizeInfo.latestResult.drawDate}
+                {prizeInfo.latestResult.drawNo ? ` · ${prizeInfo.latestResult.drawNo}` : ""}):{" "}
                 {prizeInfo.latestResult.firstPrizePaid
                   ? t.mark6LatestDrawPrizePaidLabel.replace(
                       "{amount}",
-                      formatMark6PrizeAmount(prizeInfo.latestResult.firstPrizePaid, locale),
+                      formatMark6PrizeAmountFull(prizeInfo.latestResult.firstPrizePaid, locale),
                     )
-                  : formatMark6PrizeAmount(prizeInfo.latestResult.firstPrizeMax, locale)}
+                  : formatMark6PrizeAmountFull(prizeInfo.latestResult.firstPrizeMax, locale)}
                 {prizeInfo.latestResult.numbers?.length
                   ? ` · ${prizeInfo.latestResult.numbers.join(", ")}`
                   : ""}
               </Typography>
-            ) : null}
-            {prizeInfo.nextScheduled &&
-            prizeInfo.nextScheduled.drawDate !== prizeInfo.selected.drawDate ? (
-              <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
-                <Typography variant="caption" color="text.secondary">
-                  {t.mark6NextDrawPrizeLabel} ({prizeInfo.nextScheduled.drawDate})
-                </Typography>
-                <Chip
-                  size="small"
-                  color="warning"
-                  label={formatMark6PrizeAmount(prizeInfo.nextScheduled.firstPrizeMax, locale)}
-                  sx={{ fontWeight: 700 }}
-                />
-                {prizeInfo.nextScheduled.snowballName ? (
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    label={`${t.mark6DrawSimulatorPrizeSnowballLabel}: ${prizeInfo.nextScheduled.snowballName}`}
-                  />
-                ) : null}
-              </Stack>
             ) : null}
             {prizeInfo.weekDraws.length > 1 ? (
               <Box>
@@ -298,11 +312,16 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
                       size="small"
                       variant={draw.isSelected ? "filled" : "outlined"}
                       color={draw.tier === "major" ? "warning" : draw.isSelected ? "primary" : "default"}
-                      label={`${draw.drawDate.slice(5)} · ${formatMark6PrizeAmount(draw.firstPrizeMax, locale)}`}
+                      label={`${draw.drawDate.slice(5)} · ${formatMark6PrizeAmount(draw.firstPrizeMax, locale)}${draw.source === "hkjc" ? "" : " ~"}`}
                     />
                   ))}
                 </Stack>
               </Box>
+            ) : null}
+            {prizeInfo.scheduleSource !== "hkjc" ? (
+              <Alert severity="warning" sx={{ py: 0.2 }}>
+                {t.mark6DrawSimulatorPrizeSyncWarning}
+              </Alert>
             ) : null}
             <Typography variant="caption" color="text.secondary">
               {t.mark6DrawSimulatorPrizeLogicNote}

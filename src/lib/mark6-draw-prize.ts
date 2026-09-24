@@ -7,7 +7,7 @@ import {
   type Mark6PrizeTier,
 } from "@/lib/hkjc-mark6-schedule";
 
-export { formatMark6PrizeAmount };
+export { formatMark6PrizeAmount, formatMark6PrizeAmountFull } from "@/lib/hkjc-mark6-schedule";
 export type { Mark6PrizeTier };
 
 export type Mark6DrawDayPrize = Omit<Mark6HkjcDrawPrize, "source"> & {
@@ -20,6 +20,7 @@ export type Mark6DrawPrizePayload = {
   latestResult?: Mark6HkjcDrawPrize;
   nextScheduled?: Mark6HkjcDrawPrize;
   syncedAt?: string;
+  prizesByDate?: Record<string, Mark6HkjcDrawPrize>;
   logicAppliesEqually: true;
   scheduleSource: "hkjc" | "mixed";
 };
@@ -96,13 +97,19 @@ export async function getMark6DrawPrizePayload(
   }));
 
   const { start, end } = getWeekBounds(normalizedTarget);
-  const weekDates = upcoming.dates.filter((date) => date >= start && date <= end);
-  const weekDraws =
+  const hkjcWeekDates = Object.keys(hkjcByDate)
+    .filter((date) => date >= start && date <= end)
+    .sort();
+  const weekDates =
+    hkjcWeekDates.length > 0
+      ? hkjcWeekDates
+      : upcoming.dates.filter((date) => date >= start && date <= end);
+  const weekDrawList =
     weekDates.length > 0
       ? weekDates
       : [normalizedTarget].filter((date) => date >= start && date <= end);
 
-  const weekPrizes = (weekDraws.length > 0 ? weekDraws : [normalizedTarget]).map((drawDate) => {
+  const weekPrizes = (weekDrawList.length > 0 ? weekDrawList : [normalizedTarget]).map((drawDate) => {
     const prize = resolvePrizeForDate(drawDate, hkjcByDate);
     return {
       ...prize,
@@ -118,6 +125,7 @@ export async function getMark6DrawPrizePayload(
     latestResult,
     nextScheduled,
     syncedAt,
+    prizesByDate: Object.keys(hkjcByDate).length > 0 ? hkjcByDate : undefined,
     logicAppliesEqually: true,
     scheduleSource,
   };

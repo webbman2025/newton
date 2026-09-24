@@ -7,6 +7,7 @@ fragment lotteryDrawsFragment on LotteryDraw {
     id
     year
     no
+    openDate
     closeDate
     drawDate
     status
@@ -14,11 +15,16 @@ fragment lotteryDrawsFragment on LotteryDraw {
     snowballName_en
     snowballName_ch
     lotteryPool {
+      sell
+      status
+      totalInvestment
       jackpot
+      unitBet
       estimatedPrize
       derivedFirstPrizeDiv
       lotteryPrizes {
         type
+        winningUnit
         dividend
       }
     }
@@ -28,6 +34,10 @@ fragment lotteryDrawsFragment on LotteryDraw {
     }
   }
 query marksixDraw {
+            timeOffset {
+                m6
+                ts
+            }
             lotteryDraws {
                 ...lotteryDrawsFragment
             }
@@ -239,4 +249,15 @@ export function formatMark6PrizeAmount(amount: number, locale: Locale): string {
     return `HK$${rounded}M`;
   }
   return `HK$${amount.toLocaleString("en-HK")}`;
+}
+
+/** Full figure for hero display (e.g. HK$68,000,000). */
+export function formatMark6PrizeAmountFull(amount: number, locale: Locale): string {
+  if (amount <= 0) {
+    return locale === "zh-HK" ? "待定" : "TBC";
+  }
+  if (locale === "zh-HK") {
+    return `HK$${amount.toLocaleString("en-HK")}（估計最高頭獎）`;
+  }
+  return `HK$${amount.toLocaleString("en-HK")} est. max 1st division`;
 }

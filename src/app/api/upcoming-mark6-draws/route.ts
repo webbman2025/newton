@@ -20,11 +20,10 @@ export async function GET(request: Request) {
     ]);
 
     const mergedDates = new Set(upcoming.dates);
-    if (hkjc?.nextDraw?.drawDate) {
-      mergedDates.add(hkjc.nextDraw.drawDate);
-    }
-    if (hkjc?.latestResult?.drawDate) {
-      mergedDates.add(hkjc.latestResult.drawDate);
+    if (hkjc) {
+      for (const date of Object.keys(hkjc.byDate)) {
+        mergedDates.add(date);
+      }
     }
 
     const today = new Date().toISOString().slice(0, 10);
@@ -38,6 +37,7 @@ export async function GET(request: Request) {
             syncedAt: hkjc.syncedAt,
             latestResult: hkjc.latestResult,
             nextDraw: hkjc.nextDraw,
+            prizesByDate: hkjc.byDate,
           }
         : undefined,
     });
