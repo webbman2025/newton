@@ -330,6 +330,11 @@ type CopyShape = {
   mark6DrawSimulatorHistoryDrawLabel: string;
   mark6DrawSimulatorPoolHint: string;
   mark6DrawSimulatorBankerLabel: string;
+  mark6DrawSimulatorPrizeTitle: string;
+  mark6DrawSimulatorPrizeWeekLabel: string;
+  mark6DrawSimulatorPrizeSnowballLabel: string;
+  mark6DrawSimulatorPrizeLogicNote: string;
+  mark6DrawSimulatorPrizeMajorBadge: string;
   horseWinningHorseLabel: string;
   horsePreviousWinnerLabel: string;
   horsePreviousWinnerDateLabel: string;
@@ -734,6 +739,12 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorPoolHint:
       "Reveals the AI Draw Predictor’s 6 main numbers and bonus for this date (persona applied). Numbers that repeat across recent runs show as bankers.",
     mark6DrawSimulatorBankerLabel: "Bankers",
+    mark6DrawSimulatorPrizeTitle: "Est. max 1st division prize",
+    mark6DrawSimulatorPrizeWeekLabel: "This week’s draws",
+    mark6DrawSimulatorPrizeSnowballLabel: "Snowball",
+    mark6DrawSimulatorPrizeMajorBadge: "Major jackpot",
+    mark6DrawSimulatorPrizeLogicNote:
+      "Jackpot size does not change draw odds or our number model — a ~HK$8M night and a HK$50M+ snowball use the same ball mix and AI logic. Only the top prize pool differs.",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
     horsePreviousWinnerDateLabel: "Last result date",
@@ -1124,6 +1135,12 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorPoolHint:
       "會揭曉此日期 AI 開獎預測的 6 個主號及特別號（依分析角色）；近期重複出現的號碼會顯示為膽碼。",
     mark6DrawSimulatorBankerLabel: "膽碼",
+    mark6DrawSimulatorPrizeTitle: "估計最高頭獎基金",
+    mark6DrawSimulatorPrizeWeekLabel: "本週開彩",
+    mark6DrawSimulatorPrizeSnowballLabel: "金多寶",
+    mark6DrawSimulatorPrizeMajorBadge: "巨額獎金",
+    mark6DrawSimulatorPrizeLogicNote:
+      "獎金多少不改變攪珠機率或 AI 號碼模型——約 8 百萬的一般夜與 5 千萬以上的金多寶，攪珠方式與預測邏輯相同，只是頭獎池較大。",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",
     horsePreviousWinnerDateLabel: "最近結果日期",

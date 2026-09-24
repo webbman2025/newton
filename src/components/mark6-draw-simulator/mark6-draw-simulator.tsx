@@ -10,6 +10,10 @@ import {
   fetchMark6DrawSimulatorNumbers,
   type Mark6DrawSimulatorPayload,
 } from "@/lib/mark6-draw-simulator";
+import {
+  formatMark6PrizeAmount,
+  type Mark6DrawPrizePayload,
+} from "@/lib/mark6-draw-prize";
 
 type Mark6DrawSimulatorProps = {
   targetDate: string;
@@ -69,6 +73,34 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
   const [drawHistory, setDrawHistory] = useState<DrawHistoryEntry[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [usedRandomFallback, setUsedRandomFallback] = useState(false);
+  const [prizeInfo, setPrizeInfo] = useState<Mark6DrawPrizePayload | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadPrize = async () => {
+      try {
+        const params = new URLSearchParams({ targetDate, locale });
+        const response = await fetch(`/api/mark6-draw-prize?${params.toString()}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error("Prize request failed.");
+        }
+        const payload = (await response.json()) as Mark6DrawPrizePayload;
+        if (active) {
+          setPrizeInfo(payload);
+        }
+      } catch {
+        if (active) {
+          setPrizeInfo(null);
+        }
+      }
+    };
+    void loadPrize();
+    return () => {
+      active = false;
+    };
+  }, [locale, targetDate]);
 
   useEffect(() => {
     let active = true;
@@ -168,6 +200,68 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
 
   return (
     <Stack spacing={1.2}>
+      {prizeInfo ? (
+        <Box
+          sx={{
+            border: "1px solid",
+            borderColor: prizeInfo.selected.tier === "major" ? "warning.main" : "divider",
+            borderRadius: 2,
+            p: 1.2,
+            bgcolor:
+              prizeInfo.selected.tier === "major"
+                ? "rgba(255, 213, 79, 0.08)"
+                : "rgba(15, 108, 189, 0.05)",
+          }}
+        >
+          <Stack spacing={0.8}>
+            <Stack direction="row" spacing={0.8} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                {t.mark6DrawSimulatorPrizeTitle}
+              </Typography>
+              <Chip
+                size="small"
+                color={prizeInfo.selected.tier === "major" ? "warning" : "primary"}
+                label={formatMark6PrizeAmount(prizeInfo.selected.firstPrizeMax, locale)}
+                sx={{ fontWeight: 700 }}
+              />
+              {prizeInfo.selected.tier === "major" ? (
+                <Chip size="small" variant="outlined" color="warning" label={t.mark6DrawSimulatorPrizeMajorBadge} />
+              ) : null}
+              {prizeInfo.selected.snowballName ? (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`${t.mark6DrawSimulatorPrizeSnowballLabel}: ${prizeInfo.selected.snowballName}`}
+                />
+              ) : null}
+              <Typography variant="caption" color="text.secondary">
+                {targetDate}
+              </Typography>
+            </Stack>
+            {prizeInfo.weekDraws.length > 1 ? (
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.4 }}>
+                  {t.mark6DrawSimulatorPrizeWeekLabel}
+                </Typography>
+                <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap" }}>
+                  {prizeInfo.weekDraws.map((draw) => (
+                    <Chip
+                      key={`week-prize-${draw.drawDate}`}
+                      size="small"
+                      variant={draw.isSelected ? "filled" : "outlined"}
+                      color={draw.tier === "major" ? "warning" : draw.isSelected ? "primary" : "default"}
+                      label={`${draw.drawDate.slice(5)} · ${formatMark6PrizeAmount(draw.firstPrizeMax, locale)}`}
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            ) : null}
+            <Typography variant="caption" color="text.secondary">
+              {t.mark6DrawSimulatorPrizeLogicNote}
+            </Typography>
+          </Stack>
+        </Box>
+      ) : null}
       <Box
         ref={containerRef}
         sx={{
