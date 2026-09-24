@@ -336,6 +336,10 @@ type CopyShape = {
   mark6DrawSimulatorPrizeLogicNote: string;
   mark6DrawSimulatorMajorHistoryTitle: string;
   mark6DrawSimulatorMajorHistoryHitLabel: string;
+  mark6LatestDrawPrizeLabel: string;
+  mark6LatestDrawPrizePaidLabel: string;
+  mark6NextDrawPrizeLabel: string;
+  mark6SelectedDrawPrizeLabel: string;
   mark6DrawSimulatorPrizeMajorBadge: string;
   horseWinningHorseLabel: string;
   horsePreviousWinnerLabel: string;
@@ -749,6 +753,10 @@ export const copy: Record<Locale, CopyShape> = {
       "Jackpot size does not change draw odds or our number model — a ~HK$8M night and a HK$50M+ snowball use the same ball mix and AI logic. Only the top prize pool differs.",
     mark6DrawSimulatorMajorHistoryTitle: "5-year major jackpot numbers (HK$30M+ draws)",
     mark6DrawSimulatorMajorHistoryHitLabel: "{hits} major draws",
+    mark6LatestDrawPrizeLabel: "Latest HKJC draw",
+    mark6LatestDrawPrizePaidLabel: "1st division paid: {amount}",
+    mark6NextDrawPrizeLabel: "Next draw — est. max 1st division",
+    mark6SelectedDrawPrizeLabel: "Selected draw — est. max 1st division",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
     horsePreviousWinnerDateLabel: "Last result date",
@@ -1147,6 +1155,10 @@ export const copy: Record<Locale, CopyShape> = {
       "獎金多少不改變攪珠機率或 AI 號碼模型——約 8 百萬的一般夜與 5 千萬以上的金多寶，攪珠方式與預測邏輯相同，只是頭獎池較大。",
     mark6DrawSimulatorMajorHistoryTitle: "5 年內巨獎開彩常見主號（頭獎 3,000 萬+）",
     mark6DrawSimulatorMajorHistoryHitLabel: "曾於 {hits} 期巨獎開出",
+    mark6LatestDrawPrizeLabel: "上期香港賽馬會開彩",
+    mark6LatestDrawPrizePaidLabel: "頭獎派彩：{amount}",
+    mark6NextDrawPrizeLabel: "下期 — 估計最高頭獎",
+    mark6SelectedDrawPrizeLabel: "所選日期 — 估計最高頭獎",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",
     horsePreviousWinnerDateLabel: "最近結果日期",

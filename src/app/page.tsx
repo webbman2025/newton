@@ -79,6 +79,8 @@ import {
   type HorseSeenRace,
 } from "@/lib/horse-race-day";
 import { formatConfidenceBandLabel, type Mode } from "@/lib/translations";
+import { formatMark6PrizeAmount } from "@/lib/hkjc-mark6-schedule";
+import type { Mark6HkjcDrawPrize } from "@/lib/hkjc-mark6-schedule";
 
 type SuggestionPayload = {
   status: "ok" | "stale";
@@ -184,7 +186,12 @@ const MARK6_BANKER_SELECTION_PREVIEW_COUNT = 8;
 
 type UpcomingMark6DrawPayload = {
   dates: string[];
-  source: "website" | "fallback";
+  source: "website" | "fallback" | "hkjc";
+  hkjc?: {
+    syncedAt: string;
+    latestResult?: Mark6HkjcDrawPrize;
+    nextDraw?: Mark6HkjcDrawPrize;
+  };
 };
 
 type UpcomingRaceDatesPayload = {
@@ -332,7 +339,8 @@ export default function Home() {
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
   const [upcomingMark6Dates, setUpcomingMark6Dates] = useState<string[]>([]);
   const [upcomingHorseRaceDates, setUpcomingHorseRaceDates] = useState<string[]>([]);
-  const [mark6DateSource, setMark6DateSource] = useState<"website" | "fallback">("fallback");
+  const [mark6DateSource, setMark6DateSource] = useState<"website" | "fallback" | "hkjc">("fallback");
+  const [mark6HkjcSchedule, setMark6HkjcSchedule] = useState<UpcomingMark6DrawPayload["hkjc"]>();
   const [isMark6DatesLoading, setIsMark6DatesLoading] = useState(false);
   const [mark6PreviousDraw, setMark6PreviousDraw] = useState<Mark6PreviousDraw | null>(null);
   const [isMark6PreviousDrawLoading, setIsMark6PreviousDrawLoading] = useState(false);
@@ -645,7 +653,7 @@ export default function Home() {
       setIsMark6DatesLoading(true);
       setMark6DatesError(null);
       try {
-        const response = await fetch("/api/upcoming-mark6-draws");
+        const response = await fetch(`/api/upcoming-mark6-draws?locale=${locale}`);
         if (!response.ok) {
           throw new Error("Upcoming Mark Six draw dates fetch failed.");
         }
@@ -653,11 +661,18 @@ export default function Home() {
         if (active) {
           setUpcomingMark6Dates(payload.dates ?? []);
           setMark6DateSource(payload.source ?? "fallback");
-          setTargetDate((currentDate) =>
-            (payload.dates?.length ?? 0) > 0 && !(payload.dates ?? []).includes(currentDate)
-              ? (payload.dates?.[0] ?? currentDate)
-              : currentDate,
-          );
+          setMark6HkjcSchedule(payload.hkjc);
+          setTargetDate((currentDate) => {
+            const dates = payload.dates ?? [];
+            const nextDraw = payload.hkjc?.nextDraw?.drawDate;
+            if (nextDraw && !dates.includes(currentDate)) {
+              return nextDraw;
+            }
+            if (dates.length > 0 && !dates.includes(currentDate)) {
+              return dates[0] ?? currentDate;
+            }
+            return currentDate;
+          });
         }
       } catch {
         if (active) {
@@ -676,7 +691,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, [mode, t.fetchMark6DatesError]);
+  }, [locale, mode, t.fetchMark6DatesError]);
 
   useEffect(() => {
     if (mode !== "mark6") {
@@ -1238,13 +1253,54 @@ export default function Home() {
                   <Typography variant="h6" sx={{ mb: 0.8 }}>
                     {targetDate}
                   </Typography>
+                  {mark6HkjcSchedule?.latestResult || mark6HkjcSchedule?.nextDraw ? (
+                    <Stack spacing={0.5} sx={{ mb: 1 }}>
+                      {mark6HkjcSchedule.latestResult ? (
+                        <Typography variant="caption" color="text.secondary">
+                          {t.mark6LatestDrawPrizeLabel} ({mark6HkjcSchedule.latestResult.drawDate}):{" "}
+                          {mark6HkjcSchedule.latestResult.firstPrizePaid
+                            ? t.mark6LatestDrawPrizePaidLabel.replace(
+                                "{amount}",
+                                formatMark6PrizeAmount(
+                                  mark6HkjcSchedule.latestResult.firstPrizePaid,
+                                  locale,
+                                ),
+                              )
+                            : formatMark6PrizeAmount(
+                                mark6HkjcSchedule.latestResult.firstPrizeMax,
+                                locale,
+                              )}
+                        </Typography>
+                      ) : null}
+                      {mark6HkjcSchedule.nextDraw ? (
+                        <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {t.mark6NextDrawPrizeLabel} ({mark6HkjcSchedule.nextDraw.drawDate})
+                          </Typography>
+                          <Chip
+                            size="small"
+                            color="warning"
+                            label={formatMark6PrizeAmount(mark6HkjcSchedule.nextDraw.firstPrizeMax, locale)}
+                            sx={{ fontWeight: 700 }}
+                          />
+                          {mark6HkjcSchedule.nextDraw.snowballName ? (
+                            <Chip size="small" variant="outlined" label={mark6HkjcSchedule.nextDraw.snowballName} />
+                          ) : null}
+                        </Stack>
+                      ) : null}
+                    </Stack>
+                  ) : null}
                   <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap", mb: 0.8 }}>
                     {upcomingMark6Dates.slice(0, 4).map((date) => (
                       <Chip
                         key={`mark6-upcoming-${date}`}
                         clickable
                         size="small"
-                        label={date}
+                        label={
+                          mark6HkjcSchedule?.nextDraw?.drawDate === date
+                            ? `${date} · ${formatMark6PrizeAmount(mark6HkjcSchedule.nextDraw.firstPrizeMax, locale)}`
+                            : date
+                        }
                         color={targetDate === date ? "primary" : "default"}
                         variant={targetDate === date ? "filled" : "outlined"}
                         onClick={() => setTargetDate(date)}

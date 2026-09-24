@@ -227,7 +227,9 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
           <Stack spacing={0.8}>
             <Stack direction="row" spacing={0.8} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                {t.mark6DrawSimulatorPrizeTitle}
+                {prizeInfo.selected.drawDate === prizeInfo.nextScheduled?.drawDate
+                  ? t.mark6NextDrawPrizeLabel
+                  : t.mark6SelectedDrawPrizeLabel}
               </Typography>
               <Chip
                 size="small"
@@ -249,6 +251,41 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
                 {targetDate}
               </Typography>
             </Stack>
+            {prizeInfo.latestResult ? (
+              <Typography variant="caption" color="text.secondary">
+                {t.mark6LatestDrawPrizeLabel} ({prizeInfo.latestResult.drawDate}):{" "}
+                {prizeInfo.latestResult.firstPrizePaid
+                  ? t.mark6LatestDrawPrizePaidLabel.replace(
+                      "{amount}",
+                      formatMark6PrizeAmount(prizeInfo.latestResult.firstPrizePaid, locale),
+                    )
+                  : formatMark6PrizeAmount(prizeInfo.latestResult.firstPrizeMax, locale)}
+                {prizeInfo.latestResult.numbers?.length
+                  ? ` · ${prizeInfo.latestResult.numbers.join(", ")}`
+                  : ""}
+              </Typography>
+            ) : null}
+            {prizeInfo.nextScheduled &&
+            prizeInfo.nextScheduled.drawDate !== prizeInfo.selected.drawDate ? (
+              <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+                <Typography variant="caption" color="text.secondary">
+                  {t.mark6NextDrawPrizeLabel} ({prizeInfo.nextScheduled.drawDate})
+                </Typography>
+                <Chip
+                  size="small"
+                  color="warning"
+                  label={formatMark6PrizeAmount(prizeInfo.nextScheduled.firstPrizeMax, locale)}
+                  sx={{ fontWeight: 700 }}
+                />
+                {prizeInfo.nextScheduled.snowballName ? (
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={`${t.mark6DrawSimulatorPrizeSnowballLabel}: ${prizeInfo.nextScheduled.snowballName}`}
+                  />
+                ) : null}
+              </Stack>
+            ) : null}
             {prizeInfo.weekDraws.length > 1 ? (
               <Box>
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.4 }}>

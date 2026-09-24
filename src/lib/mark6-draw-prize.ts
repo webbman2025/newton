@@ -1,119 +1,30 @@
 import type { Locale } from "@/lib/translations";
 import { getUpcomingMark6DrawDates } from "@/lib/upcoming-mark6";
+import {
+  formatMark6PrizeAmount,
+  getMark6HkjcScheduleSnapshot,
+  type Mark6HkjcDrawPrize,
+  type Mark6PrizeTier,
+} from "@/lib/hkjc-mark6-schedule";
 
-const HKJC_MARK6_GRAPHQL_URL = "https://info.cld.hkjc.com/graphql/base/";
+export { formatMark6PrizeAmount };
+export type { Mark6PrizeTier };
 
-const HKJC_MARK6_SCHEDULE_QUERY = `
-fragment lotteryDrawsFragment on LotteryDraw {
-    id
-    drawDate
-    status
-    snowballCode
-    snowballName_en
-    snowballName_ch
-    lotteryPool {
-      jackpot
-      estimatedPrize
-      derivedFirstPrizeDiv
-    }
-  }
-query marksixDraw {
-            lotteryDraws {
-                ...lotteryDrawsFragment
-            }
-        }`;
-
-type HkjcScheduleDraw = {
-  drawDate?: string;
-  status?: string;
-  snowballCode?: string;
-  snowballName_en?: string;
-  snowballName_ch?: string;
-  lotteryPool?: {
-    jackpot?: string;
-    estimatedPrize?: string;
-    derivedFirstPrizeDiv?: string;
-  };
-};
-
-export type Mark6PrizeTier = "standard" | "major";
-
-export type Mark6DrawDayPrize = {
-  drawDate: string;
-  firstPrizeMax: number;
-  jackpotCarry: number;
-  tier: Mark6PrizeTier;
-  snowballCode?: string;
-  snowballName?: string;
-  status?: string;
+export type Mark6DrawDayPrize = Omit<Mark6HkjcDrawPrize, "source"> & {
   source: "hkjc" | "estimate";
 };
 
 export type Mark6DrawPrizePayload = {
   selected: Mark6DrawDayPrize;
   weekDraws: Array<Mark6DrawDayPrize & { isSelected: boolean }>;
+  latestResult?: Mark6HkjcDrawPrize;
+  nextScheduled?: Mark6HkjcDrawPrize;
+  syncedAt?: string;
   logicAppliesEqually: true;
   scheduleSource: "hkjc" | "mixed";
 };
 
-const MAJOR_PRIZE_THRESHOLD = 30_000_000;
 const STANDARD_FIRST_PRIZE_ESTIMATE = 8_000_000;
-
-function parseDrawDateKey(raw?: string) {
-  if (!raw) {
-    return "";
-  }
-  return raw.slice(0, 10);
-}
-
-function parseHkjcAmount(raw?: string | number) {
-  if (typeof raw === "number" && Number.isFinite(raw)) {
-    return raw;
-  }
-  if (!raw || raw === "") {
-    return 0;
-  }
-  const value = Number(String(raw).replace(/,/g, ""));
-  return Number.isFinite(value) ? value : 0;
-}
-
-function getPrizeTier(firstPrizeMax: number): Mark6PrizeTier {
-  return firstPrizeMax >= MAJOR_PRIZE_THRESHOLD ? "major" : "standard";
-}
-
-function toDrawDayPrize(
-  draw: HkjcScheduleDraw,
-  locale: Locale,
-  source: "hkjc",
-): Mark6DrawDayPrize | null {
-  const drawDate = parseDrawDateKey(draw.drawDate);
-  if (!drawDate) {
-    return null;
-  }
-  const pool = draw.lotteryPool;
-  const derived = parseHkjcAmount(pool?.derivedFirstPrizeDiv);
-  const jackpot = parseHkjcAmount(pool?.jackpot);
-  const estimated = parseHkjcAmount(pool?.estimatedPrize);
-  const firstPrizeMax = derived || estimated || jackpot;
-  if (firstPrizeMax <= 0) {
-    return null;
-  }
-  const snowballName =
-    locale === "zh-HK"
-      ? draw.snowballName_ch || draw.snowballName_en || undefined
-      : draw.snowballName_en || draw.snowballName_ch || undefined;
-
-  return {
-    drawDate,
-    firstPrizeMax,
-    jackpotCarry: jackpot,
-    tier: getPrizeTier(firstPrizeMax),
-    snowballCode: draw.snowballCode || undefined,
-    snowballName: snowballName || undefined,
-    status: draw.status,
-    source,
-  };
-}
 
 function estimateDrawDayPrize(drawDate: string): Mark6DrawDayPrize {
   return {
@@ -123,32 +34,6 @@ function estimateDrawDayPrize(drawDate: string): Mark6DrawDayPrize {
     tier: "standard",
     source: "estimate",
   };
-}
-
-async function fetchHkjcScheduleDraws(): Promise<HkjcScheduleDraw[]> {
-  const response = await fetch(HKJC_MARK6_GRAPHQL_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "User-Agent": "Mozilla/5.0 (compatible; MobileBettingAssistant/1.0)",
-      Origin: "https://bet.hkjc.com",
-      Referer: "https://bet.hkjc.com/marksix/Results.aspx?lang=en",
-    },
-    body: JSON.stringify({
-      query: HKJC_MARK6_SCHEDULE_QUERY,
-      variables: {},
-    }),
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error(`HKJC schedule fetch failed (${response.status})`);
-  }
-
-  const payload = (await response.json()) as {
-    data?: { lotteryDraws?: HkjcScheduleDraw[] | null };
-  };
-  return payload.data?.lotteryDraws ?? [];
 }
 
 function getWeekBounds(targetDate: string) {
@@ -171,32 +56,13 @@ function getWeekBounds(targetDate: string) {
 
 function resolvePrizeForDate(
   drawDate: string,
-  hkjcByDate: Map<string, Mark6DrawDayPrize>,
+  hkjcByDate: Record<string, Mark6HkjcDrawPrize>,
 ): Mark6DrawDayPrize {
-  return hkjcByDate.get(drawDate) ?? estimateDrawDayPrize(drawDate);
-}
-
-export function formatMark6PrizeAmount(amount: number, locale: Locale): string {
-  if (amount <= 0) {
-    return locale === "zh-HK" ? "待定" : "TBC";
+  const live = hkjcByDate[drawDate];
+  if (live) {
+    return { ...live, source: "hkjc" };
   }
-  if (locale === "zh-HK") {
-    if (amount >= 100_000_000) {
-      const yi = amount / 100_000_000;
-      return `約 ${yi % 1 === 0 ? yi.toFixed(0) : yi.toFixed(1)} 億港元`;
-    }
-    if (amount >= 10_000) {
-      return `約 ${Math.round(amount / 10_000).toLocaleString("en-HK")} 萬港元`;
-    }
-    return `約 HK$${amount.toLocaleString("en-HK")}`;
-  }
-  if (amount >= 1_000_000) {
-    const millions = amount / 1_000_000;
-    const rounded =
-      millions >= 10 ? Math.round(millions).toString() : millions.toFixed(1).replace(/\.0$/, "");
-    return `HK$${rounded}M est.`;
-  }
-  return `HK$${amount.toLocaleString("en-HK")} est.`;
+  return estimateDrawDayPrize(drawDate);
 }
 
 export async function getMark6DrawPrizePayload(
@@ -207,18 +73,19 @@ export async function getMark6DrawPrizePayload(
     ? targetDate
     : new Date().toISOString().slice(0, 10);
 
-  const hkjcByDate = new Map<string, Mark6DrawDayPrize>();
+  let hkjcByDate: Record<string, Mark6HkjcDrawPrize> = {};
   let scheduleSource: Mark6DrawPrizePayload["scheduleSource"] = "mixed";
+  let latestResult: Mark6HkjcDrawPrize | undefined;
+  let nextScheduled: Mark6HkjcDrawPrize | undefined;
+  let syncedAt: string | undefined;
 
   try {
-    const schedule = await fetchHkjcScheduleDraws();
-    for (const draw of schedule) {
-      const parsed = toDrawDayPrize(draw, locale, "hkjc");
-      if (parsed) {
-        hkjcByDate.set(parsed.drawDate, parsed);
-      }
-    }
-    scheduleSource = hkjcByDate.size > 0 ? "hkjc" : "mixed";
+    const snapshot = await getMark6HkjcScheduleSnapshot(locale);
+    hkjcByDate = snapshot.byDate;
+    latestResult = snapshot.latestResult;
+    nextScheduled = snapshot.nextDraw;
+    syncedAt = snapshot.syncedAt;
+    scheduleSource = Object.keys(hkjcByDate).length > 0 ? "hkjc" : "mixed";
   } catch {
     scheduleSource = "mixed";
   }
@@ -248,6 +115,9 @@ export async function getMark6DrawPrizePayload(
   return {
     selected,
     weekDraws: weekPrizes.sort((a, b) => a.drawDate.localeCompare(b.drawDate)),
+    latestResult,
+    nextScheduled,
+    syncedAt,
     logicAppliesEqually: true,
     scheduleSource,
   };

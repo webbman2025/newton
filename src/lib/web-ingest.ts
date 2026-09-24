@@ -5,6 +5,7 @@ type MarkSixRow = {
   drawDate: string;
   numbers: number[];
   specialNumber?: number;
+  jackpotAmount?: number;
 };
 
 type RaceRow = {
@@ -64,6 +65,11 @@ query marksixResult($lastNDraw: Int, $startDate: String, $endDate: String, $draw
 type HkjcMarkSixDraw = {
   drawDate?: string;
   status?: string;
+  lotteryPool?: {
+    derivedFirstPrizeDiv?: string;
+    jackpot?: string;
+    lotteryPrizes?: Array<{ type?: number; dividend?: string }>;
+  };
   drawResult?: {
     drawnNo?: number[];
     xDrawnNo?: number;
@@ -277,6 +283,10 @@ async function fetchMarkSixRowsFromHkjc(fromDate: string, lastNDraw = 220) {
       if (draw.status !== "Result" || !drawDate || drawDate < fromDate || numbers.length !== 6) {
         return null;
       }
+      const paid = draw.lotteryPool?.lotteryPrizes?.find((prize) => prize.type === 1)?.dividend;
+      const derived = draw.lotteryPool?.derivedFirstPrizeDiv;
+      const jackpotRaw = paid ?? derived ?? draw.lotteryPool?.jackpot;
+      const jackpotAmount = jackpotRaw ? Number(String(jackpotRaw).replace(/,/g, "")) : undefined;
       return {
         drawDate,
         numbers,
@@ -286,6 +296,7 @@ async function fetchMarkSixRowsFromHkjc(fromDate: string, lastNDraw = 220) {
           (draw.drawResult?.xDrawnNo ?? 0) <= 49
             ? draw.drawResult?.xDrawnNo
             : undefined,
+        jackpotAmount: Number.isFinite(jackpotAmount) ? jackpotAmount : undefined,
       };
     })
     .filter((row): row is MarkSixRow => Boolean(row));
@@ -322,15 +333,16 @@ export async function ingestMarkSixFromWeb({
     const result = await dbQuery(
       `
       INSERT INTO mark6_results (draw_date, numbers, special_number, jackpot_amount, source)
-      VALUES ($1::date, $2::int[], $3, NULL, $4)
+      VALUES ($1::date, $2::int[], $3, $4, $5)
       ON CONFLICT (draw_date)
       DO UPDATE SET
         numbers = EXCLUDED.numbers,
         special_number = EXCLUDED.special_number,
+        jackpot_amount = COALESCE(EXCLUDED.jackpot_amount, mark6_results.jackpot_amount),
         source = EXCLUDED.source,
         ingested_at = NOW()
       `,
-      [row.drawDate, row.numbers, row.specialNumber ?? null, source],
+      [row.drawDate, row.numbers, row.specialNumber ?? null, row.jackpotAmount ?? null, source],
     );
     if ((result.rowCount ?? 0) > 0) {
       inserted += 1;

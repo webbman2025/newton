@@ -16,6 +16,7 @@ import { useCopy, useLocale } from "@/components/locale-provider";
 import type { Mark6PredictiveDrawResult } from "@/lib/mark6-predictive-engine";
 import type { Mark6Persona } from "@/lib/mark6-analysis";
 import { formatConfidenceBandLabel } from "@/lib/translations";
+import { formatMark6PrizeAmount } from "@/lib/hkjc-mark6-schedule";
 
 type Mark6PredictiveDrawCardProps = {
   targetDate: string;
@@ -128,6 +129,43 @@ export function Mark6PredictiveDrawCard({ targetDate, persona }: Mark6Predictive
               </Typography>
             </Box>
           </Stack>
+          {data.hkjcPrize ? (
+            <Stack spacing={0.5}>
+              {data.hkjcPrize.latestResult ? (
+                <Typography variant="caption" color="text.secondary">
+                  {t.mark6LatestDrawPrizeLabel} ({data.hkjcPrize.latestResult.drawDate}):{" "}
+                  {data.hkjcPrize.latestResult.firstPrizePaid
+                    ? t.mark6LatestDrawPrizePaidLabel.replace(
+                        "{amount}",
+                        formatMark6PrizeAmount(data.hkjcPrize.latestResult.firstPrizePaid, locale),
+                      )
+                    : formatMark6PrizeAmount(data.hkjcPrize.latestResult.firstPrizeMax, locale)}
+                </Typography>
+              ) : null}
+              {data.hkjcPrize.nextScheduled ? (
+                <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t.mark6NextDrawPrizeLabel} ({data.hkjcPrize.nextScheduled.drawDate})
+                  </Typography>
+                  <Chip
+                    size="small"
+                    color="warning"
+                    label={formatMark6PrizeAmount(data.hkjcPrize.nextScheduled.firstPrizeMax, locale)}
+                    sx={{ fontWeight: 700 }}
+                  />
+                  {data.hkjcPrize.nextScheduled.snowballName ? (
+                    <Chip size="small" variant="outlined" label={data.hkjcPrize.nextScheduled.snowballName} />
+                  ) : null}
+                </Stack>
+              ) : null}
+              {data.hkjcPrize.selected.drawDate === data.targetDate ? (
+                <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
+                  {t.mark6SelectedDrawPrizeLabel}:{" "}
+                  {formatMark6PrizeAmount(data.hkjcPrize.selected.firstPrizeMax, locale)}
+                </Typography>
+              ) : null}
+            </Stack>
+          ) : null}
 
           <Box>
             <Typography variant="caption" color="text.secondary">

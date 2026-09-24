@@ -9,6 +9,10 @@ import { getLatestMark6PreviousDraw, getSuggestion } from "@/lib/data";
 import { ingestMarkSixFromWeb } from "@/lib/web-ingest";
 import { getUpcomingMark6DrawDates } from "@/lib/upcoming-mark6";
 import {
+  getMark6HkjcScheduleSnapshot,
+  type Mark6HkjcDrawPrize,
+} from "@/lib/hkjc-mark6-schedule";
+import {
   formatMajorJackpotHistoryNote,
   getMajorJackpotNumberWeightMap,
   getMark6MajorJackpotHistory,
@@ -84,6 +88,12 @@ export type Mark6PredictiveDrawResult = {
     majorDrawCount: number;
     topNumbers: number[];
     note: string;
+  };
+  hkjcPrize?: {
+    selected: Mark6HkjcDrawPrize;
+    latestResult?: Mark6HkjcDrawPrize;
+    nextScheduled?: Mark6HkjcDrawPrize;
+    syncedAt: string;
   };
 };
 
@@ -705,6 +715,7 @@ export async function getMark6PredictiveDraw({
   const majorFootprint = majorJackpotHistory
     ? getMajorJackpotNumberWeightMap(majorJackpotHistory)
     : new Map<number, number>();
+  const hkjcSchedule = await getMark6HkjcScheduleSnapshot(locale).catch(() => null);
 
   let draws: TrainingDraw[] = [];
   let dataSource: "database" | "fallback" = "fallback";
@@ -905,6 +916,23 @@ export async function getMark6PredictiveDraw({
           majorDrawCount: majorJackpotHistory.majorDrawCount,
           topNumbers: majorJackpotHistory.topNumbers.slice(0, 6).map((row) => row.number),
           note: formatMajorJackpotHistoryNote(majorJackpotHistory, locale),
+        }
+      : undefined,
+    hkjcPrize: hkjcSchedule
+      ? {
+          selected:
+            hkjcSchedule.byDate[resolvedDate] ??
+            hkjcSchedule.nextDraw ??
+            hkjcSchedule.latestResult ?? {
+              drawDate: resolvedDate,
+              firstPrizeMax: 0,
+              jackpotCarry: 0,
+              tier: "standard",
+              source: "hkjc",
+            },
+          latestResult: hkjcSchedule.latestResult,
+          nextScheduled: hkjcSchedule.nextDraw,
+          syncedAt: hkjcSchedule.syncedAt,
         }
       : undefined,
   };
