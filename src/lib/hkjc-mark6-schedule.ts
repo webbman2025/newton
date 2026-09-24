@@ -228,6 +228,26 @@ export async function getMark6HkjcScheduleSnapshot(locale: Locale): Promise<Mark
   };
 }
 
+export function getTodayDateKeyUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Upcoming Mark Six draw dates from HKJC only (no Tue/Thu/Sat estimates). */
+export function getHkjcSelectableDrawDates(snapshot: Mark6HkjcScheduleSnapshot): string[] {
+  const today = getTodayDateKeyUtc();
+  const fromByDate = Object.values(snapshot.byDate)
+    .filter((row) => row.status !== "Result" && row.drawDate >= today)
+    .map((row) => row.drawDate);
+  const unique = [...new Set(fromByDate)].sort();
+  if (unique.length > 0) {
+    return unique;
+  }
+  if (snapshot.nextDraw?.drawDate) {
+    return [snapshot.nextDraw.drawDate];
+  }
+  return [];
+}
+
 export function formatMark6PrizeAmount(amount: number, locale: Locale): string {
   if (amount <= 0) {
     return locale === "zh-HK" ? "待定" : "TBC";

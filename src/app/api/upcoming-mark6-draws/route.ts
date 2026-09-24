@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { getMark6HkjcScheduleSnapshot } from "@/lib/hkjc-mark6-schedule";
-import { getUpcomingMark6DrawDates } from "@/lib/upcoming-mark6";
+import {
+  getHkjcSelectableDrawDates,
+  getMark6HkjcScheduleSnapshot,
+} from "@/lib/hkjc-mark6-schedule";
 import { locales } from "@/lib/translations";
 
 export const runtime = "nodejs";
@@ -14,32 +16,25 @@ export async function GET(request: Request) {
     : "en";
 
   try {
-    const [upcoming, hkjc] = await Promise.all([
-      getUpcomingMark6DrawDates(12),
-      getMark6HkjcScheduleSnapshot(locale).catch(() => null),
-    ]);
+    const hkjc = await getMark6HkjcScheduleSnapshot(locale).catch(() => null);
 
-    const mergedDates = new Set(upcoming.dates);
     if (hkjc) {
-      for (const date of Object.keys(hkjc.byDate)) {
-        mergedDates.add(date);
-      }
+      const dates = getHkjcSelectableDrawDates(hkjc);
+      return NextResponse.json({
+        dates,
+        source: "hkjc" as const,
+        hkjc: {
+          syncedAt: hkjc.syncedAt,
+          latestResult: hkjc.latestResult,
+          nextDraw: hkjc.nextDraw,
+          prizesByDate: hkjc.byDate,
+        },
+      });
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    const dates = [...mergedDates].filter((date) => date >= today).sort().slice(0, 12);
-
     return NextResponse.json({
-      dates,
-      source: hkjc ? "hkjc" : upcoming.source,
-      hkjc: hkjc
-        ? {
-            syncedAt: hkjc.syncedAt,
-            latestResult: hkjc.latestResult,
-            nextDraw: hkjc.nextDraw,
-            prizesByDate: hkjc.byDate,
-          }
-        : undefined,
+      dates: [] as string[],
+      source: "unavailable" as const,
     });
   } catch (error) {
     return NextResponse.json(

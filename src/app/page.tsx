@@ -186,8 +186,8 @@ const MARK6_BANKER_SELECTION_PREVIEW_COUNT = 8;
 
 type UpcomingMark6DrawPayload = {
   dates: string[];
-  source: "website" | "fallback" | "hkjc";
-    hkjc?: {
+  source: "website" | "fallback" | "hkjc" | "unavailable";
+  hkjc?: {
     syncedAt: string;
     latestResult?: Mark6HkjcDrawPrize;
     nextDraw?: Mark6HkjcDrawPrize;
@@ -340,7 +340,7 @@ export default function Home() {
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
   const [upcomingMark6Dates, setUpcomingMark6Dates] = useState<string[]>([]);
   const [upcomingHorseRaceDates, setUpcomingHorseRaceDates] = useState<string[]>([]);
-  const [mark6DateSource, setMark6DateSource] = useState<"website" | "fallback" | "hkjc">("fallback");
+  const [mark6DateSource, setMark6DateSource] = useState<UpcomingMark6DrawPayload["source"]>("fallback");
   const [mark6HkjcSchedule, setMark6HkjcSchedule] = useState<UpcomingMark6DrawPayload["hkjc"]>();
   const [isMark6DatesLoading, setIsMark6DatesLoading] = useState(false);
   const [mark6PreviousDraw, setMark6PreviousDraw] = useState<Mark6PreviousDraw | null>(null);
@@ -360,7 +360,6 @@ export default function Home() {
   const [mark6PreviousDrawError, setMark6PreviousDrawError] = useState<string | null>(null);
   const [horseRacesError, setHorseRacesError] = useState<string | null>(null);
   const [horseHistoryError, setHorseHistoryError] = useState<string | null>(null);
-  const [mark6ShowCalendar, setMark6ShowCalendar] = useState(false);
   const [mark6ShowBackground, setMark6ShowBackground] = useState(false);
   const [mark6ShowAnalysis, setMark6ShowAnalysis] = useState(false);
   const [mark6ShowResultDetails, setMark6ShowResultDetails] = useState(false);
@@ -426,7 +425,6 @@ export default function Home() {
     () => upcomingRaces.filter((race) => toRaceDateKey(race.postTime) === targetDate),
     [targetDate, upcomingRaces],
   );
-  const highlightedMark6Days = useMemo(() => new Set(upcomingMark6Dates), [upcomingMark6Dates]);
   const highlightedHorseRaceDays = useMemo(
     () =>
       new Set([
@@ -661,12 +659,12 @@ export default function Home() {
         const payload = (await response.json()) as UpcomingMark6DrawPayload;
         if (active) {
           setUpcomingMark6Dates(payload.dates ?? []);
-          setMark6DateSource(payload.source ?? "fallback");
+          setMark6DateSource(payload.source ?? "unavailable");
           setMark6HkjcSchedule(payload.hkjc);
           setTargetDate((currentDate) => {
             const dates = payload.dates ?? [];
             const nextDraw = payload.hkjc?.nextDraw?.drawDate;
-            if (nextDraw && !dates.includes(currentDate)) {
+            if (nextDraw) {
               return nextDraw;
             }
             if (dates.length > 0 && !dates.includes(currentDate)) {
@@ -678,7 +676,8 @@ export default function Home() {
       } catch {
         if (active) {
           setUpcomingMark6Dates([]);
-          setMark6DateSource("fallback");
+          setMark6DateSource("unavailable");
+          setMark6HkjcSchedule(undefined);
           setMark6DatesError(t.fetchMark6DatesError);
         }
       } finally {
@@ -1249,10 +1248,7 @@ export default function Home() {
 
                 <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1.2 }}>
                   <Typography variant="body2" sx={{ mb: 0.6 }}>
-                    {t.mark6DrawDateLabel}
-                  </Typography>
-                  <Typography variant="h6" sx={{ mb: 0.8 }}>
-                    {targetDate}
+                    {t.mark6HkjcDrawDayLabel}
                   </Typography>
                   {mark6HkjcSchedule?.nextDraw ? (
                     <Box sx={{ mb: 1.2, p: 1, borderRadius: 2, bgcolor: "rgba(255,213,79,0.1)", border: "1px solid", borderColor: "warning.main" }}>
@@ -1287,66 +1283,40 @@ export default function Home() {
                         : formatMark6PrizeAmountFull(mark6HkjcSchedule.latestResult.firstPrizeMax, locale)}
                     </Typography>
                   ) : null}
-                  <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap", mb: 0.8 }}>
-                    {upcomingMark6Dates.slice(0, 4).map((date) => {
-                      const prize =
-                        mark6HkjcSchedule?.prizesByDate?.[date] ??
-                        (mark6HkjcSchedule?.nextDraw?.drawDate === date
-                          ? mark6HkjcSchedule.nextDraw
-                          : undefined);
-                      return (
-                      <Chip
-                        key={`mark6-upcoming-${date}`}
-                        clickable
-                        size="small"
-                        label={
-                          prize
-                            ? `${date} · ${formatMark6PrizeAmount(prize.firstPrizeMax, locale)}`
-                            : date
-                        }
-                        color={targetDate === date ? "primary" : "default"}
-                        variant={targetDate === date ? "filled" : "outlined"}
-                        onClick={() => setTargetDate(date)}
-                      />
-                      );
-                    })}
-                  </Stack>
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => setMark6ShowCalendar((value) => !value)}
-                    sx={{ textTransform: "none", px: 0 }}
-                  >
-                    {mark6ShowCalendar ? t.mark6HideDateAction : t.mark6ChangeDateAction}
-                  </Button>
-                  <Collapse in={mark6ShowCalendar}>
-                    <LocalizationProvider dateAdapter={AdapterDayjs}>
-                      <DateCalendar
-                        value={dayjs(targetDate)}
-                        onChange={(nextValue) => {
-                          if (nextValue?.isValid()) {
-                            setTargetDate(nextValue.format("YYYY-MM-DD"));
-                          }
-                        }}
-                        slots={{ day: HighlightedDay }}
-                        slotProps={{
-                          day: {
-                            highlightedDays: highlightedMark6Days,
-                          } as HighlightedDayProps,
-                        }}
-                      />
-                    </LocalizationProvider>
-                  </Collapse>
                   {isMark6DatesLoading ? (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.6 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.8 }}>
                       {t.mark6UpcomingDrawDatesLoading}
                     </Typography>
-                  ) : (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.6 }}>
-                      {t.mark6UpcomingDrawDatesLabel}: {upcomingMark6Dates.slice(0, 4).join(", ") || "-"}
-                      {mark6DateSource === "fallback" ? ` (${t.mark6UpcomingDrawDatesFallback})` : ""}
+                  ) : upcomingMark6Dates.length > 0 ? (
+                    <Stack direction="row" spacing={0.6} useFlexGap sx={{ flexWrap: "wrap", mb: 0.8 }}>
+                      {upcomingMark6Dates.map((date) => {
+                        const prize =
+                          mark6HkjcSchedule?.prizesByDate?.[date] ??
+                          (mark6HkjcSchedule?.nextDraw?.drawDate === date
+                            ? mark6HkjcSchedule.nextDraw
+                            : undefined);
+                        return (
+                          <Chip
+                            key={`mark6-hkjc-${date}`}
+                            clickable
+                            size="small"
+                            label={
+                              prize
+                                ? `${date} · ${formatMark6PrizeAmount(prize.firstPrizeMax, locale)}`
+                                : date
+                            }
+                            color={targetDate === date ? "primary" : "default"}
+                            variant={targetDate === date ? "filled" : "outlined"}
+                            onClick={() => setTargetDate(date)}
+                          />
+                        );
+                      })}
+                    </Stack>
+                  ) : mark6DateSource !== "hkjc" ? (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.8 }}>
+                      {t.mark6HkjcDrawDayUnavailable}
                     </Typography>
-                  )}
+                  ) : null}
                   {mark6DatesError ? (
                     <Alert severity="warning" sx={{ mt: 1, py: 0.2 }}>
                       {mark6DatesError}

@@ -257,6 +257,8 @@ type CopyShape = {
   mark6QuickStartStepGenerate: string;
   mark6QuickStartHint: string;
   mark6DrawDateLabel: string;
+  mark6HkjcDrawDayLabel: string;
+  mark6HkjcDrawDayUnavailable: string;
   mark6ChangeDateAction: string;
   mark6HideDateAction: string;
   mark6CustomizeSectionTitle: string;
@@ -670,6 +672,8 @@ export const copy: Record<Locale, CopyShape> = {
     mark6QuickStartStepGenerate: "Generate",
     mark6QuickStartHint: "Choose a draw date and analysis style, then tap Generate in the bar below.",
     mark6DrawDateLabel: "Draw date",
+    mark6HkjcDrawDayLabel: "HKJC draw day",
+    mark6HkjcDrawDayUnavailable: "HKJC draw schedule unavailable. Try again shortly.",
     mark6ChangeDateAction: "Change date",
     mark6HideDateAction: "Hide calendar",
     mark6CustomizeSectionTitle: "Customize generation",
@@ -1076,6 +1080,8 @@ export const copy: Record<Locale, CopyShape> = {
     mark6QuickStartStepGenerate: "生成",
     mark6QuickStartHint: "選擇開獎日期及分析風格，然後點按下方「生成」。",
     mark6DrawDateLabel: "開獎日期",
+    mark6HkjcDrawDayLabel: "馬會開彩日",
+    mark6HkjcDrawDayUnavailable: "暫未能讀取馬會開彩日程，請稍後再試。",
     mark6ChangeDateAction: "更改日期",
     mark6HideDateAction: "收起月曆",
     mark6CustomizeSectionTitle: "自訂生成方式",
