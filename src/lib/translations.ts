@@ -318,6 +318,7 @@ type CopyShape = {
   mark6DrawSimulatorIdle: string;
   mark6DrawSimulatorPreparing: string;
   mark6DrawSimulatorError: string;
+  mark6DrawSimulatorFallbackNotice: string;
   mark6DrawSimulatorDisclaimer: string;
   mark6DrawSimulatorSectionRolling: string;
   mark6DrawSimulatorMixing: string;
@@ -718,6 +719,8 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorIdle: "Press Start to run the ball machine simulation.",
     mark6DrawSimulatorPreparing: "Loading draw numbers…",
     mark6DrawSimulatorError: "Could not start the simulator. Try again.",
+    mark6DrawSimulatorFallbackNotice:
+      "Model data was unavailable — this run uses a random draw (bankers still apply).",
     mark6DrawSimulatorDisclaimer:
       "Visual simulation for entertainment only. Not an official HKJC draw or guaranteed prediction.",
     mark6DrawSimulatorSectionRolling: "Rolling in balls {range}…",
@@ -729,7 +732,7 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorHistoryTitle: "Previous draws",
     mark6DrawSimulatorHistoryDrawLabel: "Draw {index}",
     mark6DrawSimulatorPoolHint:
-      "Each draw samples 6 numbers from the model’s top 18. Numbers that repeat in recent runs lock in as bankers.",
+      "Reveals the AI Draw Predictor’s 6 main numbers and bonus for this date (persona applied). Numbers that repeat across recent runs show as bankers.",
     mark6DrawSimulatorBankerLabel: "Bankers",
     horseWinningHorseLabel: "Winning Horse",
     horsePreviousWinnerLabel: "Previous Winner",
@@ -1108,6 +1111,7 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorIdle: "按「開始攪珠」啟動模擬。",
     mark6DrawSimulatorPreparing: "正在載入開獎號碼…",
     mark6DrawSimulatorError: "未能啟動模擬，請再試。",
+    mark6DrawSimulatorFallbackNotice: "未能載入模型資料，今次以隨機攪珠（膽碼仍然生效）。",
     mark6DrawSimulatorDisclaimer: "僅供娛樂的視覺模擬，並非香港賽馬會官方攪珠或保證預測。",
     mark6DrawSimulatorSectionRolling: "正在放入 {range} 號球…",
     mark6DrawSimulatorMixing: "正在混合全部彩球（5 秒）…",
@@ -1117,7 +1121,8 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorBonusLabel: "特別號",
     mark6DrawSimulatorHistoryTitle: "過往攪珠",
     mark6DrawSimulatorHistoryDrawLabel: "第 {index} 次",
-    mark6DrawSimulatorPoolHint: "每次從模型頭 18 個號碼加權抽出 6 個；近期重複出現的號碼會鎖定為膽碼。",
+    mark6DrawSimulatorPoolHint:
+      "會揭曉此日期 AI 開獎預測的 6 個主號及特別號（依分析角色）；近期重複出現的號碼會顯示為膽碼。",
     mark6DrawSimulatorBankerLabel: "膽碼",
     horseWinningHorseLabel: "勝出馬匹",
     horsePreviousWinnerLabel: "上場冠軍",

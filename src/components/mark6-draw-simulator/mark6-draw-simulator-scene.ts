@@ -57,6 +57,7 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     complete: "",
   };
   private payload: Mark6DrawSimulatorPayload | null = null;
+  private mainRevealOrder: number[] = [];
   private balls: BallEntry[] = [];
   private drumX = 0;
   private drumY = 0;
@@ -534,6 +535,10 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     this.handleReset();
     this.running = true;
     this.payload = payload;
+    this.mainRevealOrder =
+      payload.revealOrder?.length === payload.mainNumbers.length
+        ? [...payload.revealOrder]
+        : [...payload.mainNumbers];
     this.runSectionSequence(0);
   };
 
@@ -700,7 +705,11 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
       return;
     }
 
-    const number = this.payload.mainNumbers[index];
+    const number = this.mainRevealOrder[index];
+    if (number === undefined) {
+      this.revealBonus(this.payload.bonusNumber);
+      return;
+    }
     this.callbacks.onStatus(
       this.labels.drawingMain
         .replace("{number}", String(number))

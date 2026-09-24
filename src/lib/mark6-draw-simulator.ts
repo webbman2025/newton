@@ -14,6 +14,13 @@ export type Mark6DrawSimulatorPayload = {
   mainNumbers: number[];
   bonusNumber: number;
   bankers?: number[];
+  /** Draw sequence on the machine (defaults to sorted mains). */
+  revealOrder?: number[];
+};
+
+export type Mark6DrawSimulatorFetchResult = {
+  payload: Mark6DrawSimulatorPayload;
+  source: "predictive" | "random";
 };
 
 export type Mark6DrawSimulatorLabels = {
@@ -189,15 +196,14 @@ export function pickSimulatorDrawFromRankedPool(
 ): Mark6DrawSimulatorPayload {
   const bankers = uniqueValidNumbers(options.bankers, MARK6_SIMULATOR_MAX_BANKERS);
   const scoreByNumber = new Map(ranked.filter((row) => isValidMark6Number(row.number)).map((row) => [row.number, row.score]));
+  const maxRankScore = ranked.reduce((max, row) => Math.max(max, row.score), 0.001);
   for (const number of uniqueValidNumbers(options.fallbackSet, 6)) {
-    if (!scoreByNumber.has(number)) {
-      scoreByNumber.set(number, 1);
-    }
+    const existing = scoreByNumber.get(number);
+    scoreByNumber.set(number, Math.max(existing ?? 0, maxRankScore * 0.92));
   }
   for (const banker of bankers) {
-    if (!scoreByNumber.has(banker)) {
-      scoreByNumber.set(banker, 1.2);
-    }
+    const existing = scoreByNumber.get(banker);
+    scoreByNumber.set(banker, Math.max(existing ?? 0, maxRankScore * 1.08));
   }
 
   const poolMap = new Map(
@@ -243,12 +249,54 @@ export function pickSimulatorDrawFromRankedPool(
   };
 }
 
+/** Same mains + bonus as the AI Draw Predictor card for this date/persona. */
+export function buildMirroredPredictiveDrawPayload(
+  primarySet: number[] | undefined,
+  specialNumberPick: number | undefined,
+  specialNumberRanks: number[],
+  bankers: number[] = [],
+): Mark6DrawSimulatorPayload | null {
+  const mainNumbers = uniqueValidNumbers(primarySet, 6);
+  if (mainNumbers.length !== 6) {
+    return null;
+  }
+  const sorted = [...mainNumbers].sort((a, b) => a - b);
+  const blocked = new Set(sorted);
+  let bonusNumber: number;
+  if (isValidMark6Number(specialNumberPick ?? 0) && !blocked.has(specialNumberPick ?? 0)) {
+    bonusNumber = specialNumberPick as number;
+  } else {
+    const leftover = Array.from({ length: 49 }, (_value, index) => index + 1)
+      .filter((value) => !blocked.has(value))
+      .map((number) => ({ number, score: 1 }));
+    bonusNumber = pickBonusNumber(sorted, specialNumberRanks, leftover);
+  }
+  const pinnedBankers = bankers.filter((number) => sorted.includes(number));
+  return {
+    mainNumbers: sorted,
+    bonusNumber,
+    bankers: pinnedBankers,
+    revealOrder: shuffleRevealOrder(sorted),
+  };
+}
+
+function shuffleRevealOrder(mainNumbers: number[]) {
+  const order = [...mainNumbers];
+  shuffleInPlace(order);
+  return order;
+}
+
 export async function fetchMark6DrawSimulatorNumbers(
   targetDate: string,
   persona: string,
   locale: string,
   bankers: number[] = [],
-): Promise<Mark6DrawSimulatorPayload> {
+): Promise<Mark6DrawSimulatorFetchResult> {
+  const randomResult = (): Mark6DrawSimulatorFetchResult => ({
+    payload: pickRandomMark6Draw(bankers),
+    source: "random",
+  });
+
   try {
     const params = new URLSearchParams({
       targetDate,
@@ -257,40 +305,53 @@ export async function fetchMark6DrawSimulatorNumbers(
     });
     const response = await fetch(`/api/mark6-predictive-draw?${params.toString()}`);
     if (!response.ok) {
-      return pickRandomMark6Draw(bankers);
+      return randomResult();
     }
     const payload = (await response.json()) as {
+      error?: string;
       primarySet?: number[];
       specialNumberPick?: number;
       specialNumberRanks?: number[];
       topSignals?: Array<{ number: number; score?: number; displayScore?: number }>;
     };
+    if (payload.error) {
+      return randomResult();
+    }
     const ranked = (payload.topSignals ?? [])
       .filter((row) => isValidMark6Number(row.number))
       .map((row) => ({
         number: row.number,
-        score: Math.max(0.001, row.score ?? row.displayScore ?? 1),
+        score: Math.max(0.001, typeof row.score === "number" ? row.score : 0.001),
       }));
     const specialNumberRanks = uniqueValidNumbers(
       [...(payload.specialNumberRanks ?? []), payload.specialNumberPick ?? 0],
       12,
     );
+
+    const mirrored = buildMirroredPredictiveDrawPayload(
+      payload.primarySet,
+      payload.specialNumberPick,
+      specialNumberRanks,
+      bankers,
+    );
+    if (mirrored) {
+      return { payload: mirrored, source: "predictive" };
+    }
+
     if (ranked.length >= 6) {
-      return pickSimulatorDrawFromRankedPool(ranked, {
+      const weighted = pickSimulatorDrawFromRankedPool(ranked, {
         bankers,
         specialNumberRanks,
         fallbackSet: payload.primarySet,
       });
+      return {
+        payload: { ...weighted, revealOrder: shuffleRevealOrder(weighted.mainNumbers) },
+        source: "predictive",
+      };
     }
-    const mainNumbers = uniqueValidNumbers(payload.primarySet, 6);
-    if (mainNumbers.length === 6) {
-      return pickSimulatorDrawFromRankedPool(
-        mainNumbers.map((number, index) => ({ number, score: 6 - index })),
-        { bankers, specialNumberRanks, fallbackSet: mainNumbers },
-      );
-    }
-    return pickRandomMark6Draw(bankers);
+
+    return randomResult();
   } catch {
-    return pickRandomMark6Draw(bankers);
+    return randomResult();
   }
 }

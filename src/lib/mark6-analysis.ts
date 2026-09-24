@@ -83,7 +83,7 @@ export type Mark6AnalysisResult = {
   suggestedQueries: Mark6AnalysisQuery[];
 };
 
-const FALLBACK_DRAWS: Mark6Draw[] = [
+export const MARK6_OFFLINE_FALLBACK_DRAWS: Mark6Draw[] = [
   { date: "2026-04-24", numbers: [3, 8, 16, 23, 36, 45] },
   { date: "2026-04-21", numbers: [5, 11, 17, 28, 32, 49] },
   { date: "2026-04-17", numbers: [1, 9, 15, 22, 35, 44] },
@@ -319,5 +319,16 @@ export async function getMark6Analysis(options: {
     }
   }
 
-  return analyzeMark6Draws(FALLBACK_DRAWS, { ...options, dataSource: "fallback" });
+  return analyzeMark6Draws(MARK6_OFFLINE_FALLBACK_DRAWS, { ...options, dataSource: "fallback" });
+}
+
+/** Same draw sample as analysis fallback — keeps predictive scoring aligned when DB is unavailable. */
+export function getMark6OfflineTrainingDraws(): Array<{ drawDate: Date; numbers: number[] }> {
+  return MARK6_OFFLINE_FALLBACK_DRAWS.map((draw) => {
+    const normalized = normalizeDraw(draw);
+    return {
+      drawDate: new Date(`${normalized.date}T00:00:00`),
+      numbers: normalized.numbers,
+    };
+  }).sort((a, b) => a.drawDate.getTime() - b.drawDate.getTime());
 }

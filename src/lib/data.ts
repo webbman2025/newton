@@ -2028,7 +2028,7 @@ async function getMark6Suggestion(
           }
         : getFallbackPreviousMark6Draw(targetDate),
       mark6NumberProbabilities,
-      modelVersion: "mark6-predictive-v2",
+      modelVersion: "mark6-predictive-v4",
       mark6Analysis: {
         strategy: expertConfig.strategy,
         activeProfiles: activeExpertProfiles,

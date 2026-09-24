@@ -2,6 +2,7 @@ import type { ConfidenceBand, Locale } from "@/lib/translations";
 import { dbQuery, ensureSchema, hasDatabaseConfig } from "@/lib/db";
 import {
   getMark6Analysis,
+  getMark6OfflineTrainingDraws,
   type Mark6Persona,
 } from "@/lib/mark6-analysis";
 import { getLatestMark6PreviousDraw, getSuggestion } from "@/lib/data";
@@ -10,6 +11,7 @@ import { getUpcomingMark6DrawDates } from "@/lib/upcoming-mark6";
 
 const HISTORY_YEARS = 5;
 const MARK6_BASELINE = 6 / 49;
+const MARK6_PREDICTIVE_MODEL_VERSION = "mark6-predictive-v4";
 const MS_PER_DAY = 86_400_000;
 const HISTORY_WINDOW_DAYS = HISTORY_YEARS * 365;
 
@@ -369,7 +371,7 @@ function scoreDraws(
     let score = base * 0.72 + historicalAverage * modelLift * 0.28;
     const heat = heatByNumber?.get(number) ?? 0;
     if (heat > 0) {
-      score += heat * 0.12;
+      score += (heat / 100) * 0.12;
     }
     finalScores.set(number, score);
   }
@@ -463,6 +465,7 @@ function compositionAdjust(chosen: number[], candidate: number) {
 function pickCoverageSet(
   ranked: Array<{ number: number; score: number }>,
   pairCounts: Map<string, number>,
+  persona: Mark6Persona = "lotteryAnalyst",
 ) {
   if (ranked.length <= 6) {
     return ranked.map((row) => row.number).sort((a, b) => a - b);
@@ -471,6 +474,7 @@ function pickCoverageSet(
   const pool = [...ranked];
   const chosen: number[] = [];
   const maxPair = Math.max(1, ...pairCounts.values());
+  const pairBoostStrength = persona === "patternFinder" ? 0.35 : 0.2;
   const first = pool.shift();
   if (first) {
     chosen.push(first.number);
@@ -488,7 +492,9 @@ function pickCoverageSet(
       for (const number of chosen) {
         pairBoost += (pairCounts.get(pairKey(number, row.number)) ?? 0) / maxPair;
       }
-      const value = row.score * (1 + pairBoost * 0.2) + compositionAdjust(chosen, row.number) * row.score * 0.1;
+      const value =
+        row.score * (1 + pairBoost * pairBoostStrength) +
+        compositionAdjust(chosen, row.number) * row.score * 0.1;
       if (value > bestValue) {
         bestValue = value;
         bestIndex = index;
@@ -509,24 +515,37 @@ function buildTags(
   historical: Map<number, number>,
   modelOnly: Map<number, number>,
   heatByNumber: Map<number, number>,
+  targetDate: Date,
   previousDraw?: { numbers: number[]; specialNumber?: number },
   pairCounts?: Map<string, number>,
 ): Mark6PredictiveSignalTag[] {
   const tags: Mark6PredictiveSignalTag[] = [];
-  const historicalValues = [...historical.values()].sort((a, b) => b - a);
-  const historicalRank =
-    historicalValues.findIndex((value) => value === historical.get(number)) + 1;
+  const historicalOrder = [...historical.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+  const historicalRank = historicalOrder.findIndex(([candidate]) => candidate === number) + 1;
   if (historicalRank > 0 && historicalRank <= 12) {
     tags.push("historicalFrequency");
   }
   if ((modelOnly.get(number) ?? 0) >= MARK6_BASELINE * 1.08) {
     tags.push("trainedModel");
   }
-  if ((heatByNumber.get(number) ?? 0) >= 0.55) {
+  if ((heatByNumber.get(number) ?? 0) >= 55) {
     tags.push("hotTrend");
   }
   if (getGap(draws, number) >= 12) {
     tags.push("coldRebound");
+  }
+  const weekdayFreq = getFrequency(
+    draws,
+    number,
+    (draw) => draw.drawDate.getDay() === targetDate.getDay(),
+  );
+  const monthFreq = getFrequency(
+    draws,
+    number,
+    (draw) => draw.drawDate.getMonth() === targetDate.getMonth(),
+  );
+  if (weekdayFreq >= MARK6_BASELINE * 1.12 || monthFreq >= MARK6_BASELINE * 1.12) {
+    tags.push("seasonalMatch");
   }
   if (previousDraw) {
     const signals = previousDraw.specialNumber
@@ -709,6 +728,7 @@ export async function getMark6PredictiveDraw({
   }
 
   if (draws.length === 0) {
+    draws = getMark6OfflineTrainingDraws();
     dataSource = analysis.dataSource === "database" ? "database" : "fallback";
   }
 
@@ -735,11 +755,14 @@ export async function getMark6PredictiveDraw({
     .map(([number, score]) => ({ number, score }))
     .sort((a, b) => b.score - a.score || a.number - b.number);
 
+  const batchSets = suggestion.mark6BatchSets ?? [];
+  const coveragePrimary =
+    ranked.length >= 6 ? pickCoverageSet(ranked, pairCounts, persona) : pickDeterministicMixedSet(ranked);
+  const gameTheoristPrimary = batchSets[0]?.length === 6 ? [...batchSets[0]].sort((a, b) => a - b) : null;
   const primarySet =
-    ranked.length >= 6 ? pickCoverageSet(ranked, pairCounts) : pickDeterministicMixedSet(ranked);
+    persona === "gameTheorist" && gameTheoristPrimary ? gameTheoristPrimary : coveragePrimary;
 
   const alternativeSets: Array<{ label: string; numbers: number[] }> = [];
-  const batchSets = suggestion.mark6BatchSets ?? [];
   for (let index = 0; index < Math.min(batchSets.length, 3); index += 1) {
     const set = batchSets[index];
     if (set?.length === 6 && set.join("-") !== primarySet.join("-")) {
@@ -769,18 +792,19 @@ export async function getMark6PredictiveDraw({
       historical,
       modelOnly,
       heatByNumber,
+      endDateObject,
       previousDraw ?? undefined,
       pairCounts,
     ),
   }));
 
   const hotNumbers = analysis.numberStats
-    .filter((row) => row.heat >= 0.55)
+    .filter((row) => row.heat >= 55)
     .sort((a, b) => b.heat - a.heat)
     .slice(0, 6)
     .map((row) => row.number);
   const coldNumbers = analysis.numberStats
-    .filter((row) => row.heat <= 0.35)
+    .filter((row) => row.heat <= 35)
     .sort((a, b) => a.heat - b.heat)
     .slice(0, 6)
     .map((row) => row.number);
@@ -840,7 +864,7 @@ export async function getMark6PredictiveDraw({
       windowDraws: analysis.window,
     },
     confidenceBand,
-    modelVersion: "mark6-predictive-v4",
+    modelVersion: MARK6_PREDICTIVE_MODEL_VERSION,
     persona,
     methodology:
       locale === "zh-HK"

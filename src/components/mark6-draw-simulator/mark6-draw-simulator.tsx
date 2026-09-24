@@ -68,6 +68,7 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
   const [results, setResults] = useState<Mark6DrawSimulatorPayload | null>(null);
   const [drawHistory, setDrawHistory] = useState<DrawHistoryEntry[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [usedRandomFallback, setUsedRandomFallback] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -131,6 +132,7 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
   const handleStart = useCallback(async () => {
     const nextBankers = deriveSimulatorBankers(drawHistory, results);
     setLoadError(null);
+    setUsedRandomFallback(false);
     archiveCurrentResult();
     setRunning(true);
     setStatus(t.mark6DrawSimulatorPreparing);
@@ -142,7 +144,13 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
       return;
     }
     try {
-      const payload = await fetchMark6DrawSimulatorNumbers(targetDate, persona, locale, nextBankers);
+      const { payload, source } = await fetchMark6DrawSimulatorNumbers(
+        targetDate,
+        persona,
+        locale,
+        nextBankers,
+      );
+      setUsedRandomFallback(source === "random");
       controllerRef.current?.startDraw(payload);
     } catch {
       setLoadError(t.mark6DrawSimulatorError);
@@ -215,6 +223,11 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
       {loadError ? (
         <Alert severity="warning" sx={{ py: 0.3 }}>
           {loadError}
+        </Alert>
+      ) : null}
+      {usedRandomFallback && !loadError ? (
+        <Alert severity="info" sx={{ py: 0.3 }}>
+          {t.mark6DrawSimulatorFallbackNotice}
         </Alert>
       ) : null}
       <Stack direction="row" spacing={1}>
