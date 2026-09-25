@@ -9,6 +9,8 @@ import {
   MARK6_DRAW_SIMULATOR_MIX_MS,
   type Mark6DrawSimulatorLabels,
   type Mark6DrawSimulatorPayload,
+  shuffleRevealOrder,
+  uniqueValidNumbers,
 } from "@/lib/mark6-draw-simulator";
 
 const BALL_RADIUS = 14;
@@ -520,6 +522,30 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     entry.label?.destroy();
   }
 
+  /** Bonus ball when the same number was already drawn as a main (invalid payload fallback). */
+  private spawnRevealedBall(
+    number: number,
+    slotX: number,
+    isBonus: boolean,
+    onComplete: () => void,
+  ) {
+    const entry = this.createCircleBall(number, this.drumX, this.rackY);
+    entry.drawn = true;
+    if (!entry.circle) {
+      onComplete();
+      return;
+    }
+    entry.circle.setDepth(20);
+    entry.label?.setDepth(21);
+    entry.circle.setScale(isBonus ? REVEAL_BONUS_SCALE : REVEAL_SCALE);
+    entry.label?.setScale(isBonus ? REVEAL_BONUS_SCALE : REVEAL_SCALE);
+    entry.circle.x = slotX;
+    entry.circle.y = this.rackY;
+    this.syncLabel(entry);
+    this.balls.push(entry);
+    onComplete();
+  }
+
   private handleReset = () => {
     this.stopMixing();
     this.running = false;
@@ -535,10 +561,15 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
     this.handleReset();
     this.running = true;
     this.payload = payload;
-    this.mainRevealOrder =
-      payload.revealOrder?.length === payload.mainNumbers.length
-        ? [...payload.revealOrder]
-        : [...payload.mainNumbers];
+    const mains = uniqueValidNumbers(payload.mainNumbers, 6);
+    const orderSource =
+      payload.revealOrder?.length === mains.length
+        ? payload.revealOrder
+        : shuffleRevealOrder(mains);
+    this.mainRevealOrder = uniqueValidNumbers(orderSource, 6);
+    if (this.mainRevealOrder.length !== mains.length) {
+      this.mainRevealOrder = shuffleRevealOrder(mains);
+    }
     this.runSectionSequence(0);
   };
 
@@ -739,6 +770,10 @@ export class Mark6DrawSimulatorScene extends Phaser.Scene {
   ) {
     const entry = this.balls.find((ball) => ball.number === number && !ball.drawn);
     if (!entry?.circle || !entry.label) {
+      if (isBonus && this.payload) {
+        this.spawnRevealedBall(number, slotX, true, onComplete);
+        return;
+      }
       onComplete();
       return;
     }

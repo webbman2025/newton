@@ -175,6 +175,15 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
 
   const handleStart = useCallback(async () => {
     const nextBankers = deriveSimulatorBankers(drawHistory, results);
+    const recentDraws = [
+      ...(results ? [results] : []),
+      ...drawHistory.map(({ mainNumbers, bonusNumber, bankers: entryBankers, revealOrder }) => ({
+        mainNumbers,
+        bonusNumber,
+        bankers: entryBankers,
+        revealOrder,
+      })),
+    ];
     setLoadError(null);
     setUsedRandomFallback(false);
     archiveCurrentResult();
@@ -193,6 +202,7 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
         persona,
         locale,
         nextBankers,
+        recentDraws,
       );
       setUsedRandomFallback(source === "random");
       controllerRef.current?.startDraw(payload);

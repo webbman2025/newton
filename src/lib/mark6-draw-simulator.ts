@@ -64,7 +64,7 @@ function isValidMark6Number(value: number) {
   return Number.isInteger(value) && value >= 1 && value <= 49;
 }
 
-function uniqueValidNumbers(values: number[] | undefined, limit = 49) {
+export function uniqueValidNumbers(values: number[] | undefined, limit = 49) {
   const seen = new Set<number>();
   const next: number[] = [];
   for (const value of values ?? []) {
@@ -153,7 +153,10 @@ function softenSizeMix(chosen: number[], remaining: RankedNumber[]) {
   }
 
   const wantSmall = smallCount === 0;
-  const replacement = remaining.find((row) => (wantSmall ? row.number <= 24 : row.number >= 25));
+  const blocked = new Set(chosen);
+  const replacement = remaining.find(
+    (row) => !blocked.has(row.number) && (wantSmall ? row.number <= 24 : row.number >= 25),
+  );
   if (!replacement) {
     return chosen;
   }
@@ -165,7 +168,7 @@ function softenSizeMix(chosen: number[], remaining: RankedNumber[]) {
 
   const next = [...chosen];
   next[dropIndex] = replacement.number;
-  return next;
+  return uniqueValidNumbers(next, 6);
 }
 
 function pickBonusNumber(mainNumbers: number[], rankedSpecials: number[], leftover: RankedNumber[]) {
@@ -280,10 +283,67 @@ export function buildMirroredPredictiveDrawPayload(
   };
 }
 
-function shuffleRevealOrder(mainNumbers: number[]) {
+export function shuffleRevealOrder(mainNumbers: number[]) {
   const order = [...mainNumbers];
   shuffleInPlace(order);
   return order;
+}
+
+export function mark6DrawSignature(payload: Mark6DrawSimulatorPayload): string {
+  const mains = uniqueValidNumbers(payload.mainNumbers, 6).sort((a, b) => a - b).join("-");
+  return `${mains}|${payload.bonusNumber}`;
+}
+
+const SIMULATOR_DRAW_ATTEMPTS = 24;
+
+function applyPlayJitter(ranked: RankedNumber[]): RankedNumber[] {
+  return ranked.map((row) => ({
+    number: row.number,
+    score: Math.max(0.001, row.score * (0.9 + Math.random() * 0.22)),
+  }));
+}
+
+function applyRecentDrawPenalty(
+  ranked: RankedNumber[],
+  recentDraws: Mark6DrawSimulatorPayload[],
+): RankedNumber[] {
+  if (recentDraws.length === 0) {
+    return ranked;
+  }
+  const recentMains = new Set(recentDraws.flatMap((draw) => uniqueValidNumbers(draw.mainNumbers, 6)));
+  return ranked.map((row) => ({
+    number: row.number,
+    score: recentMains.has(row.number) ? row.score * 0.82 : row.score,
+  }));
+}
+
+function pickUniqueSimulatorDraw(
+  ranked: RankedNumber[],
+  options: {
+    bankers?: number[];
+    specialNumberRanks?: number[];
+    recentDraws?: Mark6DrawSimulatorPayload[];
+  },
+): Mark6DrawSimulatorPayload {
+  const recentKeys = new Set((options.recentDraws ?? []).map(mark6DrawSignature));
+  let lastCandidate = pickSimulatorDrawFromRankedPool(ranked, {
+    bankers: options.bankers,
+    specialNumberRanks: options.specialNumberRanks,
+  });
+
+  for (let attempt = 0; attempt < SIMULATOR_DRAW_ATTEMPTS; attempt += 1) {
+    const jittered = applyPlayJitter(applyRecentDrawPenalty(ranked, options.recentDraws ?? []));
+    const candidate = pickSimulatorDrawFromRankedPool(jittered, {
+      bankers: options.bankers,
+      specialNumberRanks: options.specialNumberRanks,
+    });
+    lastCandidate = candidate;
+    if (!recentKeys.has(mark6DrawSignature(candidate))) {
+      return candidate;
+    }
+  }
+
+  return lastCandidate;
 }
 
 export async function fetchMark6DrawSimulatorNumbers(
@@ -291,11 +351,23 @@ export async function fetchMark6DrawSimulatorNumbers(
   persona: string,
   locale: string,
   bankers: number[] = [],
+  recentDraws: Mark6DrawSimulatorPayload[] = [],
 ): Promise<Mark6DrawSimulatorFetchResult> {
-  const randomResult = (): Mark6DrawSimulatorFetchResult => ({
-    payload: pickRandomMark6Draw(bankers),
-    source: "random",
-  });
+  const recentKeys = new Set(recentDraws.map(mark6DrawSignature));
+  const randomResult = (): Mark6DrawSimulatorFetchResult => {
+    let payload = pickRandomMark6Draw(bankers);
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      const candidate = pickRandomMark6Draw(bankers);
+      payload = candidate;
+      if (!recentKeys.has(mark6DrawSignature(candidate))) {
+        break;
+      }
+    }
+    return {
+      payload: { ...payload, revealOrder: shuffleRevealOrder(payload.mainNumbers) },
+      source: "random",
+    };
+  };
 
   try {
     const params = new URLSearchParams({
@@ -328,22 +400,31 @@ export async function fetchMark6DrawSimulatorNumbers(
       12,
     );
 
-    const mirrored = buildMirroredPredictiveDrawPayload(
-      payload.primarySet,
-      payload.specialNumberPick,
-      specialNumberRanks,
-      bankers,
-    );
-    if (mirrored) {
-      return { payload: mirrored, source: "predictive" };
-    }
-
     if (ranked.length >= 6) {
-      const weighted = pickSimulatorDrawFromRankedPool(ranked, {
+      const weighted = pickUniqueSimulatorDraw(ranked, {
         bankers,
         specialNumberRanks,
-        fallbackSet: payload.primarySet,
+        recentDraws,
       });
+      return {
+        payload: { ...weighted, revealOrder: shuffleRevealOrder(weighted.mainNumbers) },
+        source: "predictive",
+      };
+    }
+
+    if (payload.primarySet?.length === 6) {
+      const fallbackRanked = uniqueValidNumbers(payload.primarySet, 6).map((number, index) => ({
+        number,
+        score: 6 - index,
+      }));
+      const weighted = pickUniqueSimulatorDraw(
+        ranked.length > 0 ? ranked : fallbackRanked,
+        {
+          bankers,
+          specialNumberRanks,
+          recentDraws,
+        },
+      );
       return {
         payload: { ...weighted, revealOrder: shuffleRevealOrder(weighted.mainNumbers) },
         source: "predictive",
