@@ -13,6 +13,7 @@ import {
 import {
   formatMark6PrizeAmount,
   formatMark6PrizeAmountFull,
+  formatMark6LatestDrawOutcome,
   type Mark6DrawPrizePayload,
 } from "@/lib/mark6-draw-prize";
 import type { Mark6MajorJackpotHistory } from "@/lib/mark6-major-jackpot-history";
@@ -237,6 +238,17 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
     return prizeInfo.selected;
   }, [prizeInfo, targetDate]);
 
+  const latestDrawOutcomeLine = useMemo(() => {
+    if (!prizeInfo?.latestResult || prizeInfo.latestResult.source !== "hkjc") {
+      return null;
+    }
+    return formatMark6LatestDrawOutcome(
+      prizeInfo.latestResult,
+      prizeInfo.nextScheduled,
+      locale,
+    );
+  }, [locale, prizeInfo?.latestResult, prizeInfo?.nextScheduled]);
+
   return (
     <Stack spacing={1.2}>
       {prizeInfo && activeDraw ? (
@@ -296,19 +308,33 @@ export function Mark6DrawSimulator({ targetDate, persona }: Mark6DrawSimulatorPr
               </Stack>
             </Box>
             {prizeInfo.latestResult ? (
-              <Typography variant="caption" color="text.secondary">
-                {t.mark6LatestDrawPrizeLabel} ({prizeInfo.latestResult.drawDate}
-                {prizeInfo.latestResult.drawNo ? ` · ${prizeInfo.latestResult.drawNo}` : ""}):{" "}
-                {prizeInfo.latestResult.firstPrizePaid
-                  ? t.mark6LatestDrawPrizePaidLabel.replace(
-                      "{amount}",
-                      formatMark6PrizeAmountFull(prizeInfo.latestResult.firstPrizePaid, locale),
-                    )
-                  : formatMark6PrizeAmountFull(prizeInfo.latestResult.firstPrizeMax, locale)}
-                {prizeInfo.latestResult.numbers?.length
-                  ? ` · ${prizeInfo.latestResult.numbers.join(", ")}`
-                  : ""}
-              </Typography>
+              <>
+                <Typography variant="caption" color="text.secondary">
+                  {t.mark6LatestDrawPrizeLabel} ({prizeInfo.latestResult.drawDate}
+                  {prizeInfo.latestResult.drawNo ? ` · ${prizeInfo.latestResult.drawNo}` : ""}):{" "}
+                  {prizeInfo.latestResult.firstPrizePaid
+                    ? t.mark6LatestDrawPrizePaidLabel.replace(
+                        "{amount}",
+                        formatMark6PrizeAmountFull(prizeInfo.latestResult.firstPrizePaid, locale),
+                      )
+                    : formatMark6PrizeAmountFull(prizeInfo.latestResult.firstPrizeMax, locale)}
+                  {prizeInfo.latestResult.numbers?.length
+                    ? ` · ${prizeInfo.latestResult.numbers.join(", ")}`
+                    : ""}
+                </Typography>
+                {latestDrawOutcomeLine ? (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: "block",
+                      color: prizeInfo.latestResult.firstDivisionWinners === 0 ? "warning.dark" : "text.secondary",
+                      fontWeight: prizeInfo.latestResult.firstDivisionWinners === 0 ? 600 : 400,
+                    }}
+                  >
+                    {latestDrawOutcomeLine}
+                  </Typography>
+                ) : null}
+              </>
             ) : null}
             {prizeInfo.weekDraws.length > 1 ? (
               <Box>

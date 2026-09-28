@@ -57,7 +57,7 @@ type HkjcRawDraw = {
     jackpot?: string;
     estimatedPrize?: string;
     derivedFirstPrizeDiv?: string;
-    lotteryPrizes?: Array<{ type?: number; dividend?: string }>;
+    lotteryPrizes?: Array<{ type?: number; dividend?: string; winningUnit?: string | number }>;
   };
   drawResult?: {
     drawnNo?: number[];
@@ -73,6 +73,8 @@ export type Mark6HkjcDrawPrize = {
   status?: string;
   firstPrizeMax: number;
   firstPrizePaid?: number;
+  /** HKJC type-1 winning tickets (Result draws only). */
+  firstDivisionWinners?: number;
   jackpotCarry: number;
   tier: Mark6PrizeTier;
   snowballCode?: string;
@@ -118,9 +120,21 @@ function snowballLabel(draw: HkjcRawDraw, locale: Locale) {
   return draw.snowballName_en || draw.snowballName_ch || undefined;
 }
 
-function firstDivisionPaid(pool?: HkjcRawDraw["lotteryPool"]) {
+function firstDivisionMeta(pool?: HkjcRawDraw["lotteryPool"]) {
   const row = pool?.lotteryPrizes?.find((prize) => prize.type === 1);
-  return parseHkjcMoney(row?.dividend);
+  const winningUnitRaw = row?.winningUnit;
+  const winningUnit =
+    winningUnitRaw === undefined || winningUnitRaw === null || winningUnitRaw === ""
+      ? undefined
+      : Number.parseInt(String(winningUnitRaw), 10);
+  return {
+    paid: parseHkjcMoney(row?.dividend),
+    winningUnit: Number.isFinite(winningUnit) ? winningUnit : undefined,
+  };
+}
+
+function firstDivisionPaid(pool?: HkjcRawDraw["lotteryPool"]) {
+  return firstDivisionMeta(pool).paid;
 }
 
 export function toMark6HkjcDrawPrize(draw: HkjcRawDraw, locale: Locale): Mark6HkjcDrawPrize | null {
@@ -134,6 +148,7 @@ export function toMark6HkjcDrawPrize(draw: HkjcRawDraw, locale: Locale): Mark6Hk
   const jackpot = parseHkjcMoney(pool?.jackpot);
   const estimated = parseHkjcMoney(pool?.estimatedPrize);
   const paid = firstDivisionPaid(pool);
+  const { winningUnit: firstDivisionWinners } = firstDivisionMeta(pool);
   const firstPrizeMax = derived || estimated || jackpot || paid;
   if (firstPrizeMax <= 0 && paid <= 0) {
     return null;
@@ -152,6 +167,10 @@ export function toMark6HkjcDrawPrize(draw: HkjcRawDraw, locale: Locale): Mark6Hk
     status: draw.status,
     firstPrizeMax: firstPrizeMax || paid,
     firstPrizePaid: paid > 0 ? paid : undefined,
+    firstDivisionWinners:
+      draw.status === "Result" && firstDivisionWinners !== undefined
+        ? firstDivisionWinners
+        : undefined,
     jackpotCarry: jackpot,
     tier: getPrizeTier(Math.max(firstPrizeMax, paid)),
     snowballCode: draw.snowballCode || undefined,
@@ -280,4 +299,46 @@ export function formatMark6PrizeAmountFull(amount: number, locale: Locale): stri
     return `HK$${amount.toLocaleString("en-HK")}（估計最高頭獎）`;
   }
   return `HK$${amount.toLocaleString("en-HK")} est. max 1st division`;
+}
+
+/** One-line HKJC outcome for the latest Result draw (1st division winners / rollover). */
+export function formatMark6LatestDrawOutcome(
+  latest: Mark6HkjcDrawPrize,
+  nextScheduled: Mark6HkjcDrawPrize | undefined,
+  locale: Locale,
+): string | null {
+  if (latest.status !== "Result" || latest.firstDivisionWinners === undefined) {
+    return null;
+  }
+
+  const winners = latest.firstDivisionWinners;
+  const carry = nextScheduled?.jackpotCarry ?? 0;
+  const nextDate = nextScheduled?.drawDate;
+  const drawLabel = latest.drawNo ? `${latest.drawDate} · ${latest.drawNo}` : latest.drawDate;
+
+  if (locale === "zh-HK") {
+    if (winners === 0) {
+      if (carry > 0 && nextDate) {
+        return `${drawLabel}：頭獎得獎注數 0 · 基金滾存至 ${nextDate}（約 ${formatMark6PrizeAmount(carry, locale)}）`;
+      }
+      return `${drawLabel}：頭獎得獎注數 0 · 無人中頭獎，獎金滾存下期`;
+    }
+    const paidLine =
+      latest.firstPrizePaid && latest.firstPrizePaid > 0
+        ? formatMark6PrizeAmountFull(latest.firstPrizePaid, locale)
+        : formatMark6PrizeAmountFull(latest.firstPrizeMax, locale);
+    return `${drawLabel}：頭獎得獎注數 ${winners} · 每注 ${paidLine}`;
+  }
+
+  if (winners === 0) {
+    if (carry > 0 && nextDate) {
+      return `${drawLabel}: 1st division winners 0 · rolled to ${nextDate} (~${formatMark6PrizeAmount(carry, locale)} jackpot pool)`;
+    }
+    return `${drawLabel}: 1st division winners 0 · no top prize — jackpot rolls to next draw`;
+  }
+  const paidLine =
+    latest.firstPrizePaid && latest.firstPrizePaid > 0
+      ? formatMark6PrizeAmountFull(latest.firstPrizePaid, locale)
+      : formatMark6PrizeAmountFull(latest.firstPrizeMax, locale);
+  return `${drawLabel}: 1st division winners ${winners} · ${paidLine} per winning ticket`;
 }

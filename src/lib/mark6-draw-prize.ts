@@ -7,7 +7,7 @@ import {
   type Mark6PrizeTier,
 } from "@/lib/hkjc-mark6-schedule";
 
-export { formatMark6PrizeAmount, formatMark6PrizeAmountFull } from "@/lib/hkjc-mark6-schedule";
+export { formatMark6PrizeAmount, formatMark6PrizeAmountFull, formatMark6LatestDrawOutcome } from "@/lib/hkjc-mark6-schedule";
 export type { Mark6PrizeTier };
 
 export type Mark6DrawDayPrize = Omit<Mark6HkjcDrawPrize, "source"> & {
