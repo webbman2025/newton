@@ -17,6 +17,7 @@ import {
   getMajorJackpotNumberWeightMap,
   getMark6MajorJackpotHistory,
 } from "@/lib/mark6-major-jackpot-history";
+import { MARK6_SIMULATOR_STRETCH_POOL_SIZE } from "@/lib/mark6-draw-simulator";
 
 const HISTORY_YEARS = 5;
 const MARK6_BASELINE = 6 / 49;
@@ -73,6 +74,8 @@ export type Mark6PredictiveDrawResult = {
   specialNumberPick?: number;
   specialNumberRanks?: number[];
   topSignals: Mark6PredictiveNumberRow[];
+  /** Ranks 1–30 for ball machine (core 18 + stretch 19–30). */
+  simulatorRanked: Array<{ number: number; score: number }>;
   analysisHighlights: {
     hotNumbers: number[];
     coldNumbers: number[];
@@ -894,6 +897,10 @@ export async function getMark6PredictiveDraw({
     specialNumberPick: specialNumberRanks[0],
     specialNumberRanks,
     topSignals,
+    simulatorRanked: ranked.slice(0, MARK6_SIMULATOR_STRETCH_POOL_SIZE).map((row) => ({
+      number: row.number,
+      score: Number(row.score.toFixed(4)),
+    })),
     analysisHighlights: {
       hotNumbers,
       coldNumbers,

@@ -8,6 +8,10 @@ export const MARK6_BALL_SECTIONS = [
 export const MARK6_DRAW_SIMULATOR_BATCH_DELAY_MS = 1_000;
 export const MARK6_DRAW_SIMULATOR_MIX_MS = 5_000;
 export const MARK6_SIMULATOR_POOL_SIZE = 18;
+/** Top model ranks — main weight (your “working” zone). */
+export const MARK6_SIMULATOR_CORE_POOL_SIZE = 18;
+/** Ranks 19–30 — lighter weight, 1–2 slots per spin for a wider net. */
+export const MARK6_SIMULATOR_STRETCH_POOL_SIZE = 30;
 export const MARK6_SIMULATOR_MAX_BANKERS = 3;
 
 export type Mark6DrawSimulatorPayload = {
@@ -189,6 +193,40 @@ function pickBonusNumber(mainNumbers: number[], rankedSpecials: number[], leftov
   return remaining[Math.floor(Math.random() * remaining.length)] ?? 1;
 }
 
+function sortRankedPool(ranked: RankedNumber[]) {
+  return [...ranked]
+    .filter((row) => isValidMark6Number(row.number))
+    .sort((a, b) => b.score - a.score || a.number - b.number);
+}
+
+function buildCoreStretchPools(ranked: RankedNumber[]) {
+  const sorted = sortRankedPool(ranked);
+  const core = sorted.slice(0, MARK6_SIMULATOR_CORE_POOL_SIZE);
+  const stretch = sorted
+    .slice(MARK6_SIMULATOR_CORE_POOL_SIZE, MARK6_SIMULATOR_STRETCH_POOL_SIZE)
+    .map((row) => ({
+      number: row.number,
+      score: Math.max(0.001, row.score * 0.62),
+    }));
+  return { sorted, core, stretch };
+}
+
+function boostBankerScores(pool: RankedNumber[], bankers: number[], maxRankScore: number) {
+  return pool.map((row) =>
+    bankers.includes(row.number)
+      ? { ...row, score: Math.max(row.score, maxRankScore * 1.08) }
+      : row,
+  );
+}
+
+function pickStretchSlotCount(remainingSlots: number, stretchPoolSize: number) {
+  if (remainingSlots <= 0 || stretchPoolSize <= 0) {
+    return 0;
+  }
+  const desired = Math.random() < 0.55 ? 2 : 1;
+  return Math.min(desired, remainingSlots, stretchPoolSize);
+}
+
 export function pickSimulatorDrawFromRankedPool(
   ranked: RankedNumber[],
   options: {
@@ -198,8 +236,12 @@ export function pickSimulatorDrawFromRankedPool(
   } = {},
 ): Mark6DrawSimulatorPayload {
   const bankers = uniqueValidNumbers(options.bankers, MARK6_SIMULATOR_MAX_BANKERS);
-  const scoreByNumber = new Map(ranked.filter((row) => isValidMark6Number(row.number)).map((row) => [row.number, row.score]));
-  const maxRankScore = ranked.reduce((max, row) => Math.max(max, row.score), 0.001);
+  const { sorted, core, stretch } = buildCoreStretchPools(ranked);
+  const maxRankScore = sorted[0]?.score ?? 0.001;
+
+  const scoreByNumber = new Map(
+    [...core, ...stretch].map((row) => [row.number, row.score]),
+  );
   for (const number of uniqueValidNumbers(options.fallbackSet, 6)) {
     const existing = scoreByNumber.get(number);
     scoreByNumber.set(number, Math.max(existing ?? 0, maxRankScore * 0.92));
@@ -209,38 +251,61 @@ export function pickSimulatorDrawFromRankedPool(
     scoreByNumber.set(banker, Math.max(existing ?? 0, maxRankScore * 1.08));
   }
 
-  const poolMap = new Map(
-    [...scoreByNumber.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0] - b[0])
-      .slice(0, MARK6_SIMULATOR_POOL_SIZE),
+  const corePool = boostBankerScores(
+    core.map((row) => ({
+      number: row.number,
+      score: Math.max(scoreByNumber.get(row.number) ?? row.score, row.score),
+    })),
+    bankers,
+    maxRankScore,
   );
-  for (const banker of bankers) {
-    poolMap.set(banker, Math.max(poolMap.get(banker) ?? 0, scoreByNumber.get(banker) ?? 1.2));
-  }
-  const pool = [...poolMap.entries()]
-    .map(([number, score]) => ({ number, score }))
-    .sort((a, b) => b.score - a.score || a.number - b.number);
+  const stretchPool = boostBankerScores(
+    stretch.map((row) => ({
+      number: row.number,
+      score: scoreByNumber.get(row.number) ?? row.score,
+    })),
+    bankers,
+    maxRankScore,
+  );
 
-  if (pool.length < 6) {
+  const combinedForFallback = sortRankedPool([...corePool, ...stretchPool]);
+  if (combinedForFallback.length < 6) {
     return pickRandomMark6Draw(bankers);
   }
 
-  const pinned = bankers.filter((number) => pool.some((row) => row.number === number)).slice(0, 6);
-  const remainingPool = pool.filter((row) => !pinned.includes(row.number));
-  let mainNumbers = [
-    ...pinned,
-    ...pickWeightedWithoutReplacement(remainingPool, Math.max(0, 6 - pinned.length)),
-  ];
-  mainNumbers = uniqueValidNumbers(mainNumbers, 6);
-  if (mainNumbers.length < 6) {
-    const leftover = pool.filter((row) => !mainNumbers.includes(row.number));
+  const pinned = bankers
+    .filter((number) => combinedForFallback.some((row) => row.number === number))
+    .slice(0, 6);
+  let mainNumbers = [...pinned];
+  const slotsLeft = () => Math.max(0, 6 - mainNumbers.length);
+
+  const stretchSlots = pickStretchSlotCount(slotsLeft(), stretchPool.length);
+  const coreSlots = slotsLeft() - stretchSlots;
+
+  if (coreSlots > 0) {
+    const coreRemaining = corePool.filter((row) => !mainNumbers.includes(row.number));
     mainNumbers = uniqueValidNumbers(
-      [...mainNumbers, ...leftover.map((row) => row.number)],
+      [...mainNumbers, ...pickWeightedWithoutReplacement(coreRemaining, coreSlots)],
+      6,
+    );
+  }
+  if (stretchSlots > 0) {
+    const stretchRemaining = stretchPool.filter((row) => !mainNumbers.includes(row.number));
+    mainNumbers = uniqueValidNumbers(
+      [...mainNumbers, ...pickWeightedWithoutReplacement(stretchRemaining, stretchSlots)],
       6,
     );
   }
 
-  const leftoverAfterPick = pool.filter((row) => !mainNumbers.includes(row.number));
+  if (mainNumbers.length < 6) {
+    const leftover = combinedForFallback.filter((row) => !mainNumbers.includes(row.number));
+    mainNumbers = uniqueValidNumbers(
+      [...mainNumbers, ...pickWeightedWithoutReplacement(leftover, 6 - mainNumbers.length)],
+      6,
+    );
+  }
+
+  const leftoverAfterPick = combinedForFallback.filter((row) => !mainNumbers.includes(row.number));
   mainNumbers = uniqueValidNumbers(softenSizeMix(mainNumbers, leftoverAfterPick), 6).sort(
     (a, b) => a - b,
   );
@@ -384,12 +449,13 @@ export async function fetchMark6DrawSimulatorNumbers(
       primarySet?: number[];
       specialNumberPick?: number;
       specialNumberRanks?: number[];
+      simulatorRanked?: Array<{ number: number; score?: number }>;
       topSignals?: Array<{ number: number; score?: number; displayScore?: number }>;
     };
     if (payload.error) {
       return randomResult();
     }
-    const ranked = (payload.topSignals ?? [])
+    const ranked = (payload.simulatorRanked ?? payload.topSignals ?? [])
       .filter((row) => isValidMark6Number(row.number))
       .map((row) => ({
         number: row.number,

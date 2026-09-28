@@ -748,7 +748,7 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorHistoryTitle: "Previous draws",
     mark6DrawSimulatorHistoryDrawLabel: "Draw {index}",
     mark6DrawSimulatorPoolHint:
-      "Reveals the AI Draw Predictor’s 6 main numbers and bonus for this date (persona applied). Numbers that repeat across recent runs show as bankers.",
+      "Each spin: mostly top-18 AI ranks (4–5 balls), plus 1–2 from ranks 19–30 for a wider net. Bankers = numbers that kept showing in your recent runs. Still not official HKJC odds.",
     mark6DrawSimulatorBankerLabel: "Bankers",
     mark6DrawSimulatorPrizeTitle: "Est. max 1st division prize",
     mark6DrawSimulatorPrizeWeekLabel: "This week’s draws",
@@ -1154,7 +1154,7 @@ export const copy: Record<Locale, CopyShape> = {
     mark6DrawSimulatorHistoryTitle: "過往攪珠",
     mark6DrawSimulatorHistoryDrawLabel: "第 {index} 次",
     mark6DrawSimulatorPoolHint:
-      "會揭曉此日期 AI 開獎預測的 6 個主號及特別號（依分析角色）；近期重複出現的號碼會顯示為膽碼。",
+      "每次攪珠：約 4–5 個來自 AI 頭 18 位，另加 1–2 個來自第 19–30 位（稍闊網）。膽碼 = 你近幾次重複出現的號碼。仍非馬會官方機率。",
     mark6DrawSimulatorBankerLabel: "膽碼",
     mark6DrawSimulatorPrizeTitle: "估計最高頭獎基金",
     mark6DrawSimulatorPrizeWeekLabel: "本週開彩",
